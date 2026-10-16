@@ -4,6 +4,7 @@
 
 # Certificados e chaves — NUNCA versionar certificados reais de clientes.
 # Os únicos permitidos são os de teste autoassinados em tests/fixtures/.
+/certs/
 *.pfx
 *.p12
 *.pem

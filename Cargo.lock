@@ -1122,6 +1122,7 @@ dependencies = [
  "chrono",
  "clap",
  "nfse-cert",
+ "nfse-core",
  "nfse-nacional",
  "nfse-xml",
  "roxmltree",

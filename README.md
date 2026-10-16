@@ -36,7 +36,7 @@ cargo run -p nfse-poc -- cert-info --pfx caminho/empresa.pfx
 ```
 
 ```bash
-cargo run -p nfse-poc -- consultar-dps --pfx caminho/empresa.pfx --id DPS3511102211222333000181000010000000000000001
+cargo run -p nfse-poc -- consultar-dps --pfx caminho/empresa.pfx --id DPS351110221122233300018100001000000000000001
 ```
 
 Se a conexão mTLS funcionar, a consulta responde que não há NFS-e para a DPS (ou devolve a chave, se houver).

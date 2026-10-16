@@ -10,6 +10,7 @@ use chrono::Utc;
 use clap::{Parser, Subcommand, ValueEnum};
 
 use nfse_cert::CertificadoA1;
+use nfse_core::DpsId;
 use nfse_nacional::{Ambiente, ClienteSefin, ErroSefin};
 
 #[derive(Parser)]
@@ -156,9 +157,11 @@ async fn main() -> Result<()> {
             }
         }
         Comando::ConsultarDps { pfx, id, ambiente } => {
+            let id = DpsId::parse(&id).context("Id da DPS inválido")?;
+            let id = id.as_str();
             let cert = abrir_certificado(&pfx)?;
             let cliente = ClienteSefin::novo(&cert, ambiente.into())?;
-            match cliente.consultar_dps(&id).await? {
+            match cliente.consultar_dps(id).await? {
                 Some(chave) => println!("DPS com NFS-e gerada. Chave de acesso: {chave}"),
                 None => println!("Conexão mTLS ok; não há NFS-e para esta DPS."),
             }
@@ -176,6 +179,7 @@ async fn main() -> Result<()> {
             let conteudo = std::fs::read_to_string(&xml)?;
             nfse_xml::verificar(&conteudo).context("a DPS precisa estar assinada")?;
             let id = id_do_primeiro_elemento(&conteudo)?;
+            DpsId::parse(&id).context("Id da DPS inválido no XML")?;
             let cert = abrir_certificado(&pfx)?;
             let cliente = ClienteSefin::novo(&cert, ambiente.into())?;
             match cliente.emitir(&conteudo).await {

@@ -40,6 +40,14 @@ pub enum DpsIdInvalido {
     Serie,
     #[error("número da DPS deve estar entre 1 e 999999999999999")]
     Numero,
+    #[error("Id da DPS deve ter 45 caracteres (\"DPS\" + 42), recebido {0}")]
+    Tamanho(usize),
+    #[error("Id da DPS deve começar com \"DPS\"")]
+    Prefixo,
+    #[error("tipo de inscrição deve ser 1 (CPF) ou 2 (CNPJ)")]
+    TipoInscricao,
+    #[error("inscrição federal inválida no Id: {0}")]
+    Inscricao(crate::DocumentoInvalido),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -64,6 +72,38 @@ impl DpsId {
             serie,
             numero
         )))
+    }
+
+    /// Lê um Id existente (digitado ou vindo de XML), conferindo cada parte antes de enviar à Sefin.
+    pub fn parse(entrada: &str) -> Result<Self, DpsIdInvalido> {
+        let s = entrada.trim();
+        if !s.is_ascii() || s.len() != 45 {
+            return Err(DpsIdInvalido::Tamanho(s.chars().count()));
+        }
+        let corpo = s.strip_prefix("DPS").ok_or(DpsIdInvalido::Prefixo)?;
+        let (municipio, resto) = corpo.split_at(7);
+        let (tipo, resto) = resto.split_at(1);
+        let (inscricao, resto) = resto.split_at(14);
+        let (serie, numero) = resto.split_at(5);
+
+        let emitente = match tipo {
+            "2" => Inscricao::Cnpj(Cnpj::parse(inscricao).map_err(DpsIdInvalido::Inscricao)?),
+            "1" => {
+                let cpf = inscricao.strip_prefix("000").ok_or(DpsIdInvalido::Inscricao(
+                    crate::DocumentoInvalido::Tamanho {
+                        esperado: 11,
+                        recebido: 14,
+                    },
+                ))?;
+                Inscricao::Cpf(Cpf::parse(cpf).map_err(DpsIdInvalido::Inscricao)?)
+            }
+            _ => return Err(DpsIdInvalido::TipoInscricao),
+        };
+        if !numero.bytes().all(|b| b.is_ascii_digit()) {
+            return Err(DpsIdInvalido::Numero);
+        }
+        let numero: u64 = numero.parse().map_err(|_| DpsIdInvalido::Numero)?;
+        Self::novo(municipio, &emitente, serie, numero)
     }
 
     pub fn as_str(&self) -> &str {
@@ -94,6 +134,41 @@ mod testes {
         let emitente = Inscricao::Cpf(Cpf::parse("52998224725").unwrap());
         let id = DpsId::novo("3511102", &emitente, "900", 1).unwrap();
         assert_eq!(id.as_str(), "DPS351110210005299822472500900000000000000001");
+    }
+
+    #[test]
+    fn parse_ida_e_volta() {
+        for id in [
+            "DPS351110221122233300018100001000000000000042",
+            "DPS351110210005299822472500900000000000000001",
+        ] {
+            assert_eq!(DpsId::parse(id).unwrap().as_str(), id);
+        }
+    }
+
+    #[test]
+    fn parse_invalido() {
+        // Um zero a mais no número (43 dígitos): o erro E2400 que a Sefin devolve.
+        assert_eq!(
+            DpsId::parse("DPS3511102211222333000181000010000000000000001"),
+            Err(DpsIdInvalido::Tamanho(46))
+        );
+        assert_eq!(
+            DpsId::parse("XPS351110221122233300018100001000000000000042"),
+            Err(DpsIdInvalido::Prefixo)
+        );
+        assert_eq!(
+            DpsId::parse("DPS351110231122233300018100001000000000000042"),
+            Err(DpsIdInvalido::TipoInscricao)
+        );
+        assert!(matches!(
+            DpsId::parse("DPS351110221122233300018200001000000000000042"),
+            Err(DpsIdInvalido::Inscricao(_))
+        ));
+        assert_eq!(
+            DpsId::parse("DPS351110221122233300018100001000000000000000"),
+            Err(DpsIdInvalido::Numero)
+        );
     }
 
     #[test]
