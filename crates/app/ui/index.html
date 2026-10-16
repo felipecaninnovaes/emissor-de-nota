@@ -288,7 +288,7 @@
 
 <dialog id="dlg-empresa">
   <form method="dialog" id="form-empresa">
-    <h2>Nova empresa</h2>
+    <h2 id="titulo-empresa">Nova empresa</h2>
     <div class="grade">
       <div class="c4"><label>CNPJ</label>
         <div class="com-botao"><input name="cnpj" required><button type="button" class="botao pequeno" data-consultar-cnpj>Consultar</button></div></div>
@@ -312,7 +312,7 @@
       <div class="c4"><label>Telefone</label><input name="telefone"></div>
       <div class="c8"><label>E-mail</label><input name="email" type="email"></div>
     </div>
-    <p class="ajuda">A série 70000 é usada pelo Emissor Web nacional; use outra para este sistema.</p>
+    <p class="ajuda">A série 70000 é usada pelo Emissor Web nacional; use outra para este sistema. Cada ambiente e série tem numeração própria.</p>
     <div class="aviso atencao" data-aviso-cnpj style="margin-top:12px" hidden></div>
     <div id="erro-empresa" class="aviso erro" style="margin-top:12px" hidden></div>
     <div class="acoes"><button class="botao" value="cancelar" formnovalidate>Cancelar</button><button class="botao primario" value="salvar">Salvar</button></div>

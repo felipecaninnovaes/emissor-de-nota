@@ -40,6 +40,7 @@ fn main() {
             comandos::definir_pasta,
             comandos::listar_empresas,
             comandos::cadastrar_empresa,
+            comandos::atualizar_empresa,
             comandos::importar_certificado,
             comandos::excluir_empresa,
             comandos::definir_im_na_dps,

@@ -203,20 +203,37 @@ fn vazio_para_none(v: Option<String>) -> Option<String> {
     v.map(|s| s.trim().to_owned()).filter(|s| !s.is_empty())
 }
 
+impl NovaEmpresaDto {
+    fn empresa(self) -> R<NovaEmpresa> {
+        Ok(NovaEmpresa {
+            cnpj: Cnpj::parse(&self.cnpj).map_err(|e| format!("CNPJ: {e}"))?,
+            nome: self.nome,
+            inscricao_municipal: vazio_para_none(self.inscricao_municipal),
+            municipio_emissor: self.municipio_emissor.trim().to_owned(),
+            regime: self.regime,
+            ambiente: self.ambiente,
+            serie: self.serie.trim().to_owned(),
+            telefone: vazio_para_none(self.telefone).map(|t| t.chars().filter(char::is_ascii_digit).collect()),
+            email: vazio_para_none(self.email),
+        })
+    }
+}
+
 #[tauri::command]
 pub async fn cadastrar_empresa(estado: State<'_, Estado>, empresa: NovaEmpresaDto) -> R<i64> {
-    let nova = NovaEmpresa {
-        cnpj: Cnpj::parse(&empresa.cnpj).map_err(|e| format!("CNPJ: {e}"))?,
-        nome: empresa.nome,
-        inscricao_municipal: vazio_para_none(empresa.inscricao_municipal),
-        municipio_emissor: empresa.municipio_emissor.trim().to_owned(),
-        regime: empresa.regime,
-        ambiente: empresa.ambiente,
-        serie: empresa.serie.trim().to_owned(),
-        telefone: vazio_para_none(empresa.telefone).map(|t| t.chars().filter(char::is_ascii_digit).collect()),
-        email: vazio_para_none(empresa.email),
-    };
+    let nova = empresa.empresa()?;
     Ok(estado.banco.cadastrar_empresa(&nova).await.map_err(texto)?.id)
+}
+
+#[tauri::command]
+pub async fn atualizar_empresa(estado: State<'_, Estado>, empresa_id: i64, empresa: NovaEmpresaDto) -> R<()> {
+    let dados = empresa.empresa()?;
+    estado
+        .banco
+        .atualizar_empresa(empresa_id, &dados)
+        .await
+        .map_err(texto)?;
+    Ok(())
 }
 
 #[tauri::command]

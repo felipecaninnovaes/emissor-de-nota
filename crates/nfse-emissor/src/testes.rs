@@ -26,6 +26,7 @@ enum Resposta {
 struct SefinSimulada {
     roteiro: Arc<Mutex<VecDeque<Resposta>>>,
     recebidos: Arc<Mutex<Vec<String>>>,
+    ambientes: Arc<Mutex<Vec<Ambiente>>>,
 }
 
 impl SefinSimulada {
@@ -86,7 +87,8 @@ impl Sefin for SefinSimulada {
 impl Conector for SefinSimulada {
     type S = SefinSimulada;
 
-    fn conectar(&self, _: &CertificadoA1, _: Ambiente) -> Result<SefinSimulada, ErroSefin> {
+    fn conectar(&self, _: &CertificadoA1, ambiente: Ambiente) -> Result<SefinSimulada, ErroSefin> {
+        self.ambientes.lock().unwrap().push(ambiente);
         Ok(self.clone())
     }
 }
@@ -454,6 +456,26 @@ async fn cancela_nota_autorizada() {
     let ResultadoEmissao::Autorizada { nfse, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
         panic!()
     };
+    // A empresa passa para homologação depois de emitir: o cancelamento continua em Produção.
+    let e = c.emissor.banco().empresa(c.pedido.empresa_id).await.unwrap();
+    c.emissor
+        .banco()
+        .atualizar_empresa(
+            e.id,
+            &NovaEmpresa {
+                cnpj: e.cnpj.clone(),
+                nome: e.nome.clone(),
+                inscricao_municipal: e.inscricao_municipal.clone(),
+                municipio_emissor: e.municipio_emissor.clone(),
+                regime: e.regime.clone(),
+                ambiente: Ambiente::Homologacao,
+                serie: e.serie.clone(),
+                telefone: e.telefone.clone(),
+                email: e.email.clone(),
+            },
+        )
+        .await
+        .unwrap();
     c.emissor
         .cancelar(
             nfse.id,
@@ -465,6 +487,11 @@ async fn cancela_nota_autorizada() {
     let pedido = &c.sefin.recebidos()[1];
     nfse_xml::verificar(pedido).expect("pedido de cancelamento assinado");
     assert!(pedido.contains(&format!(r#"Id="PRE{CHAVE}101101""#)));
+    assert!(pedido.contains("<tpAmb>1</tpAmb>"));
+    assert_eq!(
+        *c.sefin.ambientes.lock().unwrap(),
+        vec![Ambiente::Producao, Ambiente::Producao]
+    );
     assert_eq!(
         c.emissor.banco().dps(nfse.dps_id).await.unwrap().situacao,
         SituacaoDps::Cancelada

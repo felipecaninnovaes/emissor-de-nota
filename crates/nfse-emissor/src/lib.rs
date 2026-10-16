@@ -307,12 +307,10 @@ impl<C: Conector> Emissor<C> {
         &self.banco
     }
 
-    async fn conectar(&self, empresa: &Empresa) -> Result<(CertificadoA1, C::S), ErroEmissao> {
+    /// O ambiente vem da DPS quando ela já existe: a empresa pode ter mudado de ambiente depois.
+    async fn conectar(&self, empresa: &Empresa, ambiente: Ambiente) -> Result<(CertificadoA1, C::S), ErroEmissao> {
         let cert = self.banco.certificado_ativo(&self.cofre, empresa.id).await?;
-        let sefin = self
-            .conector
-            .conectar(&cert, empresa.ambiente)
-            .map_err(ErroEmissao::Sefin)?;
+        let sefin = self.conector.conectar(&cert, ambiente).map_err(ErroEmissao::Sefin)?;
         Ok((cert, sefin))
     }
 
@@ -330,7 +328,7 @@ impl<C: Conector> Emissor<C> {
         // Valida antes de reservar número: DPS inválida não gasta numeração.
         let mut modelo = montar_dps(&empresa, tomador.as_ref(), &servico, pedido, agora_brasilia());
         nfse_xml::gerar_dps(&modelo)?;
-        let (cert, sefin) = self.conectar(&empresa).await?;
+        let (cert, sefin) = self.conectar(&empresa, empresa.ambiente).await?;
 
         let reserva = self.banco.reservar_dps(empresa.id).await?;
         modelo.serie = reserva.serie.clone();
@@ -436,7 +434,7 @@ impl<C: Conector> Emissor<C> {
     pub async fn reconciliar(&self, dps_id: i64) -> Result<Option<NfseGravada>, ErroEmissao> {
         let dps = self.banco.dps(dps_id).await?;
         let empresa = self.banco.empresa(dps.empresa_id).await?;
-        let (_, sefin) = self.conectar(&empresa).await?;
+        let (_, sefin) = self.conectar(&empresa, dps.ambiente).await?;
         self.reconciliar_com(&sefin, dps_id).await
     }
 
@@ -491,7 +489,7 @@ impl<C: Conector> Emissor<C> {
             )));
         }
         let empresa = self.banco.empresa(dps.empresa_id).await?;
-        let (cert, sefin) = self.conectar(&empresa).await?;
+        let (cert, sefin) = self.conectar(&empresa, dps.ambiente).await?;
         let pedido = PedidoCancelamento {
             ambiente: dps.ambiente,
             versao_aplicativo: VERSAO_APLICATIVO.into(),

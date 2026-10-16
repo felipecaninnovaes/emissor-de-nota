@@ -960,6 +960,7 @@ async function renderizarEmpresas() {
             <td>${esc(e.serie)}</td>
             <td>${cert}</td>
             <td><div class="acoes">
+              <button class="botao pequeno" data-acao="editar" data-i="${i}">Editar</button>
               <button class="botao pequeno" data-acao="certificado" data-i="${i}">Certificado</button>
               <button class="botao pequeno" data-acao="numeracao" data-i="${i}">Numeração / IM</button>
               <button class="botao pequeno perigo" data-acao="excluir" data-i="${i}">Excluir</button>
@@ -976,6 +977,7 @@ $("#lista-empresas").addEventListener("click", (ev) => {
   const e = estado.empresas[Number(b.dataset.i)];
   if (b.dataset.acao === "certificado") importarCertificado(e);
   else if (b.dataset.acao === "excluir") excluirEmpresa(e);
+  else if (b.dataset.acao === "editar") editarEmpresa(e);
   else editarNumeracao(e);
 });
 
@@ -995,38 +997,72 @@ async function excluirEmpresa(empresa) {
   }
 }
 
-$("#nova-empresa").addEventListener("click", () => {
+$("#nova-empresa").addEventListener("click", () => editarEmpresa(null));
+
+/** Cadastro (`empresa` nulo) ou edição de empresa no mesmo diálogo. */
+function editarEmpresa(empresa) {
   const dlg = $("#dlg-empresa");
-  $("form", dlg).reset();
+  const form = $("form", dlg);
+  form.reset();
   $("[data-aviso-cnpj]", dlg).hidden = true;
+  $("#titulo-empresa").textContent = empresa ? "Editar empresa" : "Nova empresa";
+  form.elements.cnpj.readOnly = !!empresa;
+  $("[data-consultar-cnpj]", dlg).textContent = "Consultar";
+  if (empresa) {
+    preencherForm(form, {
+      cnpj: empresa.cnpj_formatado,
+      nome: empresa.nome,
+      im: empresa.inscricao_municipal,
+      municipio: empresa.municipio_emissor,
+      serie: empresa.serie,
+      simples: empresa.regime.simples,
+      apuracao: empresa.regime.apuracao_simples ?? "",
+      regime_especial: String(empresa.regime.regime_especial ?? 0),
+      ambiente: empresa.ambiente,
+      telefone: empresa.telefone,
+      email: empresa.email,
+    });
+  }
   abrirDialogo(dlg, $("#erro-empresa"), async (d) => {
     if (d.simples === "me_epp" && !d.apuracao) throw "Para ME/EPP optante, escolha a forma de apuração.";
     const regime = { simples: d.simples, regime_especial: Number(d.regime_especial) };
     if (d.simples === "me_epp") regime.apuracao_simples = d.apuracao;
-    if (d.ambiente === "producao" && !confirm("Cadastrar em PRODUÇÃO? As notas emitidas terão valor fiscal.")) {
-      throw "Cadastro não confirmado.";
+    const dados = {
+      cnpj: empresa ? empresa.cnpj : d.cnpj,
+      nome: d.nome.trim(),
+      inscricao_municipal: vazio(d.im),
+      municipio_emissor: soDigitos(d.municipio),
+      regime,
+      ambiente: d.ambiente,
+      serie: d.serie,
+      telefone: vazio(d.telefone),
+      email: vazio(d.email),
+    };
+    const vaiParaProducao = d.ambiente === "producao" && empresa?.ambiente !== "producao";
+    const mudaEmissao = empresa && (d.ambiente !== empresa.ambiente || d.serie.trim() !== empresa.serie);
+    if (vaiParaProducao && !confirm(`${empresa ? "Passar" : "Cadastrar"} ${d.nome.trim()} em PRODUÇÃO? As notas emitidas terão valor fiscal.`)) {
+      throw "Não confirmado.";
     }
-    const id = await chamar("cadastrar_empresa", {
-      empresa: {
-        cnpj: d.cnpj,
-        nome: d.nome.trim(),
-        inscricao_municipal: vazio(d.im),
-        municipio_emissor: soDigitos(d.municipio),
-        regime,
-        ambiente: d.ambiente,
-        serie: d.serie,
-        telefone: vazio(d.telefone),
-        email: vazio(d.email),
-      },
-    });
-    toast("Empresa cadastrada. Agora importe o certificado digital.");
-    estado.empresa = { id };
+    if (!empresa) {
+      const id = await chamar("cadastrar_empresa", { empresa: dados });
+      toast("Empresa cadastrada. Agora importe o certificado digital.");
+      estado.empresa = { id };
+      await carregarEmpresas();
+      await renderizarEmpresas();
+      const nova = estado.empresas.find((x) => x.id === id);
+      if (nova) setTimeout(() => importarCertificado(nova), 0);
+      return;
+    }
+    await chamar("atualizar_empresa", { empresaId: empresa.id, empresa: dados });
+    toast(
+      mudaEmissao
+        ? `Empresa agora emite em ${NOME_AMBIENTE[d.ambiente]}, série ${d.serie.trim()}. Confira o próximo número e a IM em "Numeração / IM".`
+        : "Empresa atualizada.",
+    );
     await carregarEmpresas();
     await renderizarEmpresas();
-    const nova = estado.empresas.find((x) => x.id === id);
-    if (nova) setTimeout(() => importarCertificado(nova), 0);
   });
-});
+}
 
 function importarCertificado(empresa) {
   const dlg = $("#dlg-certificado");

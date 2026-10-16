@@ -61,6 +61,7 @@ input, select, textarea {
 }
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--azul-claro); border-color: var(--azul); }
 textarea { resize: vertical; min-height: 64px; }
+input[readonly] { background: var(--fundo); color: var(--suave); }
 .grade { display: grid; gap: 14px; grid-template-columns: repeat(12, 1fr); }
 .c2 { grid-column: span 2; } .c3 { grid-column: span 3; } .c4 { grid-column: span 4; } .c5 { grid-column: span 5; }
 .c6 { grid-column: span 6; } .c8 { grid-column: span 8; } .c9 { grid-column: span 9; } .c12 { grid-column: span 12; }

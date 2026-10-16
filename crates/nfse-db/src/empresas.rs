@@ -102,6 +102,28 @@ fn data(s: &str) -> Resultado<DateTime<Utc>> {
         .map_err(|e| ErroBanco::DadoInvalido(format!("data {s:?}: {e}")))
 }
 
+fn validar(nova: &NovaEmpresa) -> Resultado<()> {
+    let erros: Vec<String> = [
+        (nova.nome.trim().is_empty(), "nome vazio"),
+        (
+            nova.municipio_emissor.len() != 7 || !nova.municipio_emissor.bytes().all(|b| b.is_ascii_digit()),
+            "município IBGE deve ter 7 dígitos",
+        ),
+        (
+            nova.serie == "70000",
+            "a série 70000 é usada pelo Emissor Web; escolha outra",
+        ),
+    ]
+    .into_iter()
+    .filter(|(erro, _)| *erro)
+    .map(|(_, msg)| msg.to_owned())
+    .collect();
+    if !erros.is_empty() {
+        return Err(ErroBanco::Regra(erros.join("; ")));
+    }
+    Ok(())
+}
+
 /// O que `excluir_empresa` fez.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Exclusao {
@@ -123,24 +145,7 @@ pub struct VencimentoCertificado {
 
 impl Banco {
     pub async fn cadastrar_empresa(&self, nova: &NovaEmpresa) -> Resultado<Empresa> {
-        let erros: Vec<String> = [
-            (nova.nome.trim().is_empty(), "nome vazio"),
-            (
-                nova.municipio_emissor.len() != 7 || !nova.municipio_emissor.bytes().all(|b| b.is_ascii_digit()),
-                "município IBGE deve ter 7 dígitos",
-            ),
-            (
-                nova.serie == "70000",
-                "a série 70000 é usada pelo Emissor Web; escolha outra",
-            ),
-        ]
-        .into_iter()
-        .filter(|(erro, _)| *erro)
-        .map(|(_, msg)| msg.to_owned())
-        .collect();
-        if !erros.is_empty() {
-            return Err(ErroBanco::Regra(erros.join("; ")));
-        }
+        validar(nova)?;
 
         let mut tx = self.pool().begin().await?;
         let agora = agora();
@@ -227,6 +232,70 @@ impl Banco {
             .iter()
             .map(empresa_de)
             .collect()
+    }
+
+    /// Atualiza os dados cadastrais. O CNPJ não muda (o certificado é dele). Trocar ambiente ou
+    /// série só com todos os envios resolvidos; a numeração de cada ambiente/série é separada.
+    pub async fn atualizar_empresa(&self, id: i64, dados: &NovaEmpresa) -> Resultado<Empresa> {
+        validar(dados)?;
+        let atual = self.empresa(id).await?;
+        if atual.cnpj != dados.cnpj {
+            return Err(ErroBanco::Regra(
+                "o CNPJ não pode ser alterado; exclua e cadastre a outra empresa".into(),
+            ));
+        }
+        let muda_emissao = atual.ambiente != dados.ambiente || atual.serie != dados.serie;
+        if muda_emissao {
+            let pendentes: i64 =
+                sqlx::query("SELECT COUNT(*) FROM dps WHERE empresa_id = ? AND situacao IN ('enviando', 'incerta')")
+                    .bind(id)
+                    .fetch_one(self.pool())
+                    .await?
+                    .get(0);
+            if pendentes > 0 {
+                return Err(ErroBanco::Regra(
+                    "há envio sem resposta da Sefin; verifique-o antes de trocar ambiente ou série".into(),
+                ));
+            }
+        }
+        let mut tx = self.pool().begin().await?;
+        sqlx::query(
+            "UPDATE pessoa SET nome = ?, telefone = ?, email = ?, atualizado_em = ?
+             WHERE id = (SELECT pessoa_id FROM empresa WHERE id = ?)",
+        )
+        .bind(dados.nome.trim())
+        .bind(&dados.telefone)
+        .bind(&dados.email)
+        .bind(agora())
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query(
+            "UPDATE empresa SET inscricao_municipal = ?, municipio_emissor = ?, regime_json = ?, ambiente = ?,
+                 serie = ? WHERE id = ?",
+        )
+        .bind(&dados.inscricao_municipal)
+        .bind(&dados.municipio_emissor)
+        .bind(json(&dados.regime))
+        .bind(ambiente_texto(dados.ambiente))
+        .bind(&dados.serie)
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        let detalhe = if muda_emissao {
+            format!(
+                "{} série {} → {} série {}",
+                ambiente_texto(atual.ambiente),
+                atual.serie,
+                ambiente_texto(dados.ambiente),
+                dados.serie
+            )
+        } else {
+            "dados cadastrais".into()
+        };
+        self.auditar("empresa_atualizada", Some(id), Some(&detalhe)).await?;
+        self.empresa(id).await
     }
 
     /// Remove a empresa da lista. Sem NFS-e emitida, apaga o cadastro inteiro (certificado,
@@ -463,6 +532,32 @@ pub(crate) mod testes {
         let mut serie_web = nova_empresa();
         serie_web.serie = "70000".into();
         assert!(matches!(banco.cadastrar_empresa(&serie_web).await, Err(ErroBanco::Regra(m)) if m.contains("70000")));
+    }
+
+    #[tokio::test]
+    async fn atualiza_dados_cadastrais() {
+        let (banco, _, empresa) = banco_com_empresa().await;
+        let mut dados = nova_empresa();
+        dados.nome = "NOME NOVO LTDA".into();
+        dados.ambiente = Ambiente::Producao;
+        dados.serie = "2".into();
+        dados.inscricao_municipal = None;
+        dados.telefone = None;
+        let nova = banco.atualizar_empresa(empresa.id, &dados).await.unwrap();
+        assert_eq!(nova.nome, "NOME NOVO LTDA");
+        assert_eq!(nova.ambiente, Ambiente::Producao);
+        assert_eq!(nova.serie, "2");
+        assert_eq!(nova.inscricao_municipal, None);
+        assert_eq!(nova.telefone, None);
+
+        dados.cnpj = Cnpj::parse("12ABC34501DE35").unwrap();
+        assert!(matches!(
+            banco.atualizar_empresa(empresa.id, &dados).await,
+            Err(ErroBanco::Regra(m)) if m.contains("CNPJ")
+        ));
+        let mut serie_web = nova_empresa();
+        serie_web.serie = "70000".into();
+        assert!(banco.atualizar_empresa(empresa.id, &serie_web).await.is_err());
     }
 
     #[tokio::test]
