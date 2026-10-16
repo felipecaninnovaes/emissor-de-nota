@@ -293,6 +293,75 @@ async fn rejeicao_traz_orientacao_e_nao_bloqueia() {
     let dps = c.emissor.banco().dps(dps_id).await.unwrap();
     assert_eq!(dps.situacao, SituacaoDps::Rejeitada);
     assert!(c.emissor.banco().dps_pendentes().await.unwrap().is_empty());
+
+    // Refazer traz os dados de volta para o formulário, com o mês já aplicado na descrição.
+    let r = c.emissor.dados_para_refazer(dps_id).await.unwrap();
+    assert_eq!(r.empresa_id, c.pedido.empresa_id);
+    assert_eq!(r.tomador.map(|t| t.pessoa_id), c.pedido.tomador);
+    assert_eq!(r.servico_id, Some(c.pedido.servico_id));
+    assert_eq!(r.valor, c.pedido.valor);
+    assert_eq!(r.descricao, "SERVIÇOS CONTÁBEIS REFERENTE A 09/2026");
+}
+
+#[tokio::test]
+async fn acha_na_sefin_o_primeiro_numero_livre() {
+    // Outro emissor já usou a série 1 do nº 1 ao 5. Consultas: 1, 2, 3, 5, 9 (livre), 7, 6.
+    let usado = |sim: bool| Resposta::ConsultarDps(Ok(sim.then(|| CHAVE.to_owned())));
+    let c = cenario(vec![
+        usado(true),
+        usado(true),
+        usado(true),
+        usado(true),
+        usado(false),
+        usado(false),
+        usado(false),
+    ])
+    .await;
+    let (ultimo, proximo) = c
+        .emissor
+        .ajustar_numeracao_pela_sefin(c.pedido.empresa_id)
+        .await
+        .unwrap();
+    assert_eq!((ultimo, proximo), (Some(5), 6));
+    assert!(c.sefin.roteiro_vazio());
+    let numeros: Vec<u64> = c
+        .sefin
+        .recebidos()
+        .iter()
+        .map(|id| id[30..].parse().unwrap()) // Id: DPS + município(7) + tipo(1) + CNPJ(14) + série(5) + número(15)
+        .collect();
+    assert_eq!(numeros, vec![1, 2, 3, 5, 9, 7, 6]);
+    let banco = c.emissor.banco();
+    assert_eq!(
+        banco
+            .proximo_numero(c.pedido.empresa_id, Ambiente::Producao, "1")
+            .await
+            .unwrap(),
+        6
+    );
+}
+
+#[tokio::test]
+async fn numero_local_ja_livre_nao_muda_nada() {
+    let c = cenario(vec![Resposta::ConsultarDps(Ok(None))]).await;
+    let r = c
+        .emissor
+        .ajustar_numeracao_pela_sefin(c.pedido.empresa_id)
+        .await
+        .unwrap();
+    assert_eq!(r, (None, 1));
+}
+
+#[tokio::test]
+async fn refazer_so_vale_para_rejeitada() {
+    let c = cenario(vec![Resposta::Emitir(Ok(nfse_autorizada()))]).await;
+    let ResultadoEmissao::Autorizada { nfse, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+        panic!()
+    };
+    assert!(matches!(
+        c.emissor.dados_para_refazer(nfse.dps_id).await,
+        Err(ErroEmissao::Regra(_))
+    ));
 }
 
 #[tokio::test]

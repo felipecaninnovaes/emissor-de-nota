@@ -534,6 +534,9 @@ async function carregarNotas() {
       if (n.situacao === "autorizada") {
         acoes.push(`<button class="botao pequeno perigo" data-acao="cancelar" data-i="${i}">Cancelar</button>`);
       }
+      if (n.situacao === "rejeitada") {
+        acoes.push(`<button class="botao pequeno" data-acao="refazer" data-i="${i}">Corrigir e emitir</button>`);
+      }
       if (n.situacao === "incerta" || n.situacao === "enviando") {
         acoes.push(`<button class="botao pequeno" data-acao="verificar" data-i="${i}">Verificar</button>`);
       }
@@ -578,6 +581,8 @@ $("#lista-notas").addEventListener("click", async (ev) => {
       return abrirNota(n.nfse_id, true);
     case "cancelar":
       return cancelarNota(n);
+    case "refazer":
+      return refazerNota(n);
     case "verificar":
       b.disabled = true;
       try {
@@ -589,6 +594,32 @@ $("#lista-notas").addEventListener("click", async (ev) => {
       }
   }
 });
+
+/** Leva os dados de uma nota rejeitada para a tela de emissão (sai com o próximo número). */
+async function refazerNota(n) {
+  let r;
+  try {
+    r = await chamar("dados_para_refazer", { dpsId: n.dps_id });
+  } catch (e) {
+    return toast(String(e), true);
+  }
+  irPara("emitir");
+  limparEmissao();
+  escolherTomador(r.tomador);
+  if (r.servico_id && estado.servicos.some((s) => s.id === r.servico_id)) {
+    $("#servico").value = String(r.servico_id);
+  }
+  $("#valor").value = moeda(r.valor);
+  $("#descricao").value = r.descricao; // já com o mês de referência aplicado
+  $("#info-compl").value = r.informacoes_complementares ?? "";
+  const avisos = [`Refazendo a DPS ${n.serie}/${n.numero_dps}, rejeitada: ${n.erro ?? ""}`];
+  if (!r.servico_id) avisos.push("Nenhum serviço do cadastro tem o mesmo código: escolha o serviço.");
+  if (n.tomador && !r.tomador) avisos.push(`O tomador "${n.tomador}" não foi encontrado no cadastro desta empresa.`);
+  const res = $("#resultado");
+  res.innerHTML = `<div class="aviso atencao">${avisos.map(esc).join("<br>")}
+    <br>Corrija o que causou a rejeição e clique em Revisar. A nota sai com o próximo número da série.</div>`;
+  res.hidden = false;
+}
 
 function cancelarNota(n) {
   const dlg = $("#dlg-cancelar");
@@ -1093,6 +1124,21 @@ function editarNumeracao(empresa) {
     im_hom: empresa.im_na_dps_homologacao,
   });
   form.elements.proximo.placeholder = "deixe em branco para não mudar";
+  const botaoSefin = $("[data-ajustar-sefin]", dlg);
+  botaoSefin.onclick = async () => {
+    botaoSefin.disabled = true;
+    botaoSefin.textContent = "Consultando...";
+    try {
+      const msg = await chamar("ajustar_numeracao", { empresaId: empresa.id });
+      toast(msg);
+      $("#num-empresa").textContent = msg;
+    } catch (e) {
+      mostrarErro($("#erro-numeracao"), e);
+    } finally {
+      botaoSefin.disabled = false;
+      botaoSefin.textContent = "Consultar na Sefin";
+    }
+  };
   abrirDialogo(dlg, $("#erro-numeracao"), async (d) => {
     if (vazio(d.proximo)) {
       const proximo = Number(d.proximo);

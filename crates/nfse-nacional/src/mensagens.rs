@@ -11,6 +11,25 @@ pub fn orientacao(codigo: &str) -> Option<&'static str> {
              Em Produção Restrita isso acontece quando o município não carregou o cadastro do contribuinte; \
              em Produção, confira o código IBGE do município emissor e a data de competência."
         }
+        "E0014" => {
+            "Esta série e número já geraram uma NFS-e (por este ou por outro emissor). Em Empresas → \
+             \"Numeração / IM\", clique em \"Consultar na Sefin\" para pular os números já usados e depois \
+             use \"Corrigir e emitir\" nesta nota."
+        }
+        "E0312" => {
+            "O município não habilitou este código de tributação nacional para a empresa neste ambiente. \
+             Confira o código do serviço (cTribNac) com a prefeitura; em Produção Restrita a parametrização \
+             do município pode ser diferente da de Produção."
+        }
+        "E0116" => {
+            "O município exige a inscrição municipal na DPS. Preencha a IM em Empresas → Editar e deixe \
+             marcado \"informar IM na DPS\" para este ambiente em \"Numeração / IM\"."
+        }
+        "E0710" | "E0712" | "E0713" => {
+            "A forma do total aproximado de tributos não combina com a situação no Simples. Em Serviços, \
+             edite o serviço: ME/EPP usa \"% do Simples Nacional\"; não optante usa \"% federal / \
+             estadual / municipal\"; MEI não usa o % do Simples."
+        }
         "E0120" => {
             "A inscrição municipal não deve ser enviada neste ambiente. \
              Desmarque \"informar IM na DPS\" para este ambiente no cadastro da empresa."

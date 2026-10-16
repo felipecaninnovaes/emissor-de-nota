@@ -297,6 +297,22 @@ pub async fn definir_proximo_numero(
         .map_err(texto)
 }
 
+/// Pergunta à Sefin quais números da série atual já geraram NFS-e e ajusta o próximo.
+#[tauri::command]
+pub async fn ajustar_numeracao(estado: State<'_, Estado>, empresa_id: i64) -> R<String> {
+    let guarda = emissor!(estado);
+    let (ultimo, proximo) = guarda
+        .as_ref()
+        .expect("verificado")
+        .ajustar_numeracao_pela_sefin(empresa_id)
+        .await
+        .map_err(texto)?;
+    Ok(match ultimo {
+        Some(u) => format!("A Sefin já tem DPS desta série até o nº {u}. A próxima nota sai com o nº {proximo}."),
+        None => format!("Nenhum número usado na Sefin a partir daqui. A próxima nota sai com o nº {proximo}."),
+    })
+}
+
 #[derive(Serialize)]
 pub struct VencimentoDto {
     empresa_id: i64,
@@ -633,6 +649,36 @@ pub async fn reconciliar(estado: State<'_, Estado>, dps_id: i64) -> R<String> {
             None => "A Sefin não gerou nota para esta DPS; pode emitir de novo.".into(),
         },
     )
+}
+
+#[derive(Serialize)]
+pub struct RefazerDto {
+    empresa_id: i64,
+    tomador: Option<TomadorDto>,
+    servico_id: Option<i64>,
+    valor: String,
+    descricao: String,
+    informacoes_complementares: Option<String>,
+}
+
+/// Dados de uma nota rejeitada para preencher a tela de emissão de novo.
+#[tauri::command]
+pub async fn dados_para_refazer(estado: State<'_, Estado>, dps_id: i64) -> R<RefazerDto> {
+    let guarda = emissor!(estado);
+    let r = guarda
+        .as_ref()
+        .expect("verificado")
+        .dados_para_refazer(dps_id)
+        .await
+        .map_err(texto)?;
+    Ok(RefazerDto {
+        empresa_id: r.empresa_id,
+        tomador: r.tomador.map(Into::into),
+        servico_id: r.servico_id,
+        valor: r.valor.to_string(),
+        descricao: r.descricao,
+        informacoes_complementares: r.informacoes_complementares,
+    })
 }
 
 #[derive(Serialize)]

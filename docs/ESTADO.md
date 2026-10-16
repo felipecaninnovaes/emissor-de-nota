@@ -46,7 +46,12 @@ escritório: o contribuinte não está no CNC desse ambiente (rejeição E0084).
 - Interface em HTML/CSS/JS puro (sem Node/bundler), para manutenção por uma pessoa.
 - `rust-version = 1.85` no workspace limita versões (krilla 0.6, sqlx 0.8); subir se precisar.
 - Competência (`dCompet`) = data da emissão; o mês de referência vai só na descrição.
-- Série própria (padrão `1`); a `70000` é do Emissor Web nacional.
+- Série própria (padrão `1`); a `70000` é do Emissor Web nacional. Pelo Anexo I (v1.01-20260209),
+  a faixa 00001–49999 é de aplicativo próprio.
+- Nota rejeitada é refeita com o **próximo** número ("Corrigir e emitir"). O Anexo I não exige
+  `nDPS` sem buracos nem prevê inutilização de DPS; a única regra do número é a E0014 (série e
+  número já usados por uma DPS que **gerou** NFS-e).
+- O Id da DPS é único por ambiente (numeração de cada ambiente começa do 1).
 - Inscrição municipal na DPS configurável por ambiente (E0120 quando o CNC não a tem).
 - Retenções do serviço são percentuais; os valores são calculados sobre o valor de cada nota.
 - XSD de Produção (09/02/2026) tem padrão de série com `^...$` (literais em XSD) e recusa tudo:

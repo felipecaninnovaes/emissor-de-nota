@@ -77,6 +77,21 @@ impl Conector for ConectorSefin {
     }
 }
 
+/// Dados de uma DPS rejeitada para preencher uma nova emissão (que recebe o próximo número:
+/// pelo Anexo I, só a DPS que gerou NFS-e trava série e número — regra E0014).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Refazer {
+    pub empresa_id: i64,
+    /// `None` se não havia tomador ou se ele não está mais vinculado à empresa.
+    pub tomador: Option<TomadorVinculado>,
+    /// Serviço do cadastro com o mesmo código (e NBS, se houver mais de um); o operador confere.
+    pub servico_id: Option<i64>,
+    pub valor: Valor,
+    /// Descrição como foi enviada (com o mês de referência já aplicado).
+    pub descricao: String,
+    pub informacoes_complementares: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PedidoEmissao {
     pub empresa_id: i64,
@@ -472,6 +487,114 @@ impl<C: Conector> Emissor<C> {
             resultados.push((dps.id, self.reconciliar(dps.id).await));
         }
         Ok(resultados)
+    }
+
+    /// Procura na Sefin o primeiro número da série atual da empresa que ainda não gerou NFS-e
+    /// (outro emissor pode ter usado a mesma série: rejeição E0014) e o grava como próximo.
+    /// Usa `GET /dps/{id}` em busca exponencial a partir do próximo número local e depois binária,
+    /// supondo que o outro emissor numerou em sequência. Devolve (último usado, próximo).
+    pub async fn ajustar_numeracao_pela_sefin(&self, empresa_id: i64) -> Result<(Option<u64>, u64), ErroEmissao> {
+        const LIMITE: u64 = 999_999_999_999_999;
+        let empresa = self.banco.empresa(empresa_id).await?;
+        let (_, sefin) = self.conectar(&empresa, empresa.ambiente).await?;
+        let inscricao = nfse_core::Inscricao::Cnpj(empresa.cnpj.clone());
+        let usado = |numero: u64| {
+            let id = nfse_core::dps::DpsId::novo(&empresa.municipio_emissor, &inscricao, &empresa.serie, numero);
+            let sefin = &sefin;
+            async move {
+                let id = id.map_err(|e| ErroEmissao::Regra(e.to_string()))?;
+                Ok::<_, ErroEmissao>(
+                    sefin
+                        .consultar_dps(id.as_str())
+                        .await
+                        .map_err(ErroEmissao::Sefin)?
+                        .is_some(),
+                )
+            }
+        };
+
+        let inicio = self
+            .banco
+            .proximo_numero(empresa.id, empresa.ambiente, &empresa.serie)
+            .await?;
+        // Exponencial: `ocupado` é o maior número que sabemos usado; `livre`, um que sabemos livre.
+        let mut ocupado = inicio - 1;
+        let mut passo = 1;
+        let mut livre = inicio;
+        while usado(livre).await? {
+            ocupado = livre;
+            livre = inicio.saturating_add(passo).min(LIMITE);
+            if livre == ocupado {
+                return Err(ErroEmissao::Regra("a série não tem mais números livres".into()));
+            }
+            passo *= 2;
+        }
+        // Binária entre os dois.
+        while livre - ocupado > 1 {
+            let meio = ocupado + (livre - ocupado) / 2;
+            if usado(meio).await? {
+                ocupado = meio;
+            } else {
+                livre = meio;
+            }
+        }
+        if livre != inicio {
+            self.banco
+                .definir_proximo_numero(empresa.id, empresa.ambiente, &empresa.serie, livre)
+                .await?;
+        }
+        Ok(((ocupado > 0).then_some(ocupado), livre))
+    }
+
+    /// Lê uma DPS rejeitada (pela Sefin ou não enviada por falta de conexão) para emitir de novo.
+    pub async fn dados_para_refazer(&self, dps_id: i64) -> Result<Refazer, ErroEmissao> {
+        let registro = self.banco.dps(dps_id).await?;
+        if registro.situacao != SituacaoDps::Rejeitada {
+            return Err(ErroEmissao::Regra(format!(
+                "só nota rejeitada pode ser refeita (esta está \"{}\")",
+                registro.situacao.texto()
+            )));
+        }
+        let modelo = self
+            .banco
+            .modelo_dps(dps_id)
+            .await?
+            .ok_or_else(|| ErroEmissao::Regra("a DPS não tem os dados do envio".into()))?;
+        let empresa_id = registro.empresa_id;
+
+        let mut tomador = None;
+        if let Some(t) = &modelo.tomador {
+            let documento = match &t.documento {
+                Documento::Cnpj(c) => c.as_str(),
+                Documento::Cpf(c) => c.as_str(),
+            };
+            if let Some(pessoa) = self.banco.pessoa_por_documento(documento).await? {
+                tomador = self.banco.tomador(empresa_id, pessoa).await.ok();
+            }
+        }
+
+        let codigo = &modelo.servico.codigo_tributacao_nacional;
+        let candidatos: Vec<Servico> = self
+            .banco
+            .servicos(empresa_id)
+            .await?
+            .into_iter()
+            .filter(|s| &s.codigo_trib_nac == codigo)
+            .collect();
+        let servico_id = candidatos
+            .iter()
+            .find(|s| s.nbs == modelo.servico.nbs)
+            .or(candidatos.first())
+            .and_then(|s| s.id);
+
+        Ok(Refazer {
+            empresa_id,
+            tomador,
+            servico_id,
+            valor: modelo.valores.servico,
+            descricao: modelo.servico.descricao,
+            informacoes_complementares: modelo.servico.informacoes_complementares,
+        })
     }
 
     pub async fn cancelar(

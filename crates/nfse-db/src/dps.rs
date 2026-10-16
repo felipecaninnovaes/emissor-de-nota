@@ -19,7 +19,7 @@ use nfse_core::modelo::{Ambiente, VERSAO_LEIAUTE};
 use nfse_core::{Dps, DpsId, Valor};
 
 use crate::empresas::{ambiente_de, ambiente_texto};
-use crate::{Banco, ErroBanco, Resultado, agora, json};
+use crate::{Banco, ErroBanco, Resultado, agora, de_json, json};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SituacaoDps {
@@ -178,6 +178,19 @@ impl Banco {
         self.dps(id).await
     }
 
+    /// Próximo número que será reservado na série (1 se a série ainda não foi usada).
+    pub async fn proximo_numero(&self, empresa_id: i64, ambiente: Ambiente, serie: &str) -> Resultado<u64> {
+        let proximo: Option<i64> =
+            sqlx::query("SELECT proximo_numero FROM numeracao WHERE empresa_id = ? AND ambiente = ? AND serie = ?")
+                .bind(empresa_id)
+                .bind(ambiente_texto(ambiente))
+                .bind(serie)
+                .fetch_optional(self.pool())
+                .await?
+                .map(|r| r.get(0));
+        Ok(proximo.unwrap_or(1) as u64)
+    }
+
     /// Ajusta o próximo número (ex.: continuar de onde outro emissor parou na mesma série).
     /// Não deixa voltar para um número já usado por este sistema.
     pub async fn definir_proximo_numero(
@@ -229,6 +242,17 @@ impl Banco {
             .await?
             .ok_or(ErroBanco::NaoEncontrado("DPS"))?;
         dps_de(&linha)
+    }
+
+    /// Modelo da DPS como foi enviado (`None` se nunca chegou a ser enviada).
+    pub async fn modelo_dps(&self, id: i64) -> Resultado<Option<Dps>> {
+        let json: Option<String> = sqlx::query("SELECT modelo_json FROM dps WHERE id = ?")
+            .bind(id)
+            .fetch_optional(self.pool())
+            .await?
+            .ok_or(ErroBanco::NaoEncontrado("DPS"))?
+            .get(0);
+        json.map(|j| de_json(&j, "modelo da DPS")).transpose()
     }
 
     /// DPS que ficaram sem desfecho (queda durante o envio ou timeout): reconciliar ao iniciar.
