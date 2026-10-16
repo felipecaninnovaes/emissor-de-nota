@@ -535,6 +535,13 @@ mod testes {
             banco.excluir_empresa(empresa.id).await,
             Err(ErroBanco::Regra(_))
         ));
+        // Também não troca de ambiente enquanto o envio não for resolvido.
+        let mut producao = nova_empresa();
+        producao.ambiente = Ambiente::Producao;
+        assert!(matches!(
+            banco.atualizar_empresa(empresa.id, &producao).await,
+            Err(ErroBanco::Regra(m)) if m.contains("sem resposta")
+        ));
 
         // Com nota autorizada: só arquiva, e recadastrar o CNPJ traz a empresa de volta.
         banco.registrar_autorizacao(r.id, &nfse_recebida()).await.unwrap();
