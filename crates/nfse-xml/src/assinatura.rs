@@ -10,13 +10,18 @@ use base64::engine::general_purpose::STANDARD as B64;
 use rsa::Pkcs1v15Sign;
 use sha1::{Digest, Sha1};
 
-use crate::c14n::canonicalizar;
+use crate::c14n::{Opcoes, canonicalizar, canonicalizar_com};
 
 pub const NS_DSIG: &str = "http://www.w3.org/2000/09/xmldsig#";
 const ALG_C14N: &str = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
+const ALG_C14N_COMENTARIOS: &str = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315#WithComments";
+const ALG_EXC_C14N: &str = "http://www.w3.org/2001/10/xml-exc-c14n#";
+const ALG_EXC_C14N_COMENTARIOS: &str = "http://www.w3.org/2001/10/xml-exc-c14n#WithComments";
 const ALG_ENVELOPED: &str = "http://www.w3.org/2000/09/xmldsig#enveloped-signature";
 const ALG_RSA_SHA1: &str = "http://www.w3.org/2000/09/xmldsig#rsa-sha1";
+const ALG_RSA_SHA256: &str = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
 const ALG_SHA1: &str = "http://www.w3.org/2000/09/xmldsig#sha1";
+const ALG_SHA256: &str = "http://www.w3.org/2001/04/xmlenc#sha256";
 
 #[derive(Debug, thiserror::Error)]
 pub enum ErroAssinatura {
@@ -144,8 +149,42 @@ fn base64_do_elemento(no: roxmltree::Node) -> Result<Vec<u8>, ErroAssinatura> {
     Ok(B64.decode(texto)?)
 }
 
+#[derive(Clone, Copy)]
+enum Hash {
+    Sha1,
+    Sha256,
+}
+
+impl Hash {
+    fn resumo(self, dados: &[u8]) -> Vec<u8> {
+        match self {
+            Hash::Sha1 => Sha1::digest(dados).to_vec(),
+            Hash::Sha256 => sha2::Sha256::digest(dados).to_vec(),
+        }
+    }
+
+    fn esquema(self) -> Pkcs1v15Sign {
+        match self {
+            Hash::Sha1 => Pkcs1v15Sign::new::<Sha1>(),
+            Hash::Sha256 => Pkcs1v15Sign::new::<sha2::Sha256>(),
+        }
+    }
+}
+
+fn opcoes_c14n(algoritmo: &str) -> Option<Opcoes> {
+    let (exclusivo, comentarios) = match algoritmo {
+        ALG_C14N => (false, false),
+        ALG_C14N_COMENTARIOS => (false, true),
+        ALG_EXC_C14N => (true, false),
+        ALG_EXC_C14N_COMENTARIOS => (true, true),
+        _ => return None,
+    };
+    Some(Opcoes { exclusivo, comentarios })
+}
+
 /// Verifica todas as assinaturas do documento (digest e valor) e devolve o certificado de cada uma.
-/// Serve para testar a própria assinatura e para conferir a NFS-e devolvida pela Sefin.
+/// Aceita o esquema que usamos (C14N inclusivo + RSA-SHA1) e o da NFS-e devolvida pela Sefin
+/// (C14N exclusivo + RSA-SHA256).
 pub fn verificar(xml: &str) -> Result<Vec<Vec<u8>>, ErroAssinatura> {
     let doc = roxmltree::Document::parse(xml)?;
     let assinaturas: Vec<_> = doc
@@ -160,13 +199,14 @@ pub fn verificar(xml: &str) -> Result<Vec<Vec<u8>>, ErroAssinatura> {
     for assinatura in assinaturas {
         let signed_info = filho(assinatura, "SignedInfo")?;
         let metodo_c14n = algoritmo(filho(signed_info, "CanonicalizationMethod")?);
-        if metodo_c14n != ALG_C14N {
-            return Err(ErroAssinatura::Algoritmo(metodo_c14n.to_owned()));
-        }
+        let c14n_signed_info =
+            opcoes_c14n(metodo_c14n).ok_or_else(|| ErroAssinatura::Algoritmo(metodo_c14n.to_owned()))?;
         let metodo_assinatura = algoritmo(filho(signed_info, "SignatureMethod")?);
-        if metodo_assinatura != ALG_RSA_SHA1 {
-            return Err(ErroAssinatura::Algoritmo(metodo_assinatura.to_owned()));
-        }
+        let hash_assinatura = match metodo_assinatura {
+            ALG_RSA_SHA1 => Hash::Sha1,
+            ALG_RSA_SHA256 => Hash::Sha256,
+            outro => return Err(ErroAssinatura::Algoritmo(outro.to_owned())),
+        };
 
         let referencia = filho(signed_info, "Reference")?;
         let uri = referencia
@@ -175,21 +215,26 @@ pub fn verificar(xml: &str) -> Result<Vec<Vec<u8>>, ErroAssinatura> {
         let id = uri
             .strip_prefix('#')
             .ok_or_else(|| ErroAssinatura::Algoritmo(format!("URI {uri}")))?;
+        // Sem transformação de C14N explícita, o padrão é o inclusivo.
+        let mut c14n_referencia = Opcoes::default();
         for transform in filho(referencia, "Transforms")?.children().filter(|n| n.is_element()) {
-            let alg = algoritmo(transform);
-            if alg != ALG_ENVELOPED && alg != ALG_C14N {
-                return Err(ErroAssinatura::Algoritmo(alg.to_owned()));
+            match algoritmo(transform) {
+                ALG_ENVELOPED => {}
+                alg => c14n_referencia = opcoes_c14n(alg).ok_or_else(|| ErroAssinatura::Algoritmo(alg.to_owned()))?,
             }
         }
-        let metodo_digest = algoritmo(filho(referencia, "DigestMethod")?);
-        if metodo_digest != ALG_SHA1 {
-            return Err(ErroAssinatura::Algoritmo(metodo_digest.to_owned()));
-        }
+        // Referência "#id" descarta comentários antes das transformações (XMLDSig, 4.3.3.3).
+        c14n_referencia.comentarios = false;
+        let hash_digest = match algoritmo(filho(referencia, "DigestMethod")?) {
+            ALG_SHA1 => Hash::Sha1,
+            ALG_SHA256 => Hash::Sha256,
+            outro => return Err(ErroAssinatura::Algoritmo(outro.to_owned())),
+        };
 
         let alvo = elemento_por_id(&doc, id)?;
         let esperado = base64_do_elemento(filho(referencia, "DigestValue")?)?;
-        let calculado = Sha1::digest(canonicalizar(alvo, Some(assinatura.id())).as_bytes());
-        if esperado.as_slice() != calculado.as_slice() {
+        let calculado = hash_digest.resumo(canonicalizar_com(alvo, Some(assinatura.id()), c14n_referencia).as_bytes());
+        if esperado != calculado {
             return Err(ErroAssinatura::DigestDivergente);
         }
 
@@ -199,9 +244,9 @@ pub fn verificar(xml: &str) -> Result<Vec<Vec<u8>>, ErroAssinatura> {
         )?)?;
         let publica = nfse_cert::chave_publica_do_certificado(&certificado)?;
         let valor = base64_do_elemento(filho(assinatura, "SignatureValue")?)?;
-        let hash = Sha1::digest(canonicalizar(signed_info, None).as_bytes());
+        let resumo = hash_assinatura.resumo(canonicalizar_com(signed_info, None, c14n_signed_info).as_bytes());
         publica
-            .verify(Pkcs1v15Sign::new::<Sha1>(), &hash, &valor)
+            .verify(hash_assinatura.esquema(), &resumo, &valor)
             .map_err(|_| ErroAssinatura::AssinaturaInvalida)?;
         certificados.push(certificado);
     }
@@ -245,6 +290,20 @@ mod testes {
 
         let certs = verificar(&assinado).unwrap();
         assert_eq!(certs, vec![cert.certificado_der().to_vec()]);
+    }
+
+    /// NFS-e fictícia assinada pelo signxml (Python) no esquema da Sefin:
+    /// C14N exclusivo com comentários, RSA-SHA256, digest SHA-256.
+    const NFSE_SEFIN_SIMULADA: &str = include_str!("../tests/fixtures/nfse-sefin-simulada.xml");
+
+    #[test]
+    fn verifica_esquema_da_sefin() {
+        let certs = verificar(NFSE_SEFIN_SIMULADA).unwrap();
+        let info = nfse_cert::InfoCertificado::de_der(&certs[0]).unwrap();
+        assert_eq!(info.titular, "EMPRESA TESTE LTDA:11222333000181");
+
+        let adulterado = NFSE_SEFIN_SIMULADA.replace("150.00", "1500.00");
+        assert!(matches!(verificar(&adulterado), Err(ErroAssinatura::DigestDivergente)));
     }
 
     #[test]

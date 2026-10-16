@@ -1,0 +1,25 @@
+<?xml version='1.0' encoding='utf-8'?>
+<NFSe xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.01"><infNFSe Id="NFS35111022211222333000181000000000000126101234567890"><xLocEmi>Catanduva</xLocEmi><nNFSe>1</nNFSe><cStat>100</cStat><emit><CNPJ>11222333000181</CNPJ><xNome>EMPRESA TESTE LTDA</xNome></emit><DPS xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.01"><infDPS Id="DPS351110221122233300018100001000000000000001"><dCompet>2026-10-16</dCompet><serv><cServ><xDescServ>Consulta &amp; exames</xDescServ></cServ></serv><valores><vServPrest><vServ>150.00</vServ></vServPrest></valores></infDPS></DPS></infNFSe><Signature xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo><CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#WithComments"/><SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/><Reference URI="#NFS35111022211222333000181000000000000126101234567890"><Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/><Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#WithComments"/></Transforms><DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/><DigestValue>/NgTfVRswLnLBiwa4TahLc8LRJYIhMMzIUpQuwA63yk=</DigestValue></Reference></SignedInfo><SignatureValue>NNUR+/F0yOQ6rhcfs2uo5+VGPQeUCWSDfA6oh6pqIb8y8ob912Ofl0Y6Um2j3IIGLxt0cGB75kYtyyUUXKiph9KIOTZdnnz9QNCDyGK2j1RBaqJKfnJgq+7aIT4Dm/NdgOc36lGLhIIfCay9T3gqjayKniTGvIaNwyo3a4LVP3si7jSB5K2FHvuOEzFtADbjXxiZYuusjyG+EAvsPulJSAJRpguqyTTobU38kS4vtYtgjY1OR599gF7bmgvBQbEpxnyXDmI5G7KjVHzQR+gyEBULhn9eV/dtjq+lxZLAwVxVH9+ykiH0Kk9oxu1NbMfiU76q+AlCYP4PtDjVMzQ/eA==</SignatureValue><KeyInfo><X509Data><X509Certificate>MIIESjCCAzKgAwIBAgIUR0MN0FnuotRwgI+bFkKPIjiUMCkwDQYJKoZIhvcNAQEL
+BQAwgY0xCzAJBgNVBAYTAkJSMRMwEQYDVQQKDApJQ1AtQnJhc2lsMT0wOwYDVQQL
+DDRDZXJ0aWZpY2FkbyBkZSBURVNURSBhdXRvYXNzaW5hZG8gLSBzZW0gdmFsb3Ig
+ZmlzY2FsMSowKAYDVQQDDCFFTVBSRVNBIFRFU1RFIExUREE6MTEyMjIzMzMwMDAx
+ODEwHhcNMjYxMDE2MTcyNDQ1WhcNMzYxMDEzMTcyNDQ1WjCBjTELMAkGA1UEBhMC
+QlIxEzARBgNVBAoMCklDUC1CcmFzaWwxPTA7BgNVBAsMNENlcnRpZmljYWRvIGRl
+IFRFU1RFIGF1dG9hc3NpbmFkbyAtIHNlbSB2YWxvciBmaXNjYWwxKjAoBgNVBAMM
+IUVNUFJFU0EgVEVTVEUgTFREQToxMTIyMjMzMzAwMDE4MTCCASIwDQYJKoZIhvcN
+AQEBBQADggEPADCCAQoCggEBAKvBjgJaS1QcUI5RyNpeXB7mIPpu3WHkS47NhFLd
+SyqAdkVuff/Or7yNzE1fUiK2I67Fyo7U5g91+RCTwjo49ofvO+gLt5fGt+ZGG2jT
+TUJOhUXaLxTUgR70JObZsmghemJmtvKGOn0WDAwPqoe2Vv/+LBn+5iRe5rTMfWi3
+T752gk+tVjy/LnHkhsQSDY+mCQiemdc8XkbbgjVvQ66qhP4aRuKRxLoJgopClaXm
+W3U8WoiHuFj0xmms7MPdzmvyK1NwEoHtST87gEXbOG/Y4rXA2DsVBVdYPVavcNok
+m2oGqrGN1i79jgq8ikTJpVHN0gFw0xmIZTjwLdHcxPZmdRECAwEAAaOBnzCBnDAM
+BgNVHRMBAf8EAjAAMA4GA1UdDwEB/wQEAwIF4DAdBgNVHSUEFjAUBggrBgEFBQcD
+AgYIKwYBBQUHAwQwPgYDVR0RBDcwNaAZBgVgTAEDA6AQBA4xMTIyMjMzMzAwMDE4
+MaAYBgVgTAEDAqAPBA1GVUxBTk8gREUgVEFMMB0GA1UdDgQWBBSntW/25o0C2SC+
+03UV/GH9KzDJ/zANBgkqhkiG9w0BAQsFAAOCAQEADkXuD6gsl6Qy0/XnC3KRUaTW
+4+/Zmt1SxhfG9TOxyXqvqLNsgMYsBceWX7Ntk0ItemKsLmyDCyyD8haamXWB5uhy
+pu9JwV94D5fy3mQrZg9wN3T8dgVJ2fH7rGBlVCACf/u8aHbWMGpbWwODu3w6ypUw
+cm195fb4vgGjoN1i8bMw8BMTW/+Vvh+557TpufOn53VTdHTskpvKPK6HWrYINptU
+cqwl1my3bmcVIHMYjAqHSLx+pTajjKZG/6mtKYW3LYEgoFu/GCH6ZIJyZT4CFDLr
+KbS0AsqbL3UWJolAJ6DoXlBIGUb0MJhgf7V3mpMkOLEUOzVBmiziKZPtj7qysA==
+</X509Certificate></X509Data></KeyInfo></Signature></NFSe>

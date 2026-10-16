@@ -7,6 +7,10 @@
 //! - em resposta incerta, nada é reenviado antes de consultar a Sefin pelo Id da DPS;
 //! - a NFS-e é gravada exatamente como a Sefin devolveu.
 
+pub mod arquivo;
+
+use std::path::PathBuf;
+
 use chrono::{DateTime, Datelike, FixedOffset, NaiveDate, Utc};
 
 use nfse_cert::CertificadoA1;
@@ -46,12 +50,11 @@ pub enum ErroEmissao {
 
 #[derive(Debug)]
 pub enum ResultadoEmissao {
-    Autorizada(NfseGravada),
+    /// `avisos`: problemas que não desfazem a emissão (assinatura da Sefin não conferiu, falha ao
+    /// gravar o arquivo na pasta). Também ficam na auditoria.
+    Autorizada { nfse: NfseGravada, avisos: Vec<String> },
     /// Sem resposta e a consulta também falhou: a DPS fica pendente para reconciliar depois.
-    Incerta {
-        dps_id: i64,
-        motivo: String,
-    },
+    Incerta { dps_id: i64, motivo: String },
 }
 
 /// Cria o cliente da Sefin para um certificado e ambiente (o real usa mTLS; os testes, um simulado).
@@ -193,11 +196,23 @@ pub struct Emissor<C: Conector> {
     banco: Banco,
     cofre: Cofre,
     conector: C,
+    pasta: Option<PathBuf>,
 }
 
 impl<C: Conector> Emissor<C> {
     pub fn novo(banco: Banco, cofre: Cofre, conector: C) -> Self {
-        Self { banco, cofre, conector }
+        Self {
+            banco,
+            cofre,
+            conector,
+            pasta: None,
+        }
+    }
+
+    /// Pasta raiz onde cada nota é gravada em `<empresa>/<AAAA-MM>/`.
+    pub fn com_pasta(mut self, raiz: impl Into<PathBuf>) -> Self {
+        self.pasta = Some(raiz.into());
+        self
     }
 
     pub fn banco(&self) -> &Banco {
@@ -237,9 +252,10 @@ impl<C: Conector> Emissor<C> {
         self.banco.registrar_envio(reserva.id, &modelo, &assinado).await?;
 
         match sefin.emitir(&assinado).await {
-            Ok(nfse) => Ok(ResultadoEmissao::Autorizada(
-                self.gravar(reserva.id, &nfse.chave_acesso, &nfse.xml).await?,
-            )),
+            Ok(nfse) => {
+                let (nfse, avisos) = self.gravar(reserva.id, &nfse.chave_acesso, &nfse.xml).await?;
+                Ok(ResultadoEmissao::Autorizada { nfse, avisos })
+            }
             Err(ErroSefin::Rejeitada { erros, .. }) => {
                 let mensagem = mensagem_rejeicao(&erros);
                 self.banco.registrar_rejeicao(reserva.id, &mensagem).await?;
@@ -261,7 +277,7 @@ impl<C: Conector> Emissor<C> {
                 let motivo = e.to_string();
                 self.banco.registrar_incerta(reserva.id, &motivo).await?;
                 match self.reconciliar_com(&sefin, reserva.id).await {
-                    Ok(Some(gravada)) => Ok(ResultadoEmissao::Autorizada(gravada)),
+                    Ok(Some(nfse)) => Ok(ResultadoEmissao::Autorizada { nfse, avisos: vec![] }),
                     Ok(None) => Err(ErroEmissao::SemConexao {
                         motivo: format!("{motivo}; a Sefin confirmou que não gerou a nota"),
                     }),
@@ -274,7 +290,8 @@ impl<C: Conector> Emissor<C> {
         }
     }
 
-    async fn gravar(&self, dps_id: i64, chave: &str, xml: &str) -> Result<NfseGravada, ErroEmissao> {
+    /// Grava a NFS-e no banco e depois confere a assinatura da Sefin e arquiva o XML na pasta.
+    async fn gravar(&self, dps_id: i64, chave: &str, xml: &str) -> Result<(NfseGravada, Vec<String>), ErroEmissao> {
         let dados = nfse_xml::ler_nfse(xml)?;
         if dados.chave != chave {
             return Err(ErroEmissao::Regra(format!(
@@ -299,7 +316,30 @@ impl<C: Conector> Emissor<C> {
             valor_servico: valor,
             competencia,
         };
-        Ok(self.banco.registrar_autorizacao(dps_id, &recebida).await?)
+        let gravada = self.banco.registrar_autorizacao(dps_id, &recebida).await?;
+
+        let empresa_id = self.banco.dps(dps_id).await?.empresa_id;
+        let mut avisos = Vec::new();
+        if let Err(e) = nfse_xml::verificar(xml) {
+            avisos.push(format!("a assinatura da Sefin na NFS-e {chave} não conferiu: {e}"));
+        }
+        if let Some(raiz) = &self.pasta {
+            let empresa = self.banco.empresa(empresa_id).await?;
+            let caminho = arquivo::pasta_mes(raiz, &empresa, competencia).join(arquivo::nome_xml_nfse(
+                gravada.numero.as_deref().unwrap_or("sem-numero"),
+                chave,
+            ));
+            if let Err(e) = arquivo::gravar(&caminho, xml) {
+                avisos.push(format!(
+                    "a nota foi autorizada, mas não foi gravada em {}: {e}",
+                    caminho.display()
+                ));
+            }
+        }
+        for aviso in &avisos {
+            self.banco.auditar("aviso", Some(empresa_id), Some(aviso)).await?;
+        }
+        Ok((gravada, avisos))
     }
 
     /// Consulta a Sefin pelo Id da DPS: grava a NFS-e se existir, ou libera para reenvio se não.
@@ -321,7 +361,7 @@ impl<C: Conector> Emissor<C> {
         match sefin.consultar_dps(&dps.id_dps).await.map_err(ErroEmissao::Sefin)? {
             Some(chave) => {
                 let nfse = sefin.consultar_nfse(&chave).await.map_err(ErroEmissao::Sefin)?;
-                Ok(Some(self.gravar(dps_id, &nfse.chave_acesso, &nfse.xml).await?))
+                Ok(Some(self.gravar(dps_id, &nfse.chave_acesso, &nfse.xml).await?.0))
             }
             None => {
                 self.banco.liberar_para_reenvio(dps_id).await?;
@@ -384,7 +424,24 @@ impl<C: Conector> Emissor<C> {
                 },
                 outro => ErroEmissao::Sefin(outro),
             })?;
-        Ok(self.banco.registrar_cancelamento(nfse_id, &evento).await?)
+        self.banco.registrar_cancelamento(nfse_id, &evento).await?;
+
+        if let Some(raiz) = &self.pasta {
+            let competencia = nfse_xml::ler_nfse(&nfse.xml)?
+                .competencia
+                .and_then(|c| NaiveDate::parse_from_str(&c, "%Y-%m-%d").ok())
+                .unwrap_or_else(|| agora_brasilia().date_naive());
+            let caminho = arquivo::pasta_mes(raiz, &empresa, competencia).join(arquivo::nome_xml_evento(
+                nfse.numero.as_deref().unwrap_or("sem-numero"),
+                &nfse.chave,
+                "cancelamento",
+            ));
+            if let Err(e) = arquivo::gravar(&caminho, &evento) {
+                let aviso = format!("cancelamento registrado, mas não gravado em {}: {e}", caminho.display());
+                self.banco.auditar("aviso", Some(empresa.id), Some(&aviso)).await?;
+            }
+        }
+        Ok(())
     }
 }
 

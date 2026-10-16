@@ -229,7 +229,7 @@ fn mes_ref_e_mes_anterior() {
 #[tokio::test]
 async fn emite_e_grava_a_nota() {
     let c = cenario(vec![Resposta::Emitir(Ok(nfse_autorizada()))]).await;
-    let ResultadoEmissao::Autorizada(nfse) = c.emissor.emitir(&c.pedido).await.unwrap() else {
+    let ResultadoEmissao::Autorizada { nfse, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
         panic!("esperava autorizada")
     };
     assert_eq!(nfse.chave, CHAVE);
@@ -281,7 +281,7 @@ async fn dps_invalida_nao_gasta_numero_nem_chama_a_sefin() {
     ));
     assert!(c.sefin.recebidos().is_empty());
 
-    let ResultadoEmissao::Autorizada(nfse) = c.emissor.emitir(&c.pedido).await.unwrap() else {
+    let ResultadoEmissao::Autorizada { nfse, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
         panic!()
     };
     assert_eq!(c.emissor.banco().dps(nfse.dps_id).await.unwrap().numero, 1);
@@ -295,7 +295,7 @@ async fn timeout_reconcilia_sem_reenviar() {
         Resposta::ConsultarNfse(Ok(nfse_autorizada())),
     ])
     .await;
-    let ResultadoEmissao::Autorizada(nfse) = c.emissor.emitir(&c.pedido).await.unwrap() else {
+    let ResultadoEmissao::Autorizada { nfse, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
         panic!()
     };
     assert_eq!(nfse.chave, CHAVE);
@@ -363,6 +363,55 @@ async fn queda_durante_envio_e_retomada() {
     assert_eq!(banco.dps(reserva.id).await.unwrap().situacao, SituacaoDps::Autorizada);
 }
 
+/// NFS-e fictícia assinada no esquema da Sefin (C14N exclusivo + RSA-SHA256), mesma chave do cenário.
+const NFSE_ASSINADA: &str = include_str!("../../nfse-xml/tests/fixtures/nfse-sefin-simulada.xml");
+
+#[tokio::test]
+async fn confere_assinatura_e_arquiva_por_empresa_e_mes() {
+    let dir = std::env::temp_dir().join(format!("nfse-emissor-pasta-{}", std::process::id()));
+    let Cenario { emissor, pedido, .. } = cenario(vec![
+        Resposta::Emitir(Ok(NfseAutorizada {
+            id_dps: None,
+            chave_acesso: CHAVE.into(),
+            xml: NFSE_ASSINADA.into(),
+            alertas: vec![],
+        })),
+        Resposta::Evento(Ok("<evento>homologado</evento>".into())),
+    ])
+    .await;
+    let emissor = emissor.com_pasta(&dir);
+
+    let ResultadoEmissao::Autorizada { nfse, avisos } = emissor.emitir(&pedido).await.unwrap() else {
+        panic!()
+    };
+    assert!(avisos.is_empty(), "{avisos:?}");
+    let mes = dir.join("EMPRESA TESTE LTDA - 11222333000181").join("2026-10");
+    let xml = std::fs::read_to_string(mes.join(format!("NFSe-1-{CHAVE}.xml"))).unwrap();
+    assert_eq!(xml, NFSE_ASSINADA, "arquivo idêntico ao devolvido pela Sefin");
+
+    emissor
+        .cancelar(
+            nfse.id,
+            MotivoCancelamento::ErroNaEmissao,
+            "Valor informado errado na emissão",
+        )
+        .await
+        .unwrap();
+    assert!(mes.join(format!("NFSe-1-{CHAVE}-cancelamento.xml")).exists());
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[tokio::test]
+async fn assinatura_da_sefin_que_nao_confere_vira_aviso() {
+    let c = cenario(vec![Resposta::Emitir(Ok(nfse_autorizada()))]).await;
+    let ResultadoEmissao::Autorizada { avisos, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+        panic!()
+    };
+    assert!(avisos[0].contains("assinatura da Sefin"), "{avisos:?}");
+    let auditoria = c.emissor.banco().auditoria(5).await.unwrap();
+    assert!(auditoria.iter().any(|(_, acao, _, _)| acao == "aviso"));
+}
+
 #[tokio::test]
 async fn cancela_nota_autorizada() {
     let c = cenario(vec![
@@ -370,7 +419,7 @@ async fn cancela_nota_autorizada() {
         Resposta::Evento(Ok("<evento>homologado</evento>".into())),
     ])
     .await;
-    let ResultadoEmissao::Autorizada(nfse) = c.emissor.emitir(&c.pedido).await.unwrap() else {
+    let ResultadoEmissao::Autorizada { nfse, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
         panic!()
     };
     c.emissor

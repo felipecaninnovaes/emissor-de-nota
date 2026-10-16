@@ -135,7 +135,7 @@ impl Banco {
         Ok(Cofre::abrir(senha, &de_json(&cabecalho, "cofre")?)?)
     }
 
-    pub(crate) async fn auditar(&self, acao: &str, empresa_id: Option<i64>, detalhe: Option<&str>) -> Resultado<()> {
+    pub async fn auditar(&self, acao: &str, empresa_id: Option<i64>, detalhe: Option<&str>) -> Resultado<()> {
         sqlx::query("INSERT INTO auditoria (quando, acao, empresa_id, detalhe) VALUES (?, ?, ?, ?)")
             .bind(agora())
             .bind(acao)
