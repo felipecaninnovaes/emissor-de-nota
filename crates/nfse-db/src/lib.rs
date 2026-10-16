@@ -3,6 +3,7 @@
 //! Um arquivo por máquina (decisão do escopo). As migrações ficam em `migrations/` e rodam
 //! ao abrir o banco.
 
+mod ajustes;
 pub mod cofre;
 pub mod dps;
 pub mod empresas;
@@ -80,6 +81,7 @@ impl Banco {
             .connect_with(opcoes)
             .await?;
         sqlx::migrate!("./migrations").run(&pool).await?;
+        ajustes::aplicar(&pool).await?;
         Ok(Self { pool })
     }
 

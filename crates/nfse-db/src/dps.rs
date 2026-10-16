@@ -506,6 +506,23 @@ mod testes {
     }
 
     #[tokio::test]
+    async fn mesma_serie_e_numero_em_cada_ambiente() {
+        // Tentativa em homologação e depois a empresa passa para produção: a numeração de
+        // produção começa do 1 e gera o mesmo Id de DPS, o que é válido (Sefins separadas).
+        let (banco, _, empresa) = banco_com_empresa().await;
+        let homologacao = banco.reservar_dps(empresa.id).await.unwrap();
+        let mut dados = crate::empresas::testes::nova_empresa();
+        dados.ambiente = Ambiente::Producao;
+        banco.atualizar_empresa(empresa.id, &dados).await.unwrap();
+        let producao = banco.reservar_dps(empresa.id).await.unwrap();
+        assert_eq!(producao.numero, homologacao.numero);
+        assert_eq!(producao.id_dps, homologacao.id_dps);
+        assert_eq!(producao.ambiente, Ambiente::Producao);
+        // No mesmo ambiente continua sem repetir.
+        assert_eq!(banco.reservar_dps(empresa.id).await.unwrap().numero, 2);
+    }
+
+    #[tokio::test]
     async fn exclusao_de_empresa_depende_do_historico() {
         use crate::empresas::Exclusao;
         use crate::empresas::testes::nova_empresa;
