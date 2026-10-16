@@ -439,6 +439,22 @@ impl Dps {
         v.valor15("valores.servico", val.servico);
         v.opcional_valor15("valores.desconto_incondicionado", val.desconto_incondicionado);
         v.opcional_valor15("valores.desconto_condicionado", val.desconto_condicionado);
+        // Anexo I, regras E0710/E0712/E0713: a forma do total de tributos depende do Simples.
+        match (p.regime.simples, &val.total_tributos) {
+            (SituacaoSimples::MeEpp, TotalTributos::NaoInformado) => v.erro(
+                "valores.total_tributos",
+                "ME/EPP do Simples deve informar o % do Simples Nacional (E0712); ajuste o serviço",
+            ),
+            (SituacaoSimples::NaoOptante, TotalTributos::NaoInformado | TotalTributos::PercentualSimples(_)) => v.erro(
+                "valores.total_tributos",
+                "não optante do Simples deve informar os percentuais federal, estadual e municipal (E0713); ajuste o serviço",
+            ),
+            (SituacaoSimples::Mei, TotalTributos::PercentualSimples(_)) => v.erro(
+                "valores.total_tributos",
+                "MEI não pode informar o % do Simples Nacional (E0710); ajuste o serviço",
+            ),
+            _ => {}
+        }
         if let Some(a) = val.issqn.aliquota {
             v.percentual("valores.issqn.aliquota", a, 1);
         }
@@ -607,6 +623,33 @@ pub(crate) mod testes {
         );
         assert!(erros.iter().any(|e| e.starts_with("servico.descricao:")));
         assert!(erros.iter().any(|e| e.starts_with("valores.issqn.aliquota:")));
+    }
+
+    #[test]
+    fn total_de_tributos_conforme_o_simples() {
+        let mut dps = dps_exemplo();
+        let erro = |dps: &Dps| dps.validar().iter().any(|e| e.starts_with("valores.total_tributos:"));
+        let simples = TotalTributos::PercentualSimples(Percentual::parse("11.48").unwrap());
+        let percentuais = TotalTributos::Percentuais {
+            federal: Percentual::parse("13.45").unwrap(),
+            estadual: Percentual::parse("0").unwrap(),
+            municipal: Percentual::parse("2").unwrap(),
+        };
+        for (situacao, total, recusa) in [
+            (SituacaoSimples::MeEpp, TotalTributos::NaoInformado, true),
+            (SituacaoSimples::MeEpp, simples.clone(), false),
+            (SituacaoSimples::NaoOptante, TotalTributos::NaoInformado, true),
+            (SituacaoSimples::NaoOptante, simples.clone(), true),
+            (SituacaoSimples::NaoOptante, percentuais.clone(), false),
+            (SituacaoSimples::Mei, simples, true),
+            (SituacaoSimples::Mei, TotalTributos::NaoInformado, false),
+        ] {
+            dps.prestador.regime.simples = situacao;
+            dps.prestador.regime.apuracao_simples =
+                (situacao == SituacaoSimples::MeEpp).then_some(ApuracaoSimples::TudoNoSimples);
+            dps.valores.total_tributos = total.clone();
+            assert_eq!(erro(&dps), recusa, "{situacao:?} {total:?}");
+        }
     }
 
     #[test]
