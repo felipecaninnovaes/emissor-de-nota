@@ -123,6 +123,33 @@ fn mes_anterior(data: NaiveDate) -> NaiveDate {
         .expect("dia 1 existe")
 }
 
+/// Tributos federais da nota: os percentuais de retenção do serviço viram valores sobre o valor da nota.
+pub fn federais_da_nota(t: &nfse_db::servicos::Tributacao, valor: Valor) -> nfse_core::modelo::TributosFederais {
+    let r = &t.retencoes;
+    let mut f = t.federais.clone();
+    let aplicar = |p: Option<nfse_core::Percentual>| p.map(|p| valor.aplicar(p));
+    f.retencao_irrf = aplicar(r.irrf).or(f.retencao_irrf);
+    f.retencao_csll = aplicar(r.csll).or(f.retencao_csll);
+    f.retencao_cp = aplicar(r.cp).or(f.retencao_cp);
+    if r.pis.is_some() || r.cofins.is_some() {
+        let pc = f.pis_cofins.get_or_insert_with(|| nfse_core::modelo::PisCofins {
+            cst: "01".into(),
+            base_calculo: None,
+            aliquota_pis: None,
+            aliquota_cofins: None,
+            valor_pis: None,
+            valor_cofins: None,
+            tipo_retencao: None,
+        });
+        pc.base_calculo = Some(valor);
+        pc.aliquota_pis = r.pis;
+        pc.aliquota_cofins = r.cofins;
+        pc.valor_pis = aplicar(r.pis);
+        pc.valor_cofins = aplicar(r.cofins);
+    }
+    f
+}
+
 /// Monta o modelo da DPS a partir dos cadastros. O número é provisório até a reserva.
 pub fn montar_dps(
     empresa: &Empresa,
@@ -167,7 +194,7 @@ pub fn montar_dps(
             desconto_incondicionado: None,
             desconto_condicionado: None,
             issqn: t.issqn.clone(),
-            federais: t.federais.clone(),
+            federais: federais_da_nota(t, pedido.valor),
             total_tributos: t.total_tributos.clone(),
         },
         ibs_cbs: t.ibs_cbs.clone(),
@@ -219,6 +246,39 @@ impl<C: Conector> Emissor<C> {
         self.pasta = Some(raiz.into());
         self.fontes = Some(nfse_pdf::Fontes::do_sistema().map_err(|e| e.to_string()));
         self
+    }
+
+    /// Troca a pasta de saída sem reabrir o cofre.
+    pub fn definir_pasta(&mut self, raiz: impl Into<PathBuf>) {
+        self.pasta = Some(raiz.into());
+        if self.fontes.is_none() {
+            self.fontes = Some(nfse_pdf::Fontes::do_sistema().map_err(|e| e.to_string()));
+        }
+    }
+
+    pub fn pasta(&self) -> Option<&std::path::Path> {
+        self.pasta.as_deref()
+    }
+
+    pub fn cofre(&self) -> &Cofre {
+        &self.cofre
+    }
+
+    /// Caminho do XML da nota na pasta de saída (o PDF fica ao lado, com extensão .pdf).
+    pub async fn caminho_xml(&self, nfse_id: i64) -> Result<Option<PathBuf>, ErroEmissao> {
+        let Some(raiz) = &self.pasta else { return Ok(None) };
+        let nfse = self.banco.nfse(nfse_id).await?;
+        let empresa = self
+            .banco
+            .empresa(self.banco.dps(nfse.dps_id).await?.empresa_id)
+            .await?;
+        let competencia = nfse_xml::ler_nfse(&nfse.xml)?
+            .competencia
+            .and_then(|c| NaiveDate::parse_from_str(&c, "%Y-%m-%d").ok())
+            .unwrap_or_else(|| agora_brasilia().date_naive());
+        Ok(Some(arquivo::pasta_mes(raiz, &empresa, competencia).join(
+            arquivo::nome_xml_nfse(nfse.numero.as_deref().unwrap_or("sem-numero"), &nfse.chave),
+        )))
     }
 
     /// Logomarca oficial da NFS-e (PNG) para o cabeçalho do DANFSe.

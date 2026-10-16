@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use sqlx::sqlite::SqliteRow;
 
-use nfse_core::Valor;
 use nfse_core::modelo::{IbsCbs, Issqn, TotalTributos, TributosFederais};
+use nfse_core::{Percentual, Valor};
 
 use crate::{Banco, ErroBanco, Resultado, de_json, json};
 
@@ -20,6 +20,26 @@ pub struct Tributacao {
     pub total_tributos: TotalTributos,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ibs_cbs: Option<IbsCbs>,
+    /// Percentuais aplicados sobre o valor de cada nota (as retenções variam com o valor).
+    #[serde(default)]
+    pub retencoes: RetencoesPercentuais,
+}
+
+/// Alíquotas de retenção do serviço. Na emissão viram valores (`vRetIRRF`, `vRetCSLL`, `vRetCP`,
+/// `vPis`/`vCofins` com base no valor do serviço), arredondados ao centavo.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct RetencoesPercentuais {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub irrf: Option<Percentual>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub csll: Option<Percentual>,
+    /// Contribuição previdenciária (INSS).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cp: Option<Percentual>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pis: Option<Percentual>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cofins: Option<Percentual>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

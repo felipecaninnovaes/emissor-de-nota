@@ -289,6 +289,15 @@ impl Banco {
         Ok(CertificadoA1::carregar(&pfx, senha)?)
     }
 
+    /// Titular e validade do certificado ativo (sem abrir o cofre).
+    pub async fn certificado_resumo(&self, empresa_id: i64) -> Resultado<Option<(String, DateTime<Utc>)>> {
+        let linha = sqlx::query("SELECT titular, valido_ate FROM certificado WHERE empresa_id = ? AND ativo = 1")
+            .bind(empresa_id)
+            .fetch_optional(self.pool())
+            .await?;
+        linha.map(|r| Ok((r.get(0), data(r.get(1))?))).transpose()
+    }
+
     /// Certificados ativos que vencem em até `dias` (inclui os já vencidos), do mais urgente ao menos.
     pub async fn certificados_vencendo(&self, dias: i64) -> Resultado<Vec<VencimentoCertificado>> {
         let limite = (Utc::now() + chrono::Duration::days(dias)).to_rfc3339();

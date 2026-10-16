@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Emissor de NFS-e</title>
+  <link rel="stylesheet" href="estilo.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+
+<!-- ======================= senha mestra ======================= -->
+<div id="trava">
+  <form class="cartao" id="form-trava">
+    <img src="icone.png" alt="">
+    <h1>Emissor de NFS-e</h1>
+    <p class="ajuda" id="trava-ajuda">Informe a senha mestra para abrir o sistema.</p>
+    <div style="margin-top:18px">
+      <label for="senha">Senha mestra</label>
+      <input id="senha" type="password" autocomplete="current-password" required>
+    </div>
+    <div id="bloco-confirmacao" style="margin-top:12px" hidden>
+      <label for="senha2">Confirme a senha</label>
+      <input id="senha2" type="password" autocomplete="new-password">
+      <p class="ajuda">Mínimo 8 caracteres. Ela protege os certificados de todas as empresas e não pode ser recuperada.</p>
+    </div>
+    <div id="erro-trava" class="aviso erro" style="margin-top:14px" hidden></div>
+    <div class="acoes"><button class="botao primario" id="botao-trava">Abrir</button></div>
+  </form>
+</div>
+
+<!-- ======================= aplicativo ======================= -->
+<div id="app" hidden>
+  <nav>
+    <div class="marca"><img src="icone.png" alt=""> Emissor NFS-e</div>
+    <button data-tela="emitir" class="ativo">Emitir nota</button>
+    <button data-tela="notas">Notas emitidas</button>
+    <button data-tela="tomadores">Tomadores</button>
+    <button data-tela="servicos">Serviços</button>
+    <button data-tela="empresas">Empresas</button>
+    <button data-tela="configuracoes">Configurações</button>
+    <div class="rodape">NFS-e Padrão Nacional</div>
+  </nav>
+
+  <main>
+    <header>
+      <select id="empresa-atual" title="Empresa (prestador)"></select>
+      <span id="selo-ambiente" class="selo"></span>
+      <span class="espaco"></span>
+      <span id="info-certificado" class="ajuda"></span>
+    </header>
+
+    <div class="conteudo">
+      <div id="alertas"></div>
+
+      <!-- ---------- emitir ---------- -->
+      <section data-tela="emitir">
+        <h1>Emitir nota</h1>
+        <div class="cartao">
+          <div class="grade">
+            <div class="c12">
+              <label>Tomador</label>
+              <div id="tomador-escolhido" class="escolhido" hidden>
+                <span id="tomador-escolhido-texto"></span>
+                <button type="button" class="botao pequeno" id="trocar-tomador">Trocar</button>
+              </div>
+              <div class="busca" id="busca-tomador">
+                <input id="termo-tomador" placeholder="Buscar por nome ou CNPJ/CPF..." autocomplete="off">
+                <div class="resultados" id="resultados-tomador" hidden></div>
+              </div>
+              <p class="ajuda"><a href="#" id="novo-tomador-emitir">Cadastrar novo tomador</a> · deixe em branco para nota sem tomador identificado.</p>
+            </div>
+            <div class="c6">
+              <label for="servico">Serviço</label>
+              <select id="servico"></select>
+            </div>
+            <div class="c3">
+              <label for="valor">Valor (R$)</label>
+              <input id="valor" inputmode="decimal" placeholder="0,00">
+            </div>
+            <div class="c3">
+              <label for="mes-ref">Mês de referência</label>
+              <input id="mes-ref" type="month">
+            </div>
+            <div class="c12">
+              <label for="descricao">Descrição do serviço</label>
+              <textarea id="descricao" rows="3"></textarea>
+              <p class="ajuda"><code>{mes_ref}</code> vira o mês de referência (ex.: 09/2026).</p>
+            </div>
+            <div class="c12">
+              <label for="info-compl">Informações complementares (opcional)</label>
+              <textarea id="info-compl" rows="2"></textarea>
+            </div>
+          </div>
+          <div class="acoes"><button class="botao primario" id="revisar">Revisar</button></div>
+        </div>
+
+        <div class="cartao revisao" id="revisao" hidden>
+          <h2>Conferência antes de emitir</h2>
+          <div id="revisao-aviso"></div>
+          <dl id="revisao-dados"></dl>
+          <div class="acoes">
+            <button class="botao" id="voltar-edicao">Corrigir</button>
+            <button class="botao primario" id="confirmar-emissao">Emitir nota</button>
+          </div>
+        </div>
+
+        <div class="cartao" id="resultado" hidden></div>
+      </section>
+
+      <!-- ---------- notas ---------- -->
+      <section data-tela="notas" hidden>
+        <h1>Notas emitidas</h1>
+        <div class="cartao" style="display:flex;gap:12px;align-items:end">
+          <div style="width:200px"><label for="mes-notas">Mês</label><input id="mes-notas" type="month"></div>
+          <button class="botao" id="todas-notas">Todos os meses</button>
+          <span class="espaco" style="flex:1"></span>
+          <button class="botao" id="abrir-pasta-mes">Abrir pasta</button>
+        </div>
+        <div class="cartao" style="padding:0">
+          <table>
+            <thead><tr><th>NFS-e</th><th>DPS</th><th>Tomador</th><th>Descrição</th><th>Valor</th><th>Situação</th><th></th></tr></thead>
+            <tbody id="lista-notas"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ---------- tomadores ---------- -->
+      <section data-tela="tomadores" hidden>
+        <h1>Tomadores</h1>
+        <div class="cartao" style="display:flex;gap:12px">
+          <input id="busca-tomadores" placeholder="Buscar por nome ou CNPJ/CPF...">
+          <button class="botao primario" id="novo-tomador" style="white-space:nowrap">Novo tomador</button>
+        </div>
+        <div class="cartao" style="padding:0">
+          <table>
+            <thead><tr><th>Documento</th><th>Nome</th><th>Município</th><th>E-mails de envio</th><th></th></tr></thead>
+            <tbody id="lista-tomadores"></tbody>
+          </table>
+        </div>
+        <p class="ajuda">O tomador é cadastrado uma vez e pode ser usado por várias empresas (ex.: um convênio de várias clínicas).</p>
+      </section>
+
+      <!-- ---------- serviços ---------- -->
+      <section data-tela="servicos" hidden>
+        <h1>Serviços</h1>
+        <div class="cartao" style="display:flex;justify-content:flex-end">
+          <button class="botao primario" id="novo-servico">Novo serviço</button>
+        </div>
+        <div class="cartao" style="padding:0">
+          <table>
+            <thead><tr><th>Nome</th><th>Código nacional</th><th>NBS</th><th>Valor sugerido</th><th>Retenções</th><th></th></tr></thead>
+            <tbody id="lista-servicos"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ---------- empresas ---------- -->
+      <section data-tela="empresas" hidden>
+        <h1>Empresas</h1>
+        <div class="cartao" style="display:flex;justify-content:flex-end">
+          <button class="botao primario" id="nova-empresa">Nova empresa</button>
+        </div>
+        <div class="cartao" style="padding:0">
+          <table>
+            <thead><tr><th>CNPJ</th><th>Razão social</th><th>Ambiente</th><th>Série</th><th>Certificado</th><th></th></tr></thead>
+            <tbody id="lista-empresas"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ---------- configurações ---------- -->
+      <section data-tela="configuracoes" hidden>
+        <h1>Configurações</h1>
+        <div class="cartao">
+          <h2>Pasta das notas</h2>
+          <p class="ajuda">Cada nota é gravada em XML e PDF em <code>&lt;pasta&gt;\&lt;EMPRESA - CNPJ&gt;\&lt;AAAA-MM&gt;\</code>.</p>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <input id="pasta-saida">
+            <button class="botao" id="salvar-pasta">Salvar</button>
+            <button class="botao" id="abrir-pasta">Abrir</button>
+          </div>
+        </div>
+        <div class="cartao">
+          <h2>Certificados vencendo (60 dias)</h2>
+          <table><tbody id="lista-vencimentos"></tbody></table>
+        </div>
+        <div class="cartao">
+          <h2>Envios sem resposta da Sefin</h2>
+          <p class="ajuda">Nada é reenviado antes de consultar a Sefin pelo identificador da DPS.</p>
+          <table><tbody id="lista-pendentes"></tbody></table>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- ======================= diálogos ======================= -->
+<dialog id="dlg-tomador">
+  <form method="dialog" id="form-tomador">
+    <h2>Tomador</h2>
+    <div class="grade">
+      <div class="c3"><label>Tipo</label>
+        <select name="tipo"><option value="cnpj">CNPJ</option><option value="cpf">CPF</option></select></div>
+      <div class="c4"><label>CNPJ / CPF</label><input name="documento" required></div>
+      <div class="c5"><label>Inscrição municipal</label><input name="im"></div>
+      <div class="c12"><label>Nome / razão social</label><input name="nome" required maxlength="300"></div>
+      <div class="c3"><label>CEP</label><input name="cep" maxlength="9"></div>
+      <div class="c3"><label>Município (IBGE)</label><input name="municipio" maxlength="7" placeholder="3511102"></div>
+      <div class="c6"><label>Logradouro</label><input name="logradouro"></div>
+      <div class="c2"><label>Número</label><input name="numero"></div>
+      <div class="c4"><label>Complemento</label><input name="complemento"></div>
+      <div class="c6"><label>Bairro</label><input name="bairro"></div>
+      <div class="c4"><label>Telefone</label><input name="telefone"></div>
+      <div class="c8"><label>E-mail (vai na nota)</label><input name="email" type="email"></div>
+      <div class="c12"><label>E-mails de envio desta empresa (separados por ;)</label><input name="emails"></div>
+    </div>
+    <p class="ajuda">Endereço é opcional; se informar, preencha CEP, município, logradouro e bairro.</p>
+    <div id="erro-tomador" class="aviso erro" style="margin-top:12px" hidden></div>
+    <div class="acoes"><button class="botao" value="cancelar" formnovalidate>Cancelar</button><button class="botao primario" value="salvar">Salvar</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-servico">
+  <form method="dialog" id="form-servico">
+    <h2>Serviço</h2>
+    <div class="grade">
+      <div class="c6"><label>Nome (para a lista)</label><input name="nome" required placeholder="Honorários mensais"></div>
+      <div class="c3"><label>Código tributação nacional</label><input name="codigo_trib_nac" required placeholder="171901"></div>
+      <div class="c3"><label>NBS</label><input name="nbs" placeholder="113022100"></div>
+      <div class="c12"><label>Descrição padrão</label><textarea name="descricao" required rows="2" placeholder="SERVIÇOS CONTÁBEIS REFERENTE A {mes_ref}"></textarea></div>
+      <div class="c3"><label>Código municipal</label><input name="codigo_trib_mun" maxlength="3"></div>
+      <div class="c3"><label>Valor sugerido (R$)</label><input name="valor_sugerido" inputmode="decimal"></div>
+      <div class="c12">
+        <fieldset><legend>ISSQN</legend>
+          <div class="grade">
+            <div class="c4"><label>Tributação</label><select name="trib_issqn">
+              <option value="tributavel">Operação tributável</option><option value="imunidade">Imunidade</option>
+              <option value="exportacao">Exportação</option><option value="nao_incidencia">Não incidência</option></select></div>
+            <div class="c4"><label>Retenção</label><select name="ret_issqn">
+              <option value="nao_retido">Não retido</option><option value="retido_pelo_tomador">Retido pelo tomador</option>
+              <option value="retido_pelo_intermediario">Retido pelo intermediário</option></select></div>
+            <div class="c4"><label>Alíquota (%) — só se exigida</label><input name="aliq_issqn" inputmode="decimal"></div>
+          </div>
+        </fieldset>
+      </div>
+      <div class="c12">
+        <fieldset><legend>Federais</legend>
+          <div class="grade">
+            <div class="c3"><label>CST PIS/COFINS</label><input name="cst" value="00" maxlength="2"></div>
+            <div class="c9"><label>Retenção PIS/COFINS/CSLL</label><select name="tp_ret">
+              <option value="0">PIS/COFINS/CSLL não retidos</option><option value="1">PIS/COFINS retidos</option>
+              <option value="2">PIS/COFINS não retidos</option><option value="3">PIS/COFINS/CSLL retidos</option>
+              <option value="4">PIS/COFINS retidos, CSLL não retido</option><option value="5">PIS retido, COFINS/CSLL não retido</option>
+              <option value="6">COFINS retido, PIS/CSLL não retido</option><option value="7">PIS não retido, COFINS/CSLL retidos</option>
+              <option value="8">PIS/COFINS não retidos, CSLL retido</option><option value="9">COFINS não retido, PIS/CSLL retidos</option></select></div>
+            <div class="c2"><label>IRRF %</label><input name="r_irrf" inputmode="decimal"></div>
+            <div class="c2"><label>CSLL %</label><input name="r_csll" inputmode="decimal"></div>
+            <div class="c2"><label>INSS %</label><input name="r_cp" inputmode="decimal"></div>
+            <div class="c3"><label>PIS %</label><input name="r_pis" inputmode="decimal"></div>
+            <div class="c3"><label>COFINS %</label><input name="r_cofins" inputmode="decimal"></div>
+          </div>
+          <p class="ajuda">Percentuais sobre o valor de cada nota; os valores são calculados na emissão.</p>
+        </fieldset>
+      </div>
+      <div class="c12">
+        <fieldset><legend>Total aproximado de tributos (Lei 12.741/2012)</legend>
+          <div class="grade">
+            <div class="c4"><label>Forma</label><select name="tot_tipo">
+              <option value="percentual_simples">% do Simples Nacional</option>
+              <option value="percentuais">% federal / estadual / municipal</option>
+              <option value="nao_informado">Não informar</option></select></div>
+            <div class="c2"><label>Simples %</label><input name="tot_sn" inputmode="decimal"></div>
+            <div class="c2"><label>Federal %</label><input name="tot_fed" inputmode="decimal"></div>
+            <div class="c2"><label>Estadual %</label><input name="tot_est" inputmode="decimal"></div>
+            <div class="c2"><label>Municipal %</label><input name="tot_mun" inputmode="decimal"></div>
+          </div>
+        </fieldset>
+      </div>
+    </div>
+    <div id="erro-servico" class="aviso erro" style="margin-top:12px" hidden></div>
+    <div class="acoes"><button class="botao" value="cancelar" formnovalidate>Cancelar</button><button class="botao primario" value="salvar">Salvar</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-empresa">
+  <form method="dialog" id="form-empresa">
+    <h2>Nova empresa</h2>
+    <div class="grade">
+      <div class="c4"><label>CNPJ</label><input name="cnpj" required></div>
+      <div class="c8"><label>Razão social</label><input name="nome" required></div>
+      <div class="c4"><label>Inscrição municipal</label><input name="im"></div>
+      <div class="c4"><label>Município emissor (IBGE)</label><input name="municipio" value="3511102" maxlength="7" required></div>
+      <div class="c4"><label>Série da DPS</label><input name="serie" value="1" required maxlength="5"></div>
+      <div class="c4"><label>Simples Nacional</label><select name="simples">
+        <option value="me_epp">ME/EPP optante</option><option value="mei">MEI</option><option value="nao_optante">Não optante</option></select></div>
+      <div class="c8"><label>Apuração (ME/EPP)</label><select name="apuracao">
+        <option value="tudo_no_simples">Federais e municipal pelo Simples</option>
+        <option value="issqn_por_fora">Federais pelo Simples, ISSQN por fora</option>
+        <option value="tudo_por_fora">Federais e municipal por fora</option>
+        <option value="">Não se aplica</option></select></div>
+      <div class="c6"><label>Regime especial de tributação</label><select name="regime_especial">
+        <option value="0">Nenhum</option><option value="1">Ato cooperado</option><option value="2">Estimativa</option>
+        <option value="3">Microempresa municipal</option><option value="4">Notário ou registrador</option>
+        <option value="5">Profissional autônomo</option><option value="6">Sociedade de profissionais</option><option value="9">Outros</option></select></div>
+      <div class="c6"><label>Ambiente</label><select name="ambiente">
+        <option value="homologacao">Homologação (testes, sem valor fiscal)</option><option value="producao">Produção</option></select></div>
+      <div class="c4"><label>Telefone</label><input name="telefone"></div>
+      <div class="c8"><label>E-mail</label><input name="email" type="email"></div>
+    </div>
+    <p class="ajuda">A série 70000 é usada pelo Emissor Web nacional; use outra para este sistema.</p>
+    <div id="erro-empresa" class="aviso erro" style="margin-top:12px" hidden></div>
+    <div class="acoes"><button class="botao" value="cancelar" formnovalidate>Cancelar</button><button class="botao primario" value="salvar">Salvar</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-certificado">
+  <form method="dialog" id="form-certificado">
+    <h2>Certificado digital A1</h2>
+    <p class="ajuda" id="cert-empresa"></p>
+    <div class="grade" style="margin-top:12px">
+      <div class="c12"><label>Arquivo .pfx / .p12</label><input name="arquivo" type="file" accept=".pfx,.p12" required></div>
+      <div class="c12"><label>Senha do certificado</label><input name="senha" type="password" required></div>
+    </div>
+    <p class="ajuda">O certificado é guardado criptografado com a senha mestra. O arquivo original pode ser removido depois.</p>
+    <div id="erro-certificado" class="aviso erro" style="margin-top:12px" hidden></div>
+    <div class="acoes"><button class="botao" value="cancelar" formnovalidate>Cancelar</button><button class="botao primario" value="salvar">Importar</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-numeracao">
+  <form method="dialog" id="form-numeracao">
+    <h2>Numeração e inscrição municipal</h2>
+    <p class="ajuda" id="num-empresa"></p>
+    <div class="grade" style="margin-top:12px">
+      <div class="c6"><label>Próximo número da DPS (série atual)</label><input name="proximo" type="number" min="1"></div>
+      <div class="c12"><label class="linha-check"><input type="checkbox" name="im_prod"> Informar inscrição municipal na DPS em Produção</label></div>
+      <div class="c12"><label class="linha-check"><input type="checkbox" name="im_hom"> Informar inscrição municipal na DPS em Homologação</label></div>
+    </div>
+    <p class="ajuda">Se a Sefin rejeitar com E0120, desmarque a inscrição municipal do ambiente correspondente.</p>
+    <div id="erro-numeracao" class="aviso erro" style="margin-top:12px" hidden></div>
+    <div class="acoes"><button class="botao" value="cancelar" formnovalidate>Cancelar</button><button class="botao primario" value="salvar">Salvar</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-cancelar">
+  <form method="dialog" id="form-cancelar">
+    <h2>Cancelar nota</h2>
+    <p class="ajuda" id="cancelar-nota"></p>
+    <div class="grade" style="margin-top:12px">
+      <div class="c12"><label>Motivo</label><select name="motivo">
+        <option value="erro_na_emissao">Erro na emissão</option><option value="servico_nao_prestado">Serviço não prestado</option><option value="outros">Outros</option></select></div>
+      <div class="c12"><label>Justificativa (15 a 255 caracteres)</label><textarea name="justificativa" required minlength="15" maxlength="255"></textarea></div>
+    </div>
+    <div id="erro-cancelar" class="aviso erro" style="margin-top:12px" hidden></div>
+    <div class="acoes"><button class="botao" value="cancelar" formnovalidate>Voltar</button><button class="botao primario perigo" value="salvar" style="background:var(--vermelho);border-color:var(--vermelho);color:#fff">Cancelar nota</button></div>
+  </form>
+</dialog>
+
+<div id="toasts"></div>
+</body>
+</html>

@@ -87,12 +87,25 @@ impl Banco {
         &self.pool
     }
 
-    async fn configuracao(&self, chave: &str) -> Resultado<Option<String>> {
+    /// Preferência gravada no banco (ex.: pasta de saída).
+    pub async fn configuracao(&self, chave: &str) -> Resultado<Option<String>> {
         Ok(sqlx::query("SELECT valor FROM configuracao WHERE chave = ?")
             .bind(chave)
             .fetch_optional(&self.pool)
             .await?
             .map(|r| r.get(0)))
+    }
+
+    pub async fn definir_configuracao(&self, chave: &str, valor: &str) -> Resultado<()> {
+        if chave == "cofre" {
+            return Err(ErroBanco::Regra("chave reservada".into()));
+        }
+        sqlx::query("INSERT INTO configuracao (chave, valor) VALUES (?, ?) ON CONFLICT (chave) DO UPDATE SET valor = excluded.valor")
+            .bind(chave)
+            .bind(valor)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
     }
 
     pub async fn cofre_existe(&self) -> Resultado<bool> {

@@ -83,6 +83,24 @@ pub struct NfseRecebida {
     pub competencia: chrono::NaiveDate,
 }
 
+/// Linha da lista de notas.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResumoNota {
+    pub dps_id: i64,
+    pub serie: String,
+    pub numero_dps: u64,
+    pub situacao: SituacaoDps,
+    pub ultimo_erro: Option<String>,
+    pub criada_em: String,
+    pub nfse_id: Option<i64>,
+    pub chave: Option<String>,
+    pub numero_nfse: Option<String>,
+    pub valor: Option<Valor>,
+    pub competencia: Option<String>,
+    pub tomador: Option<String>,
+    pub descricao: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NfseGravada {
     pub id: i64,
@@ -383,6 +401,50 @@ impl Banco {
         Ok(gravada)
     }
 
+    /// Notas da empresa (DPS e, quando autorizada, a NFS-e), mais recentes primeiro.
+    /// `mes` no formato `AAAA-MM` filtra pela competência (ou pela data de criação da DPS sem nota).
+    pub async fn listar_notas(&self, empresa_id: i64, mes: Option<&str>) -> Resultado<Vec<ResumoNota>> {
+        let linhas = sqlx::query(
+            "SELECT d.id, d.serie, d.numero, d.situacao, d.ultimo_erro, d.modelo_json, d.criado_em,
+                    n.id, n.chave, n.numero, n.valor_servico, n.competencia
+             FROM dps d LEFT JOIN nfse n ON n.dps_id = d.id
+             WHERE d.empresa_id = ? AND d.situacao <> 'reservada'
+               AND (? IS NULL OR COALESCE(n.competencia, substr(d.criado_em, 1, 10)) LIKE ? || '%')
+             ORDER BY d.id DESC LIMIT 500",
+        )
+        .bind(empresa_id)
+        .bind(mes)
+        .bind(mes)
+        .fetch_all(self.pool())
+        .await?;
+        linhas
+            .iter()
+            .map(|r| {
+                let modelo: Option<Dps> = r
+                    .get::<Option<String>, _>(5)
+                    .and_then(|j| serde_json::from_str(&j).ok());
+                Ok(ResumoNota {
+                    dps_id: r.get(0),
+                    serie: r.get(1),
+                    numero_dps: r.get::<i64, _>(2) as u64,
+                    situacao: SituacaoDps::de(r.get(3))?,
+                    ultimo_erro: r.get(4),
+                    criada_em: r.get(6),
+                    nfse_id: r.get(7),
+                    chave: r.get(8),
+                    numero_nfse: r.get(9),
+                    valor: r
+                        .get::<Option<i64>, _>(10)
+                        .map(Valor::de_centesimos)
+                        .or_else(|| modelo.as_ref().map(|m| m.valores.servico)),
+                    competencia: r.get(11),
+                    tomador: modelo.as_ref().and_then(|m| m.tomador.as_ref()).map(|t| t.nome.clone()),
+                    descricao: modelo.map(|m| m.servico.descricao),
+                })
+            })
+            .collect()
+    }
+
     /// Registra o evento de cancelamento homologado e marca a DPS como cancelada.
     pub async fn registrar_cancelamento(&self, nfse_id: i64, xml_evento: &str) -> Resultado<()> {
         let nfse = self.nfse(nfse_id).await?;
@@ -527,6 +589,37 @@ mod testes {
         assert!(
             banco.registrar_envio(r.id, &outro, "<DPS/>").await.is_err(),
             "Id diferente do reservado"
+        );
+    }
+
+    #[tokio::test]
+    async fn lista_notas_por_mes() {
+        let (banco, _, empresa) = banco_com_empresa().await;
+        let r = banco.reservar_dps(empresa.id).await.unwrap();
+        banco.registrar_envio(r.id, &modelo_para(&r), "<DPS/>").await.unwrap();
+        banco.registrar_autorizacao(r.id, &nfse_recebida()).await.unwrap();
+        let r2 = banco.reservar_dps(empresa.id).await.unwrap();
+        banco.registrar_envio(r2.id, &modelo_para(&r2), "<DPS/>").await.unwrap();
+        banco.registrar_rejeicao(r2.id, "E0120").await.unwrap();
+        banco.reservar_dps(empresa.id).await.unwrap(); // só reservada: não aparece
+
+        let todas = banco.listar_notas(empresa.id, None).await.unwrap();
+        assert_eq!(todas.len(), 2);
+        assert_eq!(todas[0].situacao, SituacaoDps::Rejeitada);
+        assert_eq!(todas[1].numero_nfse.as_deref(), Some("1"));
+        assert_eq!(todas[1].tomador.as_deref(), Some("CLINICA EXEMPLO LTDA"));
+        let mes_atual = chrono::Utc::now().format("%Y-%m").to_string();
+        // A autorizada é de 2026-10 (competência); a rejeitada conta pelo dia em que foi criada.
+        assert_eq!(
+            banco.listar_notas(empresa.id, Some("2026-10")).await.unwrap().len(),
+            if mes_atual == "2026-10" { 2 } else { 1 }
+        );
+        assert!(
+            banco
+                .listar_notas(empresa.id, Some("2020-01"))
+                .await
+                .unwrap()
+                .is_empty()
         );
     }
 

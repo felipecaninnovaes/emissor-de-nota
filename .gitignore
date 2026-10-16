@@ -46,3 +46,6 @@ logs/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Gerado pelo tauri-build
+/crates/app/gen/

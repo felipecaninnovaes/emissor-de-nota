@@ -1,0 +1,22 @@
+[package]
+name = "emissor-nfse"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+chrono = "0.4.45"
+nfse-cert = { version = "0.1.0", path = "../nfse-cert" }
+nfse-core = { version = "0.1.0", path = "../nfse-core" }
+nfse-db = { version = "0.1.0", path = "../nfse-db" }
+nfse-emissor = { version = "0.1.0", path = "../nfse-emissor" }
+nfse-pdf = { version = "0.1.0", path = "../nfse-pdf" }
+nfse-xml = { version = "0.1.0", path = "../nfse-xml" }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+tauri = "2.11.6"
+tokio = { version = "1.53.3", features = ["sync"] }
+
+[build-dependencies]
+tauri-build = "2.6.3"

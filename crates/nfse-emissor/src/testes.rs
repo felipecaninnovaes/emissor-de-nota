@@ -226,6 +226,29 @@ fn mes_ref_e_mes_anterior() {
     assert_eq!(aplicar_mes_ref("sem variável", d), "sem variável");
 }
 
+#[test]
+fn retencoes_percentuais_viram_valores() {
+    let p = |v: &str| Some(Percentual::parse(v).unwrap());
+    let t = Tributacao {
+        retencoes: nfse_db::servicos::RetencoesPercentuais {
+            irrf: p("1.5"),
+            csll: p("1"),
+            cp: None,
+            pis: p("0.65"),
+            cofins: p("3"),
+        },
+        ..Default::default()
+    };
+    let f = federais_da_nota(&t, Valor::parse("1234.56").unwrap());
+    assert_eq!(f.retencao_irrf.unwrap().to_string(), "18.52");
+    assert_eq!(f.retencao_csll.unwrap().to_string(), "12.35");
+    assert_eq!(f.retencao_cp, None);
+    let pc = f.pis_cofins.unwrap();
+    assert_eq!(pc.base_calculo.unwrap().to_string(), "1234.56");
+    assert_eq!(pc.valor_pis.unwrap().to_string(), "8.02");
+    assert_eq!(pc.valor_cofins.unwrap().to_string(), "37.04");
+}
+
 #[tokio::test]
 async fn emite_e_grava_a_nota() {
     let c = cenario(vec![Resposta::Emitir(Ok(nfse_autorizada()))]).await;
