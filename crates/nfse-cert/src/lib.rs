@@ -4,6 +4,8 @@
 //! a conexão mTLS com a Sefin Nacional; por isso os bytes originais do .pfx e a senha
 //! ficam guardados (em memória, zerados ao descartar) para montar a identidade TLS.
 
+mod ber;
+
 use chrono::{DateTime, Utc};
 use der::asn1::ObjectIdentifier;
 use der::{Decode, Tag, Tagged};
@@ -168,8 +170,18 @@ impl std::fmt::Debug for CertificadoA1 {
 
 impl CertificadoA1 {
     pub fn carregar(pfx: &[u8], senha: &str) -> Result<Self, ErroCertificado> {
-        let store = p12_keystore::KeyStore::from_pkcs12(pfx, senha, p12_keystore::Pkcs12ImportPolicy::Relaxed)
-            .map_err(|e| ErroCertificado::Pkcs12(e.to_string()))?;
+        let abrir = |bytes: &[u8]| {
+            p12_keystore::KeyStore::from_pkcs12(bytes, senha, p12_keystore::Pkcs12ImportPolicy::Relaxed)
+                .map_err(|e| ErroCertificado::Pkcs12(e.to_string()))
+        };
+        // Arquivo em BER (comprimento indefinido): reescreve a moldura em DER e tenta de novo.
+        let (store, pfx) = match abrir(pfx) {
+            Ok(store) => (store, pfx.to_vec()),
+            Err(erro) => match ber::para_der(pfx).filter(|der| der.as_slice() != pfx) {
+                Some(der) => (abrir(&der)?, der),
+                None => return Err(erro),
+            },
+        };
         let (_, cadeia) = store.private_key_chain().ok_or(ErroCertificado::SemChave)?;
 
         let chave =
@@ -189,7 +201,7 @@ impl CertificadoA1 {
             chave,
             certificado,
             info,
-            pfx: Zeroizing::new(pfx.to_vec()),
+            pfx: Zeroizing::new(pfx),
             senha: Zeroizing::new(senha.to_owned()),
         })
     }
@@ -223,6 +235,86 @@ mod testes {
 
     const PFX_LEGACY: &[u8] = include_bytes!("../tests/fixtures/teste-ecnpj-legacy.pfx");
     const PFX_AES: &[u8] = include_bytes!("../tests/fixtures/teste-ecnpj-aes.pfx");
+
+    /// Reescreve os `niveis` externos com comprimento indefinido, como os .pfx em BER de algumas
+    /// ACs (`30 80 02 01 03 30 80 06 09 ... a0 80 04 82 ...`).
+    fn em_ber(der: &[u8], niveis: usize) -> Vec<u8> {
+        fn elemento(d: &[u8], niveis: usize, saida: &mut Vec<u8>) -> usize {
+            let (tamanho, cabecalho) = match d[1] {
+                n if n < 0x80 => (n as usize, 2),
+                n => {
+                    let k = (n & 0x7f) as usize;
+                    (d[2..2 + k].iter().fold(0, |a, &b| (a << 8) | b as usize), 2 + k)
+                }
+            };
+            let total = cabecalho + tamanho;
+            if d[0] & 0x20 == 0 || niveis == 0 {
+                saida.extend_from_slice(&d[..total]);
+            } else {
+                saida.extend_from_slice(&[d[0], 0x80]);
+                let mut pos = cabecalho;
+                while pos < total {
+                    pos += elemento(&d[pos..total], niveis - 1, saida);
+                }
+                saida.extend_from_slice(&[0, 0]);
+            }
+            total
+        }
+        let mut saida = Vec::new();
+        elemento(der, niveis, &mut saida);
+        saida
+    }
+
+    #[test]
+    fn carrega_pfx_em_ber() {
+        for pfx in [PFX_LEGACY, PFX_AES] {
+            let ber = em_ber(pfx, 3);
+            assert_eq!(&ber[..2], &[0x30, 0x80]);
+            assert!(
+                p12_keystore::KeyStore::from_pkcs12(&ber, "1234", p12_keystore::Pkcs12ImportPolicy::Relaxed).is_err()
+            );
+            let cert = CertificadoA1::carregar(&ber, "1234").unwrap();
+            assert_eq!(cert.info().cnpj.as_ref().map(|c| c.as_str()), Some("11222333000181"));
+            assert_eq!(cert.pkcs12().0, pfx, "a moldura em DER volta a ser a original");
+            // A senha continua sendo conferida (MAC sobre o conteúdo, que não muda).
+            assert!(matches!(
+                CertificadoA1::carregar(&ber, "errada"),
+                Err(ErroCertificado::Pkcs12(_))
+            ));
+        }
+    }
+
+    /// Confere .pfx reais sem saber a senha: com uma senha errada, o erro tem de ser o do MAC
+    /// (estrutura lida por inteiro), não o de ASN.1 inválido.
+    /// `NFSE_PFX_DIR=<pasta> cargo test -p nfse-cert -- --ignored pfx_reais`
+    #[test]
+    #[ignore]
+    fn pfx_reais_abrem_ate_o_mac() {
+        let pasta = std::env::var("NFSE_PFX_DIR").expect("NFSE_PFX_DIR");
+        let (mut ber, mut total) = (0, 0);
+        for entrada in std::fs::read_dir(pasta).unwrap() {
+            let caminho = entrada.unwrap().path();
+            if caminho.extension().and_then(|e| e.to_str()) != Some("pfx") {
+                continue;
+            }
+            let pfx = std::fs::read(&caminho).unwrap();
+            total += 1;
+            if pfx.starts_with(&[0x30, 0x80]) {
+                ber += 1;
+            }
+            match CertificadoA1::carregar(&pfx, "senha-errada-de-proposito") {
+                Err(ErroCertificado::Pkcs12(m)) => {
+                    assert!(
+                        !m.contains("DER") && !m.contains("indefinite"),
+                        "{}: {m}",
+                        caminho.display()
+                    );
+                }
+                outro => panic!("{}: {:?}", caminho.display(), outro.err()),
+            }
+        }
+        println!("{total} arquivos, {ber} em BER, todos chegaram à conferência da senha");
+    }
 
     #[test]
     fn carrega_pfx_legacy_e_aes() {
