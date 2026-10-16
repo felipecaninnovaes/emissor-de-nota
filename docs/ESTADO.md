@@ -57,6 +57,4 @@ escritório: o contribuinte não está no CNC desse ambiente (rejeição E0084).
 - Logomarca oficial da NFS-e no DANFSe (hoje há um texto no lugar): baixar do portal gov.br ou receber o PNG.
 - Nome de município de tomador fora do município emissor aparece como código IBGE (falta tabela IBGE).
 - Consulta pública de CNPJ no cadastro de tomador (BrasilAPI etc.) ainda não feita.
-- Commits antigos do histórico local contêm CNPJ e endereço reais em fixtures de teste
-  (corrigidos depois): limpar o histórico antes do primeiro push para o repositório público.
 - Cancelamento ainda não testado contra a Sefin real pelo nosso código (a nota de teste foi cancelada pelo portal).
