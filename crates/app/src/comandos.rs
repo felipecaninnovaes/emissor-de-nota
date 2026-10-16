@@ -9,7 +9,7 @@ use tauri::State;
 use nfse_core::modelo::{Ambiente, RegimeTributario, Tomador};
 use nfse_core::{Cnpj, Valor};
 use nfse_db::dps::SituacaoDps;
-use nfse_db::empresas::NovaEmpresa;
+use nfse_db::empresas::{Exclusao, NovaEmpresa};
 use nfse_db::servicos::{Servico, Tributacao};
 use nfse_db::tomadores::TomadorVinculado;
 use nfse_emissor::{ConectorSefin, Emissor, PedidoEmissao, ResultadoEmissao};
@@ -237,6 +237,17 @@ pub async fn importar_certificado(
         dias_para_vencer: info.dias_para_vencer(Utc::now()),
         valido_ate: info.valido_ate.format("%d/%m/%Y").to_string(),
         titular: info.titular,
+    })
+}
+
+/// Exclui a empresa (sem notas) ou arquiva (com notas); devolve a mensagem para o operador.
+#[tauri::command]
+pub async fn excluir_empresa(estado: State<'_, Estado>, empresa_id: i64) -> R<String> {
+    Ok(match estado.banco.excluir_empresa(empresa_id).await.map_err(texto)? {
+        Exclusao::Excluida => "Empresa excluída.".into(),
+        Exclusao::Arquivada { notas } => format!(
+            "Empresa arquivada: ela tem {notas} NFS-e no banco, que continuam guardadas.              Cadastrar o mesmo CNPJ de novo traz a empresa de volta com as notas."
+        ),
     })
 }
 

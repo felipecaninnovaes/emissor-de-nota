@@ -41,6 +41,7 @@ fn main() {
             comandos::listar_empresas,
             comandos::cadastrar_empresa,
             comandos::importar_certificado,
+            comandos::excluir_empresa,
             comandos::definir_im_na_dps,
             comandos::definir_proximo_numero,
             comandos::certificados_vencendo,

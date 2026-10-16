@@ -506,6 +506,49 @@ mod testes {
     }
 
     #[tokio::test]
+    async fn exclusao_de_empresa_depende_do_historico() {
+        use crate::empresas::Exclusao;
+        use crate::empresas::testes::nova_empresa;
+
+        // Sem nota: sai tudo (inclusive DPS só reservada e serviços).
+        let (banco, cofre, empresa) = banco_com_empresa().await;
+        banco
+            .importar_certificado(&cofre, empresa.id, crate::empresas::testes::PFX, "1234")
+            .await
+            .unwrap();
+        banco.reservar_dps(empresa.id).await.unwrap();
+        assert_eq!(banco.excluir_empresa(empresa.id).await.unwrap(), Exclusao::Excluida);
+        assert!(banco.empresas().await.unwrap().is_empty());
+        let certificados: i64 = sqlx::query("SELECT COUNT(*) FROM certificado")
+            .fetch_one(banco.pool())
+            .await
+            .unwrap()
+            .get(0);
+        assert_eq!(certificados, 0);
+
+        // Envio sem resposta: recusa.
+        let empresa = banco.cadastrar_empresa(&nova_empresa()).await.unwrap();
+        let r = banco.reservar_dps(empresa.id).await.unwrap();
+        banco.registrar_envio(r.id, &modelo_para(&r), "<DPS/>").await.unwrap();
+        banco.registrar_incerta(r.id, "timeout").await.unwrap();
+        assert!(matches!(
+            banco.excluir_empresa(empresa.id).await,
+            Err(ErroBanco::Regra(_))
+        ));
+
+        // Com nota autorizada: só arquiva, e recadastrar o CNPJ traz a empresa de volta.
+        banco.registrar_autorizacao(r.id, &nfse_recebida()).await.unwrap();
+        assert_eq!(
+            banco.excluir_empresa(empresa.id).await.unwrap(),
+            Exclusao::Arquivada { notas: 1 }
+        );
+        assert!(banco.empresas().await.unwrap().is_empty());
+        let de_volta = banco.cadastrar_empresa(&nova_empresa()).await.unwrap();
+        assert_eq!(de_volta.id, empresa.id);
+        assert_eq!(banco.listar_notas(empresa.id, None).await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
     async fn proximo_numero_nao_volta() {
         let (banco, _, empresa) = banco_com_empresa().await;
         banco

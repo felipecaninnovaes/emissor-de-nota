@@ -962,6 +962,7 @@ async function renderizarEmpresas() {
             <td><div class="acoes">
               <button class="botao pequeno" data-acao="certificado" data-i="${i}">Certificado</button>
               <button class="botao pequeno" data-acao="numeracao" data-i="${i}">Numeração / IM</button>
+              <button class="botao pequeno perigo" data-acao="excluir" data-i="${i}">Excluir</button>
             </div></td>
           </tr>`;
         })
@@ -974,8 +975,25 @@ $("#lista-empresas").addEventListener("click", (ev) => {
   if (!b) return;
   const e = estado.empresas[Number(b.dataset.i)];
   if (b.dataset.acao === "certificado") importarCertificado(e);
+  else if (b.dataset.acao === "excluir") excluirEmpresa(e);
   else editarNumeracao(e);
 });
+
+async function excluirEmpresa(empresa) {
+  const pergunta =
+    `Excluir ${empresa.nome} (${empresa.cnpj_formatado})?\n\n` +
+    "Sem notas emitidas, o cadastro, o certificado e os serviços são apagados.\n" +
+    "Com notas emitidas, a empresa só é arquivada e as notas continuam guardadas.";
+  if (!confirm(pergunta)) return;
+  try {
+    toast(await chamar("excluir_empresa", { empresaId: empresa.id }));
+    if (estado.empresa?.id === empresa.id) estado.empresa = null;
+    await carregarEmpresas();
+    await renderizarEmpresas();
+  } catch (e) {
+    toast(String(e), true);
+  }
+}
 
 $("#nova-empresa").addEventListener("click", () => {
   const dlg = $("#dlg-empresa");

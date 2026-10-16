@@ -102,6 +102,16 @@ fn data(s: &str) -> Resultado<DateTime<Utc>> {
         .map_err(|e| ErroBanco::DadoInvalido(format!("data {s:?}: {e}")))
 }
 
+/// O que `excluir_empresa` fez.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Exclusao {
+    Excluida,
+    /// Tinha NFS-e emitidas: saiu da lista, mas as notas continuam no banco.
+    Arquivada {
+        notas: i64,
+    },
+}
+
 /// Linha do painel de vencimentos.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VencimentoCertificado {
@@ -150,6 +160,31 @@ impl Banco {
         .await?
         .get(0);
 
+        // Empresa arquivada (tinha notas) volta com o histórico e os dados novos.
+        let arquivada: Option<i64> = sqlx::query("SELECT id FROM empresa WHERE pessoa_id = ? AND ativa = 0")
+            .bind(pessoa_id)
+            .fetch_optional(&mut *tx)
+            .await?
+            .map(|r| r.get(0));
+        if let Some(id) = arquivada {
+            sqlx::query(
+                "UPDATE empresa SET inscricao_municipal = ?, municipio_emissor = ?, regime_json = ?, ambiente = ?,
+                     serie = ?, ativa = 1 WHERE id = ?",
+            )
+            .bind(&nova.inscricao_municipal)
+            .bind(&nova.municipio_emissor)
+            .bind(json(&nova.regime))
+            .bind(ambiente_texto(nova.ambiente))
+            .bind(&nova.serie)
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+            tx.commit().await?;
+            self.auditar("empresa_reativada", Some(id), Some(nova.cnpj.as_str()))
+                .await?;
+            return self.empresa(id).await;
+        }
+
         let id: i64 = sqlx::query(
             "INSERT INTO empresa (pessoa_id, inscricao_municipal, municipio_emissor, regime_json, ambiente, serie, criado_em)
              VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
@@ -192,6 +227,50 @@ impl Banco {
             .iter()
             .map(empresa_de)
             .collect()
+    }
+
+    /// Remove a empresa da lista. Sem NFS-e emitida, apaga o cadastro inteiro (certificado,
+    /// serviços, vínculos, numeração e DPS não autorizadas); com NFS-e, só arquiva, porque as
+    /// notas são documento fiscal e continuam no banco. Recusa se houver envio sem resposta.
+    pub async fn excluir_empresa(&self, id: i64) -> Resultado<Exclusao> {
+        let empresa = self.empresa(id).await?;
+        let contar = |sql: &'static str| async move {
+            sqlx::query(sql)
+                .bind(id)
+                .fetch_one(self.pool())
+                .await
+                .map(|r| r.get::<i64, _>(0))
+        };
+        if contar("SELECT COUNT(*) FROM dps WHERE empresa_id = ? AND situacao IN ('enviando', 'incerta')").await? > 0 {
+            return Err(ErroBanco::Regra(
+                "há envio sem resposta da Sefin para esta empresa; verifique-o antes de excluir".into(),
+            ));
+        }
+        let notas = contar("SELECT COUNT(*) FROM nfse n JOIN dps d ON d.id = n.dps_id WHERE d.empresa_id = ?").await?;
+        if notas > 0 {
+            sqlx::query("UPDATE empresa SET ativa = 0 WHERE id = ?")
+                .bind(id)
+                .execute(self.pool())
+                .await?;
+            self.auditar("empresa_arquivada", Some(id), Some(empresa.cnpj.as_str()))
+                .await?;
+            return Ok(Exclusao::Arquivada { notas });
+        }
+        let mut tx = self.pool().begin().await?;
+        for tabela in ["dps", "servico", "empresa_tomador", "numeracao", "certificado"] {
+            sqlx::query(&format!("DELETE FROM {tabela} WHERE empresa_id = ?"))
+                .bind(id)
+                .execute(&mut *tx)
+                .await?;
+        }
+        sqlx::query("DELETE FROM empresa WHERE id = ?")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        self.auditar("empresa_excluida", Some(id), Some(empresa.cnpj.as_str()))
+            .await?;
+        Ok(Exclusao::Excluida)
     }
 
     pub async fn definir_im_na_dps(&self, empresa_id: i64, ambiente: Ambiente, informar: bool) -> Resultado<()> {
