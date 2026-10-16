@@ -1,0 +1,45 @@
+# Build
+/target/
+**/*.rs.bk
+
+# Certificados e chaves — NUNCA versionar certificados reais de clientes.
+# Os únicos permitidos são os de teste autoassinados em tests/fixtures/.
+*.pfx
+*.p12
+*.pem
+*.key
+*.crt
+*.cer
+!**/tests/fixtures/*.pfx
+!**/tests/fixtures/*.pem
+
+# Bancos locais e backups
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+backup/
+
+# Notas, XMLs e PDFs gerados (dados fiscais de clientes)
+/saida/
+/notas/
+*.danfse.pdf
+
+# Segredos e configuração local
+.env
+.env.*
+config.local.*
+*.secret
+
+# Logs
+*.log
+logs/
+
+# Editores e SO
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
