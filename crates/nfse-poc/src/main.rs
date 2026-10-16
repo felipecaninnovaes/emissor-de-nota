@@ -6,7 +6,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
-use chrono::Utc;
+use chrono::{Timelike, Utc};
 use clap::{Parser, Subcommand, ValueEnum};
 
 use nfse_cert::CertificadoA1;
@@ -41,6 +41,19 @@ enum Comando {
     CertInfo {
         #[arg(long)]
         pfx: PathBuf,
+    },
+    /// Gera o XML da DPS a partir de um JSON (ver exemplos/dps-exemplo.json) e, com --pfx, assina.
+    GerarDps {
+        #[arg(long)]
+        entrada: PathBuf,
+        #[arg(long)]
+        saida: PathBuf,
+        /// Usa a data/hora atual (Brasília, 1 minuto atrás) em vez de `emissao` do JSON.
+        #[arg(long)]
+        agora: bool,
+        /// Certificado para assinar a DPS gerada.
+        #[arg(long)]
+        pfx: Option<PathBuf>,
     },
     /// Assina uma DPS (ou evento) e grava o XML assinado.
     Assinar {
@@ -136,6 +149,36 @@ async fn main() -> Result<()> {
             if i.vencido_em(agora) {
                 println!("ATENÇÃO: certificado fora da validade.");
             }
+        }
+        Comando::GerarDps {
+            entrada,
+            saida,
+            agora,
+            pfx,
+        } => {
+            let json = std::fs::read_to_string(&entrada).with_context(|| format!("lendo {}", entrada.display()))?;
+            let mut dps: nfse_core::Dps = serde_json::from_str(&json).context("JSON da DPS inválido")?;
+            if agora {
+                // Um minuto de folga: dhEmi posterior ao relógio da Sefin é rejeitado.
+                let brasilia = chrono::FixedOffset::west_opt(3 * 3600).expect("fuso fixo");
+                let instante = Utc::now() - chrono::Duration::minutes(1);
+                dps.emissao = instante
+                    .with_timezone(&brasilia)
+                    .with_nanosecond(0)
+                    .expect("nanossegundo zero");
+            }
+            let (mut xml, id) = nfse_xml::gerar_dps(&dps)?;
+            if let Some(pfx) = pfx {
+                let cert = abrir_certificado(&pfx)?;
+                if let nfse_core::modelo::Documento::Cnpj(cnpj) = &dps.prestador.documento
+                    && !cert.info().pertence_a(cnpj)
+                {
+                    bail!("o certificado ({}) não é do prestador {cnpj}", cert.info().titular);
+                }
+                xml = nfse_xml::assinar(&xml, id.as_str(), &cert)?;
+            }
+            std::fs::write(&saida, xml)?;
+            println!("DPS {id} gravada em {}", saida.display());
         }
         Comando::Assinar { pfx, xml, id, saida } => {
             let conteudo = std::fs::read_to_string(&xml).with_context(|| format!("lendo {}", xml.display()))?;

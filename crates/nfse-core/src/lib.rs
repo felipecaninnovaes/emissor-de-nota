@@ -2,6 +2,10 @@
 
 pub mod documento;
 pub mod dps;
+pub mod modelo;
+pub mod valor;
 
 pub use documento::{Cnpj, Cpf, DocumentoInvalido};
 pub use dps::{DpsId, Inscricao};
+pub use modelo::Dps;
+pub use valor::{Percentual, Valor};

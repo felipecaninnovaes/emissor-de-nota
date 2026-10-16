@@ -15,7 +15,7 @@ Escopo completo: [Escopo — Emissor de NFS-e Multiempresa (Rust).md](<Escopo �
 | Diagnóstico do certificado (CNPJ ICP-Brasil, validade, AC, EKU Client Auth) | feito, testado |
 | C14N inclusivo + XMLDSIG RSA-SHA1 sem prefixo `ds:` | feito; conferido com lxml e (no CI) com xmlsec1 |
 | Cliente mTLS da Sefin (emitir, consultar DPS, consultar NFS-e) | feito; **falta testar com certificado real em Produção Restrita** |
-| Montagem da DPS completa e validação XSD | próxima etapa |
+| Geração da DPS (leiaute 1.01) a partir de JSON | feito; idêntica à DPS de uma nota real do Emissor Web e válida no XSD |
 
 ## Estrutura
 
@@ -40,14 +40,15 @@ cargo run -p nfse-poc -- consultar-dps --pfx caminho/empresa.pfx --id DPS3511102
 ```
 
 Se a conexão mTLS funcionar, a consulta responde que não há NFS-e para a DPS (ou devolve a chave, se houver).
-Depois, para assinar e emitir uma DPS em Produção Restrita (homologação, sem valor fiscal):
+Depois, para gerar, assinar e emitir uma DPS em Produção Restrita (homologação, sem valor fiscal), parta de
+[exemplos/dps-exemplo.json](exemplos/dps-exemplo.json) com os dados da empresa (guarde a cópia em `certs/`, fora do git):
 
 ```bash
-cargo run -p nfse-poc -- assinar --pfx caminho/empresa.pfx --xml dps.xml --saida dps-assinada.xml
+cargo run -p nfse-poc -- gerar-dps --entrada certs/dps.json --saida certs/dps-assinada.xml --agora --pfx caminho/empresa.pfx
 ```
 
 ```bash
-cargo run -p nfse-poc -- emitir --pfx caminho/empresa.pfx --xml dps-assinada.xml --ambiente restrita --saida nfse.xml
+cargo run -p nfse-poc -- emitir --pfx caminho/empresa.pfx --xml certs/dps-assinada.xml --ambiente restrita --saida certs/nfse.xml
 ```
 
 Emitir em Produção exige `--ambiente producao --confirmo-producao`.

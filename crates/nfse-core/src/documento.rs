@@ -7,6 +7,8 @@
 
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum DocumentoInvalido {
     #[error("tamanho inválido: esperado {esperado} caracteres, recebido {recebido}")]
@@ -48,8 +50,23 @@ fn dv_mod11(valores: &[u32], peso_max: u32) -> u32 {
     if resto < 2 { 0 } else { 11 - resto }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
 pub struct Cnpj(String);
+
+impl TryFrom<String> for Cnpj {
+    type Error = DocumentoInvalido;
+
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        Self::parse(&s)
+    }
+}
+
+impl From<Cnpj> for String {
+    fn from(d: Cnpj) -> String {
+        d.0
+    }
+}
 
 impl Cnpj {
     pub fn parse(entrada: &str) -> Result<Self, DocumentoInvalido> {
@@ -101,8 +118,23 @@ impl fmt::Display for Cnpj {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
 pub struct Cpf(String);
+
+impl TryFrom<String> for Cpf {
+    type Error = DocumentoInvalido;
+
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        Self::parse(&s)
+    }
+}
+
+impl From<Cpf> for String {
+    fn from(d: Cpf) -> String {
+        d.0
+    }
+}
 
 impl Cpf {
     pub fn parse(entrada: &str) -> Result<Self, DocumentoInvalido> {

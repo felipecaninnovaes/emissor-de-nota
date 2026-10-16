@@ -261,6 +261,7 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
+ "serde",
  "wasm-bindgen",
  "windows-link",
 ]
@@ -1098,6 +1099,9 @@ dependencies = [
 name = "nfse-core"
 version = "0.1.0"
 dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
  "thiserror",
 ]
 
@@ -1127,6 +1131,7 @@ dependencies = [
  "nfse-xml",
  "roxmltree",
  "rpassword",
+ "serde_json",
  "tokio",
  "zeroize",
 ]
@@ -1137,8 +1142,10 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "nfse-cert",
+ "nfse-core",
  "roxmltree",
  "rsa",
+ "serde_json",
  "sha1 0.10.7",
  "thiserror",
 ]

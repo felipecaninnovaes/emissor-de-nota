@@ -1,0 +1,45 @@
+{
+  "ambiente": "homologacao",
+  "emissao": "2026-10-16T10:00:00-03:00",
+  "versao_aplicativo": "emissor-nfse/0.1.0",
+  "serie": "1",
+  "numero": 1,
+  "competencia": "2026-10-16",
+  "municipio_emissor": "3511102",
+  "prestador": {
+    "documento": { "cnpj": "11222333000181" },
+    "inscricao_municipal": "12345",
+    "telefone": "1733334444",
+    "email": "contato@exemplo.com.br",
+    "regime": {
+      "simples": "me_epp",
+      "apuracao_simples": "tudo_no_simples",
+      "regime_especial": 0
+    }
+  },
+  "tomador": {
+    "documento": { "cnpj": "12ABC34501DE35" },
+    "nome": "CLINICA EXEMPLO LTDA",
+    "endereco": {
+      "municipio": "3511102",
+      "cep": "15800000",
+      "logradouro": "RUA EXEMPLO",
+      "numero": "100",
+      "bairro": "CENTRO"
+    }
+  },
+  "servico": {
+    "municipio_prestacao": "3511102",
+    "codigo_tributacao_nacional": "171901",
+    "descricao": "Honorários contábeis referentes a 10/2026 & serviços <auxiliares>.",
+    "nbs": "113022100"
+  },
+  "valores": {
+    "servico": "1500.00",
+    "issqn": { "tributacao": "tributavel", "retencao": "nao_retido" },
+    "federais": {
+      "pis_cofins": { "cst": "00", "tipo_retencao": 0 }
+    },
+    "total_tributos": { "percentual_simples": "11.48" }
+  }
+}

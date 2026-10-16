@@ -26,6 +26,8 @@ backup/
 # Notas, XMLs e PDFs gerados (dados fiscais de clientes)
 /saida/
 /notas/
+/*.xml
+/*.json
 *.danfse.pdf
 
 # Segredos e configuração local
