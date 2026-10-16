@@ -1,0 +1,246 @@
+//! Tomadores: cadastro global por documento (`pessoa`) e vínculo com cada empresa.
+//!
+//! Um convênio que atende várias clínicas é cadastrado uma vez; cada clínica só cria o vínculo.
+
+use sqlx::Row;
+use sqlx::sqlite::SqliteRow;
+
+use nfse_core::modelo::{Documento, EnderecoNacional, Tomador};
+use nfse_core::{Cnpj, Cpf};
+
+use crate::{Banco, ErroBanco, Resultado, agora};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TomadorVinculado {
+    pub pessoa_id: i64,
+    pub tomador: Tomador,
+    /// E-mails de envio da nota, específicos do vínculo com a empresa (separados por `;`).
+    pub emails: Option<String>,
+    pub observacao: Option<String>,
+}
+
+fn documento_de(tipo: &str, doc: &str) -> Resultado<Documento> {
+    let invalido = |e| ErroBanco::DadoInvalido(format!("documento {doc}: {e}"));
+    match tipo {
+        "cnpj" => Ok(Documento::Cnpj(Cnpj::parse(doc).map_err(invalido)?)),
+        "cpf" => Ok(Documento::Cpf(Cpf::parse(doc).map_err(invalido)?)),
+        outro => Err(ErroBanco::DadoInvalido(format!("tipo de documento {outro:?}"))),
+    }
+}
+
+fn tipo_e_numero(d: &Documento) -> (&'static str, &str) {
+    match d {
+        Documento::Cnpj(c) => ("cnpj", c.as_str()),
+        Documento::Cpf(c) => ("cpf", c.as_str()),
+    }
+}
+
+const SELECT_TOMADOR: &str = "SELECT p.id, p.tipo, p.documento, p.inscricao_municipal, p.nome, p.municipio, p.cep,
+    p.logradouro, p.numero, p.complemento, p.bairro, p.telefone, p.email, v.emails, v.observacao
+    FROM empresa_tomador v JOIN pessoa p ON p.id = v.pessoa_id";
+
+fn tomador_de(r: &SqliteRow) -> Resultado<TomadorVinculado> {
+    let municipio: Option<String> = r.get(5);
+    let endereco = match (municipio, r.get::<Option<String>, _>(6), r.get::<Option<String>, _>(7)) {
+        (Some(municipio), Some(cep), Some(logradouro)) => Some(EnderecoNacional {
+            municipio,
+            cep,
+            logradouro,
+            numero: r.get::<Option<String>, _>(8).unwrap_or_else(|| "S/N".into()),
+            complemento: r.get(9),
+            bairro: r.get::<Option<String>, _>(10).unwrap_or_default(),
+        }),
+        _ => None,
+    };
+    Ok(TomadorVinculado {
+        pessoa_id: r.get(0),
+        tomador: Tomador {
+            documento: documento_de(r.get(1), r.get(2))?,
+            inscricao_municipal: r.get(3),
+            nome: r.get(4),
+            endereco,
+            telefone: r.get(11),
+            email: r.get(12),
+        },
+        emails: r.get(13),
+        observacao: r.get(14),
+    })
+}
+
+impl Banco {
+    /// Cria ou atualiza a pessoa pelo documento e garante o vínculo com a empresa.
+    /// `fonte` registra de onde vieram os dados (ex.: "manual", "brasilapi").
+    pub async fn salvar_tomador(&self, empresa_id: i64, t: &Tomador, fonte: &str) -> Resultado<i64> {
+        if t.nome.trim().is_empty() {
+            return Err(ErroBanco::Regra("nome do tomador vazio".into()));
+        }
+        let (tipo, numero) = tipo_e_numero(&t.documento);
+        let e = t.endereco.as_ref();
+        let mut tx = self.pool().begin().await?;
+        let pessoa_id: i64 = sqlx::query(
+            "INSERT INTO pessoa (tipo, documento, nome, inscricao_municipal, municipio, cep, logradouro, numero,
+                 complemento, bairro, telefone, email, fonte, atualizado_em)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT (documento) DO UPDATE SET nome = excluded.nome,
+                 inscricao_municipal = excluded.inscricao_municipal, municipio = excluded.municipio, cep = excluded.cep,
+                 logradouro = excluded.logradouro, numero = excluded.numero, complemento = excluded.complemento,
+                 bairro = excluded.bairro, telefone = excluded.telefone, email = excluded.email,
+                 fonte = excluded.fonte, atualizado_em = excluded.atualizado_em
+             RETURNING id",
+        )
+        .bind(tipo)
+        .bind(numero)
+        .bind(t.nome.trim())
+        .bind(&t.inscricao_municipal)
+        .bind(e.map(|e| &e.municipio))
+        .bind(e.map(|e| &e.cep))
+        .bind(e.map(|e| &e.logradouro))
+        .bind(e.map(|e| &e.numero))
+        .bind(e.and_then(|e| e.complemento.as_ref()))
+        .bind(e.map(|e| &e.bairro))
+        .bind(&t.telefone)
+        .bind(&t.email)
+        .bind(fonte)
+        .bind(agora())
+        .fetch_one(&mut *tx)
+        .await?
+        .get(0);
+        sqlx::query("INSERT INTO empresa_tomador (empresa_id, pessoa_id) VALUES (?, ?) ON CONFLICT DO NOTHING")
+            .bind(empresa_id)
+            .bind(pessoa_id)
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        Ok(pessoa_id)
+    }
+
+    pub async fn definir_emails_tomador(
+        &self,
+        empresa_id: i64,
+        pessoa_id: i64,
+        emails: Option<&str>,
+        observacao: Option<&str>,
+    ) -> Resultado<()> {
+        let afetadas =
+            sqlx::query("UPDATE empresa_tomador SET emails = ?, observacao = ? WHERE empresa_id = ? AND pessoa_id = ?")
+                .bind(emails)
+                .bind(observacao)
+                .bind(empresa_id)
+                .bind(pessoa_id)
+                .execute(self.pool())
+                .await?
+                .rows_affected();
+        if afetadas == 0 {
+            return Err(ErroBanco::NaoEncontrado("vínculo do tomador com a empresa"));
+        }
+        Ok(())
+    }
+
+    pub async fn tomador(&self, empresa_id: i64, pessoa_id: i64) -> Resultado<TomadorVinculado> {
+        let linha = sqlx::query(&format!("{SELECT_TOMADOR} WHERE v.empresa_id = ? AND v.pessoa_id = ?"))
+            .bind(empresa_id)
+            .bind(pessoa_id)
+            .fetch_optional(self.pool())
+            .await?
+            .ok_or(ErroBanco::NaoEncontrado("tomador da empresa"))?;
+        tomador_de(&linha)
+    }
+
+    /// Busca por parte do nome ou do documento (com ou sem pontuação), até 20 resultados.
+    pub async fn buscar_tomadores(&self, empresa_id: i64, termo: &str) -> Resultado<Vec<TomadorVinculado>> {
+        let termo = termo.trim();
+        let so_documento: String = termo.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
+        let linhas = sqlx::query(&format!(
+            "{SELECT_TOMADOR} WHERE v.empresa_id = ?
+               AND (p.nome LIKE '%' || ? || '%' COLLATE NOCASE OR (? <> '' AND p.documento LIKE ? || '%'))
+             ORDER BY p.nome LIMIT 20"
+        ))
+        .bind(empresa_id)
+        .bind(termo)
+        .bind(&so_documento)
+        .bind(so_documento.to_uppercase())
+        .fetch_all(self.pool())
+        .await?;
+        linhas.iter().map(tomador_de).collect()
+    }
+
+    /// Pessoa já cadastrada (por qualquer empresa), para reaproveitar sem nova consulta de CNPJ.
+    pub async fn pessoa_por_documento(&self, documento: &str) -> Resultado<Option<i64>> {
+        Ok(sqlx::query("SELECT id FROM pessoa WHERE documento = ?")
+            .bind(documento)
+            .fetch_optional(self.pool())
+            .await?
+            .map(|r| r.get(0)))
+    }
+}
+
+#[cfg(test)]
+mod testes {
+    use super::*;
+    use crate::empresas::testes::{banco_com_empresa, nova_empresa};
+
+    fn convenio() -> Tomador {
+        Tomador {
+            documento: Documento::Cnpj(Cnpj::parse("12ABC34501DE35").unwrap()),
+            inscricao_municipal: None,
+            nome: "CONVENIO SAUDE EXEMPLO".into(),
+            endereco: Some(EnderecoNacional {
+                municipio: "3511102".into(),
+                cep: "15800000".into(),
+                logradouro: "RUA A".into(),
+                numero: "1".into(),
+                complemento: None,
+                bairro: "CENTRO".into(),
+            }),
+            telefone: None,
+            email: Some("faturamento@convenio.exemplo".into()),
+        }
+    }
+
+    #[tokio::test]
+    async fn tomador_reutilizado_entre_empresas() {
+        let (banco, _, clinica1) = banco_com_empresa().await;
+        let mut outra = nova_empresa();
+        outra.cnpj = Cnpj::parse("11222333000262").unwrap();
+        let clinica2 = banco.cadastrar_empresa(&outra).await.unwrap();
+
+        let id1 = banco.salvar_tomador(clinica1.id, &convenio(), "manual").await.unwrap();
+        let id2 = banco.salvar_tomador(clinica2.id, &convenio(), "manual").await.unwrap();
+        assert_eq!(id1, id2, "mesma pessoa para as duas clínicas");
+
+        banco
+            .definir_emails_tomador(clinica1.id, id1, Some("a@x.com; b@x.com"), None)
+            .await
+            .unwrap();
+        assert_eq!(
+            banco.tomador(clinica1.id, id1).await.unwrap().emails.as_deref(),
+            Some("a@x.com; b@x.com")
+        );
+        assert_eq!(
+            banco.tomador(clinica2.id, id1).await.unwrap().emails,
+            None,
+            "e-mail é do vínculo"
+        );
+        assert_eq!(banco.tomador(clinica1.id, id1).await.unwrap().tomador, convenio());
+    }
+
+    #[tokio::test]
+    async fn busca_por_nome_ou_documento() {
+        let (banco, _, empresa) = banco_com_empresa().await;
+        banco.salvar_tomador(empresa.id, &convenio(), "manual").await.unwrap();
+        for termo in ["saude", "CONVENIO", "12.ABC", "12abc345"] {
+            assert_eq!(
+                banco.buscar_tomadores(empresa.id, termo).await.unwrap().len(),
+                1,
+                "{termo}"
+            );
+        }
+        assert!(banco.buscar_tomadores(empresa.id, "farmacia").await.unwrap().is_empty());
+        // Outra empresa sem vínculo não enxerga o tomador.
+        let mut outra = nova_empresa();
+        outra.cnpj = Cnpj::parse("11222333000262").unwrap();
+        let outra = banco.cadastrar_empresa(&outra).await.unwrap();
+        assert!(banco.buscar_tomadores(outra.id, "saude").await.unwrap().is_empty());
+        assert!(banco.pessoa_por_documento("12ABC34501DE35").await.unwrap().is_some());
+    }
+}

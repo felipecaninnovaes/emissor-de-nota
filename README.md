@@ -27,6 +27,7 @@ cadastrado nesse ambiente (rejeição E0084).
 | `nfse-cert` | Certificado A1: leitura do .pfx, diagnóstico, assinatura RSA |
 | `nfse-xml` | Canonicalização e assinatura/verificação XMLDSIG |
 | `nfse-nacional` | Cliente mTLS da Sefin Nacional, GZip+Base64, reconciliação |
+| `nfse-db` | SQLite: cofre de certificados (Argon2id + AES-256-GCM), empresas, tomadores, serviços, numeração e ciclo da DPS |
 | `nfse-poc` | CLI da prova de conceito |
 
 ## Testando com um certificado real
