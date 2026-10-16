@@ -197,6 +197,9 @@ pub struct Emissor<C: Conector> {
     cofre: Cofre,
     conector: C,
     pasta: Option<PathBuf>,
+    /// Fontes do DANFSe (carregadas junto com a pasta; falha vira aviso na hora de gerar o PDF).
+    fontes: Option<Result<nfse_pdf::Fontes, String>>,
+    logo: Option<Vec<u8>>,
 }
 
 impl<C: Conector> Emissor<C> {
@@ -206,13 +209,38 @@ impl<C: Conector> Emissor<C> {
             cofre,
             conector,
             pasta: None,
+            fontes: None,
+            logo: None,
         }
     }
 
     /// Pasta raiz onde cada nota é gravada em `<empresa>/<AAAA-MM>/`.
     pub fn com_pasta(mut self, raiz: impl Into<PathBuf>) -> Self {
         self.pasta = Some(raiz.into());
+        self.fontes = Some(nfse_pdf::Fontes::do_sistema().map_err(|e| e.to_string()));
         self
+    }
+
+    /// Logomarca oficial da NFS-e (PNG) para o cabeçalho do DANFSe.
+    pub fn com_logo(mut self, png: Vec<u8>) -> Self {
+        self.logo = Some(png);
+        self
+    }
+
+    /// Gera o DANFSe e grava ao lado do XML (mesmo nome, extensão .pdf).
+    fn gravar_pdf(&self, caminho_xml: &std::path::Path, xml: &str, situacao: nfse_pdf::Situacao) -> Result<(), String> {
+        let fontes = match &self.fontes {
+            Some(Ok(f)) => f,
+            Some(Err(e)) => return Err(e.clone()),
+            None => return Ok(()),
+        };
+        let opcoes = nfse_pdf::Opcoes {
+            situacao,
+            logo_png: self.logo.clone(),
+        };
+        let pdf = nfse_pdf::gerar_danfse(xml, &opcoes, fontes).map_err(|e| e.to_string())?;
+        let caminho = caminho_xml.with_extension("pdf");
+        arquivo::gravar(&caminho, &pdf).map_err(|e| format!("{}: {e}", caminho.display()))
     }
 
     pub fn banco(&self) -> &Banco {
@@ -334,6 +362,8 @@ impl<C: Conector> Emissor<C> {
                     "a nota foi autorizada, mas não foi gravada em {}: {e}",
                     caminho.display()
                 ));
+            } else if let Err(e) = self.gravar_pdf(&caminho, xml, nfse_pdf::Situacao::Normal) {
+                avisos.push(format!("a nota foi autorizada, mas o PDF não foi gerado: {e}"));
             }
         }
         for aviso in &avisos {
@@ -438,6 +468,15 @@ impl<C: Conector> Emissor<C> {
             ));
             if let Err(e) = arquivo::gravar(&caminho, &evento) {
                 let aviso = format!("cancelamento registrado, mas não gravado em {}: {e}", caminho.display());
+                self.banco.auditar("aviso", Some(empresa.id), Some(&aviso)).await?;
+            }
+            // O PDF da nota passa a ter a marca d'água CANCELADA.
+            let caminho_xml = arquivo::pasta_mes(raiz, &empresa, competencia).join(arquivo::nome_xml_nfse(
+                nfse.numero.as_deref().unwrap_or("sem-numero"),
+                &nfse.chave,
+            ));
+            if let Err(e) = self.gravar_pdf(&caminho_xml, &nfse.xml, nfse_pdf::Situacao::Cancelada) {
+                let aviso = format!("cancelamento registrado, mas o PDF não foi atualizado: {e}");
                 self.banco.auditar("aviso", Some(empresa.id), Some(&aviso)).await?;
             }
         }

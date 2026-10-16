@@ -388,6 +388,11 @@ async fn confere_assinatura_e_arquiva_por_empresa_e_mes() {
     let mes = dir.join("EMPRESA TESTE LTDA - 11222333000181").join("2026-10");
     let xml = std::fs::read_to_string(mes.join(format!("NFSe-1-{CHAVE}.xml"))).unwrap();
     assert_eq!(xml, NFSE_ASSINADA, "arquivo idêntico ao devolvido pela Sefin");
+    let pdf = mes.join(format!("NFSe-1-{CHAVE}.pdf"));
+    assert!(
+        std::fs::read(&pdf).unwrap().starts_with(b"%PDF-"),
+        "DANFSe ao lado do XML"
+    );
 
     emissor
         .cancelar(
@@ -398,6 +403,10 @@ async fn confere_assinatura_e_arquiva_por_empresa_e_mes() {
         .await
         .unwrap();
     assert!(mes.join(format!("NFSe-1-{CHAVE}-cancelamento.xml")).exists());
+    assert!(
+        mes.join(format!("NFSe-1-{CHAVE}.pdf")).exists(),
+        "PDF regravado com a marca CANCELADA"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 

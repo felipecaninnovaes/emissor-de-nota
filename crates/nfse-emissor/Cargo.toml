@@ -11,6 +11,7 @@ nfse-cert = { version = "0.1.0", path = "../nfse-cert" }
 nfse-core = { version = "0.1.0", path = "../nfse-core" }
 nfse-db = { version = "0.1.0", path = "../nfse-db" }
 nfse-nacional = { version = "0.1.0", path = "../nfse-nacional" }
+nfse-pdf = { version = "0.1.0", path = "../nfse-pdf" }
 nfse-xml = { version = "0.1.0", path = "../nfse-xml" }
 thiserror = "2.0.21"
 

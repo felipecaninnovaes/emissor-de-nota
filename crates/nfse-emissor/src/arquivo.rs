@@ -44,14 +44,14 @@ pub fn nome_xml_evento(numero: &str, chave: &str, evento: &str) -> String {
 }
 
 /// Grava pelo caminho temporário + renomear, para nunca deixar um XML pela metade na pasta.
-pub fn gravar(caminho: &Path, conteudo: &str) -> std::io::Result<()> {
+pub fn gravar(caminho: &Path, conteudo: impl AsRef<[u8]>) -> std::io::Result<()> {
     if let Some(pasta) = caminho.parent() {
         std::fs::create_dir_all(pasta)?;
     }
-    let temporario = caminho.with_extension("xml.tmp");
+    let temporario = caminho.with_extension("tmp");
     {
         let mut f = std::fs::File::create(&temporario)?;
-        f.write_all(conteudo.as_bytes())?;
+        f.write_all(conteudo.as_ref())?;
         f.sync_all()?;
     }
     std::fs::rename(&temporario, caminho)

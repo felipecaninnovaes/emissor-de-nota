@@ -84,6 +84,19 @@ enum Comando {
         #[arg(long)]
         saida: PathBuf,
     },
+    /// Gera o PDF do DANFSe (NT 008/2026) a partir do XML da NFS-e.
+    Danfse {
+        #[arg(long)]
+        xml: PathBuf,
+        #[arg(long)]
+        saida: PathBuf,
+        /// Imprime a marca d'água CANCELADA.
+        #[arg(long)]
+        cancelada: bool,
+        /// Logomarca oficial da NFS-e (PNG).
+        #[arg(long)]
+        logo: Option<PathBuf>,
+    },
     /// Verifica as assinaturas de um XML (DPS assinada ou NFS-e devolvida pela Sefin).
     Verificar {
         #[arg(long)]
@@ -228,6 +241,25 @@ async fn main() -> Result<()> {
             nfse_xml::verificar(&assinado).context("a assinatura gerada não passou na verificação")?;
             std::fs::write(&saida, assinado)?;
             println!("Assinado ({id}) em {}", saida.display());
+        }
+        Comando::Danfse {
+            xml,
+            saida,
+            cancelada,
+            logo,
+        } => {
+            let conteudo = std::fs::read_to_string(&xml)?;
+            let opcoes = nfse_pdf::Opcoes {
+                situacao: if cancelada {
+                    nfse_pdf::Situacao::Cancelada
+                } else {
+                    nfse_pdf::Situacao::Normal
+                },
+                logo_png: logo.map(std::fs::read).transpose()?,
+            };
+            let pdf = nfse_pdf::gerar_danfse(&conteudo, &opcoes, &nfse_pdf::Fontes::do_sistema()?)?;
+            std::fs::write(&saida, pdf)?;
+            println!("DANFSe gravado em {}", saida.display());
         }
         Comando::Verificar { xml } => {
             let conteudo = std::fs::read_to_string(&xml)?;
