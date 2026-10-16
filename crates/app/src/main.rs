@@ -61,6 +61,10 @@ fn main() {
             comandos::pendentes,
             comandos::abrir_arquivo,
             comandos::abrir_nota,
+            comandos::listar_recorrencias,
+            comandos::salvar_recorrencia,
+            comandos::desativar_recorrencia,
+            comandos::emitir_recorrencia,
             comandos::consultar_cnpj,
         ])
         .run(tauri::generate_context!())

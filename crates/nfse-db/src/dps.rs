@@ -45,7 +45,7 @@ impl SituacaoDps {
         }
     }
 
-    fn de(s: &str) -> Resultado<Self> {
+    pub(crate) fn de(s: &str) -> Resultado<Self> {
         Ok(match s {
             "reservada" => SituacaoDps::Reservada,
             "enviando" => SituacaoDps::Enviando,
@@ -337,8 +337,13 @@ impl Banco {
     }
 
     pub async fn registrar_rejeicao(&self, dps_id: i64, erro: &str) -> Resultado<()> {
-        self.mudar_situacao(dps_id, &[SituacaoDps::Enviando], SituacaoDps::Rejeitada, Some(erro))
-            .await
+        self.mudar_situacao(
+            dps_id,
+            &[SituacaoDps::Reservada, SituacaoDps::Enviando],
+            SituacaoDps::Rejeitada,
+            Some(erro),
+        )
+        .await
     }
 
     pub async fn registrar_incerta(&self, dps_id: i64, erro: &str) -> Resultado<()> {
@@ -557,7 +562,24 @@ mod testes {
             .importar_certificado(&cofre, empresa.id, crate::empresas::testes::PFX, "1234")
             .await
             .unwrap();
-        banco.reservar_dps(empresa.id).await.unwrap();
+        let reservada = banco.reservar_dps(empresa.id).await.unwrap();
+        let servico_id = crate::recorrencias::testes::servico(&banco, empresa.id, Some("10")).await;
+        let recorrencia = banco
+            .salvar_recorrencia(&crate::recorrencias::Recorrencia {
+                id: None,
+                empresa_id: empresa.id,
+                tomador: None,
+                servico_id,
+                valor: None,
+                descricao: None,
+                informacoes_complementares: None,
+            })
+            .await
+            .unwrap();
+        banco
+            .registrar_emissao_recorrente(recorrencia, "2026-09", reservada.id)
+            .await
+            .unwrap();
         assert_eq!(banco.excluir_empresa(empresa.id).await.unwrap(), Exclusao::Excluida);
         assert!(banco.empresas().await.unwrap().is_empty());
         let certificados: i64 = sqlx::query("SELECT COUNT(*) FROM certificado")

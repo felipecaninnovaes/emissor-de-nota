@@ -217,6 +217,7 @@ async fn cenario(respostas: Vec<Resposta>) -> Cenario {
             descricao: None,
             mes_referencia: Some(NaiveDate::from_ymd_opt(2026, 9, 1).unwrap()),
             informacoes_complementares: None,
+            recorrencia_id: None,
         },
     }
 }
@@ -571,4 +572,65 @@ async fn cancela_nota_autorizada() {
         .cancelar(nfse.id, MotivoCancelamento::Outros, "Segunda tentativa de cancelar")
         .await;
     assert!(matches!(erro, Err(ErroEmissao::Regra(_))));
+}
+
+async fn recorrencia_do_cenario(c: &Cenario) -> i64 {
+    c.emissor
+        .banco()
+        .salvar_recorrencia(&nfse_db::recorrencias::Recorrencia {
+            id: None,
+            empresa_id: c.pedido.empresa_id,
+            tomador: c.pedido.tomador,
+            servico_id: c.pedido.servico_id,
+            valor: Some(c.pedido.valor),
+            descricao: None,
+            informacoes_complementares: None,
+        })
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn recorrencia_emite_uma_vez_por_mes() {
+    let c = cenario(vec![Resposta::Emitir(Ok(nfse_autorizada()))]).await;
+    let rec = recorrencia_do_cenario(&c).await;
+    let setembro = NaiveDate::from_ymd_opt(2026, 9, 17).unwrap();
+
+    let r = c.emissor.emitir_recorrencia(rec, setembro).await.unwrap();
+    assert!(matches!(r, ResultadoEmissao::Autorizada { .. }));
+    let enviado = &c.sefin.recebidos()[0];
+    assert!(enviado.contains("SERVIÇOS CONTÁBEIS REFERENTE A 09/2026"), "{enviado}");
+
+    // Mesmo mês de novo: recusa sem reservar número nem chamar a Sefin.
+    let erro = c.emissor.emitir_recorrencia(rec, setembro).await.unwrap_err();
+    assert!(
+        matches!(&erro, ErroEmissao::Regra(m) if m.contains("autorizada")),
+        "{erro:?}"
+    );
+    assert_eq!(c.sefin.recebidos().len(), 1);
+    let banco = c.emissor.banco();
+    let lote = banco.recorrencias(None, "2026-09").await.unwrap();
+    let t = lote[0].no_mes.as_ref().unwrap();
+    assert_eq!(t.situacao, SituacaoDps::Autorizada);
+    assert_eq!(t.numero_nfse.as_deref(), Some("1"));
+    assert_eq!(banco.recorrencias(None, "2026-10").await.unwrap()[0].no_mes, None);
+}
+
+#[tokio::test]
+async fn recorrencia_rejeitada_libera_o_mes() {
+    let c = cenario(vec![
+        Resposta::Emitir(Err(rejeicao("E0712"))),
+        Resposta::Emitir(Ok(nfse_autorizada())),
+    ])
+    .await;
+    let rec = recorrencia_do_cenario(&c).await;
+    let setembro = NaiveDate::from_ymd_opt(2026, 9, 1).unwrap();
+    assert!(matches!(
+        c.emissor.emitir_recorrencia(rec, setembro).await,
+        Err(ErroEmissao::Rejeitada { .. })
+    ));
+    assert!(matches!(
+        c.emissor.emitir_recorrencia(rec, setembro).await.unwrap(),
+        ResultadoEmissao::Autorizada { .. }
+    ));
 }

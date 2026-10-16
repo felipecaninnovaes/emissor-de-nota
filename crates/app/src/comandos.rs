@@ -17,9 +17,9 @@ use nfse_xml::MotivoCancelamento;
 
 use crate::Estado;
 
-type R<T> = Result<T, String>;
+pub(crate) type R<T> = Result<T, String>;
 
-fn texto<E: std::fmt::Display>(e: E) -> String {
+pub(crate) fn texto<E: std::fmt::Display>(e: E) -> String {
     e.to_string()
 }
 
@@ -199,7 +199,7 @@ pub struct NovaEmpresaDto {
     email: Option<String>,
 }
 
-fn vazio_para_none(v: Option<String>) -> Option<String> {
+pub(crate) fn vazio_para_none(v: Option<String>) -> Option<String> {
     v.map(|s| s.trim().to_owned()).filter(|s| !s.is_empty())
 }
 
@@ -483,6 +483,7 @@ impl PedidoDto {
             descricao: vazio_para_none(self.descricao),
             mes_referencia,
             informacoes_complementares: vazio_para_none(self.informacoes_complementares),
+            recorrencia_id: None,
         })
     }
 }
@@ -499,11 +500,11 @@ pub struct PreviaDto {
     erros: Vec<String>,
 }
 
-/// Mostra como a DPS vai sair (descrição com o mês já aplicado) e os erros de validação, sem emitir.
-#[tauri::command]
-pub async fn previa_dps(estado: State<'_, Estado>, pedido: PedidoDto) -> R<PreviaDto> {
-    let pedido = pedido.pedido()?;
-    let b = &estado.banco;
+/// Monta a DPS do pedido como ela sairia agora e lista os erros que impedem a emissão.
+pub(crate) async fn validar_pedido(
+    b: &nfse_db::Banco,
+    pedido: &PedidoEmissao,
+) -> R<(nfse_core::Dps, nfse_db::empresas::Empresa, Vec<String>)> {
     let empresa = b.empresa(pedido.empresa_id).await.map_err(texto)?;
     let servico = b.servico(pedido.servico_id).await.map_err(texto)?;
     let tomador = match pedido.tomador {
@@ -514,13 +515,21 @@ pub async fn previa_dps(estado: State<'_, Estado>, pedido: PedidoDto) -> R<Previ
         &empresa,
         tomador.as_ref(),
         &servico,
-        &pedido,
+        pedido,
         nfse_emissor::agora_brasilia(),
     );
     let mut erros = dps.validar();
     if b.certificado_resumo(empresa.id).await.map_err(texto)?.is_none() {
         erros.push("a empresa não tem certificado digital importado".into());
     }
+    Ok((dps, empresa, erros))
+}
+
+/// Mostra como a DPS vai sair (descrição com o mês já aplicado) e os erros de validação, sem emitir.
+#[tauri::command]
+pub async fn previa_dps(estado: State<'_, Estado>, pedido: PedidoDto) -> R<PreviaDto> {
+    let pedido = pedido.pedido()?;
+    let (dps, empresa, erros) = validar_pedido(&estado.banco, &pedido).await?;
     Ok(PreviaDto {
         ambiente: dps.ambiente,
         serie: dps.serie,
@@ -544,31 +553,37 @@ pub struct ResultadoDto {
     motivo: Option<String>,
 }
 
+impl From<ResultadoEmissao> for ResultadoDto {
+    fn from(r: ResultadoEmissao) -> Self {
+        match r {
+            ResultadoEmissao::Autorizada { nfse, avisos } => ResultadoDto {
+                autorizada: true,
+                nfse_id: Some(nfse.id),
+                numero: nfse.numero,
+                chave: Some(nfse.chave),
+                avisos,
+                motivo: None,
+            },
+            ResultadoEmissao::Incerta { motivo, .. } => ResultadoDto {
+                autorizada: false,
+                nfse_id: None,
+                numero: None,
+                chave: None,
+                avisos: vec![],
+                motivo: Some(format!(
+                    "{motivo}. A nota pode ter sido autorizada: o sistema consulta a Sefin antes de qualquer reenvio."
+                )),
+            },
+        }
+    }
+}
+
 #[tauri::command]
 pub async fn emitir(estado: State<'_, Estado>, pedido: PedidoDto) -> R<ResultadoDto> {
     let pedido = pedido.pedido()?;
     let guarda = emissor!(estado);
     let emissor = guarda.as_ref().expect("verificado");
-    match emissor.emitir(&pedido).await.map_err(texto)? {
-        ResultadoEmissao::Autorizada { nfse, avisos } => Ok(ResultadoDto {
-            autorizada: true,
-            nfse_id: Some(nfse.id),
-            numero: nfse.numero,
-            chave: Some(nfse.chave),
-            avisos,
-            motivo: None,
-        }),
-        ResultadoEmissao::Incerta { motivo, .. } => Ok(ResultadoDto {
-            autorizada: false,
-            nfse_id: None,
-            numero: None,
-            chave: None,
-            avisos: vec![],
-            motivo: Some(format!(
-                "{motivo}. A nota pode ter sido autorizada: o sistema consulta a Sefin antes de qualquer reenvio."
-            )),
-        }),
-    }
+    Ok(emissor.emitir(&pedido).await.map_err(texto)?.into())
 }
 
 #[derive(Serialize)]
@@ -748,4 +763,155 @@ pub async fn abrir_nota(estado: State<'_, Estado>, nfse_id: i64, pasta: bool) ->
 pub async fn consultar_cnpj(cnpj: String) -> R<crate::cnpj::DadosCnpj> {
     let cnpj = Cnpj::parse(&cnpj).map_err(|e| format!("CNPJ: {e}"))?;
     crate::cnpj::consultar(cnpj.as_str()).await
+}
+
+// ---------- notas recorrentes e lote do mês ----------
+
+fn mes_de(mes: &str) -> R<NaiveDate> {
+    NaiveDate::parse_from_str(&format!("{}-01", mes.trim()), "%Y-%m-%d")
+        .map_err(|_| "mês de referência inválido".into())
+}
+
+#[derive(Serialize)]
+pub struct TentativaDto {
+    dps_id: i64,
+    situacao: &'static str,
+    numero_nfse: Option<String>,
+    nfse_id: Option<i64>,
+    erro: Option<String>,
+    /// Rejeitada ou cancelada: pode emitir de novo neste mês.
+    libera: bool,
+}
+
+#[derive(Serialize)]
+pub struct RecorrenciaDto {
+    id: i64,
+    empresa_id: i64,
+    empresa: String,
+    tomador_id: Option<i64>,
+    tomador: Option<String>,
+    servico_id: i64,
+    servico: String,
+    /// Valor próprio da recorrência (`None` = usa o do serviço).
+    valor: Option<String>,
+    valor_efetivo: Option<String>,
+    descricao: Option<String>,
+    /// Descrição que vai na nota, com o mês aplicado.
+    descricao_no_mes: String,
+    informacoes_complementares: Option<String>,
+    no_mes: Option<TentativaDto>,
+    /// O que impede a emissão no mês (vazio = pode emitir).
+    erros: Vec<String>,
+}
+
+/// Recorrências (da empresa ou de todas, com `empresa_id` nulo) e a situação de cada uma no mês.
+#[tauri::command]
+pub async fn listar_recorrencias(
+    estado: State<'_, Estado>,
+    empresa_id: Option<i64>,
+    mes: String,
+) -> R<Vec<RecorrenciaDto>> {
+    let data = mes_de(&mes)?;
+    let b = &estado.banco;
+    let mut lista = Vec::new();
+    for item in b.recorrencias(empresa_id, mes.trim()).await.map_err(texto)? {
+        let r = &item.recorrencia;
+        let mut erros = Vec::new();
+        if !item.servico_ativo {
+            erros.push(format!(
+                "o serviço \"{}\" foi removido; edite a recorrência",
+                item.servico
+            ));
+        }
+        match item.valor_efetivo {
+            Some(valor) if item.servico_ativo => {
+                let pedido = PedidoEmissao {
+                    empresa_id: r.empresa_id,
+                    tomador: r.tomador,
+                    servico_id: r.servico_id,
+                    valor,
+                    descricao: r.descricao.clone(),
+                    mes_referencia: Some(data),
+                    informacoes_complementares: r.informacoes_complementares.clone(),
+                    recorrencia_id: r.id,
+                };
+                match validar_pedido(b, &pedido).await {
+                    Ok((_, _, e)) => erros.extend(e),
+                    Err(e) => erros.push(e),
+                }
+            }
+            Some(_) => {}
+            None => erros.push("sem valor".into()),
+        }
+        lista.push(RecorrenciaDto {
+            id: r.id.expect("gravada"),
+            empresa_id: r.empresa_id,
+            empresa: item.empresa.clone(),
+            tomador_id: r.tomador,
+            tomador: item.tomador.clone(),
+            servico_id: r.servico_id,
+            servico: item.servico.clone(),
+            valor: r.valor.map(|v| v.to_string()),
+            valor_efetivo: item.valor_efetivo.map(|v| v.to_string()),
+            descricao: r.descricao.clone(),
+            descricao_no_mes: nfse_emissor::aplicar_mes_ref(&item.descricao_efetiva, data),
+            informacoes_complementares: r.informacoes_complementares.clone(),
+            no_mes: item.no_mes.map(|t| TentativaDto {
+                libera: t.libera_o_mes(),
+                dps_id: t.dps_id,
+                situacao: t.situacao.texto(),
+                numero_nfse: t.numero_nfse,
+                nfse_id: t.nfse_id,
+                erro: t.erro,
+            }),
+            erros,
+        });
+    }
+    Ok(lista)
+}
+
+#[derive(Deserialize)]
+pub struct RecorrenciaEntrada {
+    id: Option<i64>,
+    empresa_id: i64,
+    tomador: Option<i64>,
+    servico_id: i64,
+    valor: Option<Valor>,
+    descricao: Option<String>,
+    informacoes_complementares: Option<String>,
+}
+
+#[tauri::command]
+pub async fn salvar_recorrencia(estado: State<'_, Estado>, recorrencia: RecorrenciaEntrada) -> R<i64> {
+    estado
+        .banco
+        .salvar_recorrencia(&nfse_db::recorrencias::Recorrencia {
+            id: recorrencia.id,
+            empresa_id: recorrencia.empresa_id,
+            tomador: recorrencia.tomador,
+            servico_id: recorrencia.servico_id,
+            valor: recorrencia.valor,
+            descricao: vazio_para_none(recorrencia.descricao),
+            informacoes_complementares: vazio_para_none(recorrencia.informacoes_complementares),
+        })
+        .await
+        .map_err(texto)
+}
+
+#[tauri::command]
+pub async fn desativar_recorrencia(estado: State<'_, Estado>, id: i64) -> R<()> {
+    estado.banco.desativar_recorrencia(id).await.map_err(texto)
+}
+
+/// Emite uma recorrência no mês (`AAAA-MM`); o lote chama um item por vez para mostrar o andamento.
+#[tauri::command]
+pub async fn emitir_recorrencia(estado: State<'_, Estado>, recorrencia_id: i64, mes: String) -> R<ResultadoDto> {
+    let data = mes_de(&mes)?;
+    let guarda = emissor!(estado);
+    let emissor = guarda.as_ref().expect("verificado");
+    Ok(emissor
+        .emitir_recorrencia(recorrencia_id, data)
+        .await
+        .map_err(texto)?
+        .into())
 }

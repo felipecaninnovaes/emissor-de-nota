@@ -35,6 +35,8 @@
     <div class="marca"><img src="icone.png" alt=""> Emissor NFS-e</div>
     <button data-tela="emitir" class="ativo">Emitir nota</button>
     <button data-tela="notas">Notas emitidas</button>
+    <button data-tela="lote">Lote do mês</button>
+    <button data-tela="recorrentes">Recorrentes</button>
     <button data-tela="tomadores">Tomadores</button>
     <button data-tela="servicos">Serviços</button>
     <button data-tela="empresas">Empresas</button>
@@ -121,6 +123,43 @@
           <table>
             <thead><tr><th>NFS-e</th><th>DPS</th><th>Tomador</th><th>Descrição</th><th>Valor</th><th>Situação</th><th></th></tr></thead>
             <tbody id="lista-notas"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ---------- lote do mês ---------- -->
+      <section data-tela="lote" hidden>
+        <h1>Lote do mês</h1>
+        <div class="cartao" style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
+          <div style="width:200px"><label for="mes-lote">Mês de referência</label><input id="mes-lote" type="month"></div>
+          <label class="linha-check" style="margin-bottom:9px"><input type="checkbox" id="lote-so-empresa"> Só a empresa selecionada</label>
+          <span class="espaco" style="flex:1"></span>
+          <button class="botao" id="lote-marcar">Marcar pendentes</button>
+          <button class="botao primario" id="lote-emitir">Emitir selecionadas</button>
+        </div>
+        <div id="lote-andamento"></div>
+        <div class="cartao" style="padding:0">
+          <table>
+            <thead><tr><th style="width:28px"><input type="checkbox" id="lote-todos" title="Marcar todas as pendentes"></th>
+              <th>Empresa</th><th>Tomador</th><th>Descrição</th><th>Valor</th><th>Situação</th></tr></thead>
+            <tbody id="lista-lote"></tbody>
+          </table>
+        </div>
+        <p class="ajuda">Cada recorrência é emitida uma vez por mês: as já emitidas ou em andamento não podem ser marcadas.
+          Rejeitadas e canceladas voltam a ficar pendentes. Cadastre as recorrências em "Recorrentes".</p>
+      </section>
+
+      <!-- ---------- recorrentes ---------- -->
+      <section data-tela="recorrentes" hidden>
+        <h1>Notas recorrentes</h1>
+        <div class="cartao" style="display:flex;justify-content:space-between;align-items:center">
+          <p class="ajuda" style="margin:0">Mensalidades da empresa selecionada. <code>{mes_ref}</code> na descrição vira o mês do lote.</p>
+          <button class="botao primario" id="nova-recorrencia">Nova recorrência</button>
+        </div>
+        <div class="cartao" style="padding:0">
+          <table>
+            <thead><tr><th>Tomador</th><th>Serviço</th><th>Descrição</th><th>Valor</th><th></th></tr></thead>
+            <tbody id="lista-recorrencias"></tbody>
           </table>
         </div>
       </section>
@@ -220,6 +259,31 @@
     <p class="ajuda">Endereço é opcional; se informar, preencha CEP, município, logradouro e bairro.</p>
     <div class="aviso atencao" data-aviso-cnpj style="margin-top:12px" hidden></div>
     <div id="erro-tomador" class="aviso erro" style="margin-top:12px" hidden></div>
+    <div class="acoes"><button class="botao" value="cancelar" formnovalidate>Cancelar</button><button class="botao primario" value="salvar">Salvar</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-recorrencia">
+  <form method="dialog" id="form-recorrencia">
+    <h2 id="titulo-recorrencia">Nova recorrência</h2>
+    <div class="grade">
+      <div class="c12">
+        <label>Tomador</label>
+        <div class="escolhido" data-rec-escolhido hidden><span data-rec-tomador></span>
+          <button type="button" class="botao pequeno" data-rec-trocar>Trocar</button></div>
+        <div class="busca" data-rec-busca>
+          <input data-rec-termo placeholder="Buscar por nome ou CNPJ/CPF..." autocomplete="off">
+          <div class="resultados" data-rec-resultados hidden></div>
+        </div>
+        <p class="ajuda">Deixe em branco para nota sem tomador identificado.</p>
+      </div>
+      <div class="c8"><label>Serviço</label><select name="servico" required></select></div>
+      <div class="c4"><label>Valor (R$)</label><input name="valor" inputmode="decimal"></div>
+      <div class="c12"><label>Descrição (em branco = a do serviço)</label><textarea name="descricao" rows="3"></textarea>
+        <p class="ajuda"><code>{mes_ref}</code> vira o mês de referência do lote (ex.: 09/2026).</p></div>
+      <div class="c12"><label>Informações complementares (opcional)</label><textarea name="info" rows="2"></textarea></div>
+    </div>
+    <div id="erro-recorrencia" class="aviso erro" style="margin-top:12px" hidden></div>
     <div class="acoes"><button class="botao" value="cancelar" formnovalidate>Cancelar</button><button class="botao primario" value="salvar">Salvar</button></div>
   </form>
 </dialog>

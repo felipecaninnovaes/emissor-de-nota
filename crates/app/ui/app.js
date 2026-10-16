@@ -200,6 +200,7 @@ async function entrar(pendencias) {
   }
   $("#mes-ref").value = mesAnterior();
   $("#mes-notas").value = mesAtual();
+  $("#mes-lote").value = mesAnterior();
   await carregarEmpresas();
   await avisarVencimentos();
   if (!estado.empresas.length) {
@@ -227,6 +228,8 @@ function irPara(tela) {
   for (const s of $$("section[data-tela]")) s.hidden = s.dataset.tela !== tela;
   const carregar = {
     notas: carregarNotas,
+    lote: carregarLote,
+    recorrentes: carregarRecorrencias,
     tomadores: carregarTomadores,
     servicos: carregarServicos,
     empresas: renderizarEmpresas,
@@ -340,61 +343,69 @@ $("#trocar-tomador").addEventListener("click", () => {
   $("#termo-tomador").focus();
 });
 
-let buscaPendente = 0;
-let resultadosBusca = [];
-let foco = -1;
+/**
+ * Busca de tomador com lista de sugestões (setas, Enter, Esc, clique). Usada na emissão e no
+ * diálogo de recorrência; `aoEscolher(tomadorDto)` recebe o escolhido.
+ */
+function ligarBuscaTomador(input, caixa, aoEscolher) {
+  let pendente = 0;
+  let resultados = [];
+  let foco = -1;
 
-$("#termo-tomador").addEventListener("input", (ev) => {
-  clearTimeout(buscaPendente);
-  const termo = ev.target.value.trim();
-  if (!termo || !estado.empresa) {
-    $("#resultados-tomador").hidden = true;
-    return;
+  function desenhar() {
+    caixa.hidden = false;
+    caixa.innerHTML = resultados.length
+      ? resultados
+          .map(
+            (t, i) => `<div data-i="${i}" class="${i === foco ? "foco" : ""}">${esc(t.tomador.nome)}
+              <small>${esc(formatarDocumento(t.tomador.documento))}</small></div>`,
+          )
+          .join("")
+      : `<div class="vazio">Nenhum tomador encontrado.</div>`;
   }
-  buscaPendente = setTimeout(async () => {
-    try {
-      resultadosBusca = await invoke("buscar_tomadores", { empresaId: estado.empresa.id, termo });
-    } catch (e) {
-      return toast(String(e), true);
-    }
-    foco = resultadosBusca.length ? 0 : -1;
-    desenharResultados();
-  }, 200);
-});
 
-function desenharResultados() {
-  const caixa = $("#resultados-tomador");
-  caixa.hidden = false;
-  caixa.innerHTML = resultadosBusca.length
-    ? resultadosBusca
-        .map(
-          (t, i) => `<div data-i="${i}" class="${i === foco ? "foco" : ""}">${esc(t.tomador.nome)}
-            <small>${esc(formatarDocumento(t.tomador.documento))}</small></div>`,
-        )
-        .join("")
-    : `<div class="vazio">Nenhum tomador encontrado.</div>`;
+  input.addEventListener("input", () => {
+    clearTimeout(pendente);
+    const termo = input.value.trim();
+    if (!termo || !estado.empresa) {
+      caixa.hidden = true;
+      return;
+    }
+    pendente = setTimeout(async () => {
+      try {
+        resultados = await invoke("buscar_tomadores", { empresaId: estado.empresa.id, termo });
+      } catch (e) {
+        return toast(String(e), true);
+      }
+      foco = resultados.length ? 0 : -1;
+      desenhar();
+    }, 200);
+  });
+
+  input.addEventListener("keydown", (ev) => {
+    if (caixa.hidden || !resultados.length) return;
+    if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+      ev.preventDefault();
+      foco = (foco + (ev.key === "ArrowDown" ? 1 : -1) + resultados.length) % resultados.length;
+      desenhar();
+    } else if (ev.key === "Enter") {
+      ev.preventDefault();
+      if (foco >= 0) aoEscolher(resultados[foco]);
+    } else if (ev.key === "Escape") {
+      ev.preventDefault();
+      caixa.hidden = true;
+    }
+  });
+
+  caixa.addEventListener("mousedown", (ev) => {
+    const item = ev.target.closest("[data-i]");
+    if (item) aoEscolher(resultados[Number(item.dataset.i)]);
+  });
+
+  input.addEventListener("blur", () => setTimeout(() => (caixa.hidden = true), 150));
 }
 
-$("#termo-tomador").addEventListener("keydown", (ev) => {
-  if ($("#resultados-tomador").hidden || !resultadosBusca.length) return;
-  if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
-    ev.preventDefault();
-    foco = (foco + (ev.key === "ArrowDown" ? 1 : -1) + resultadosBusca.length) % resultadosBusca.length;
-    desenharResultados();
-  } else if (ev.key === "Enter") {
-    ev.preventDefault();
-    if (foco >= 0) escolherTomador(resultadosBusca[foco]);
-  } else if (ev.key === "Escape") {
-    $("#resultados-tomador").hidden = true;
-  }
-});
-
-$("#resultados-tomador").addEventListener("mousedown", (ev) => {
-  const item = ev.target.closest("[data-i]");
-  if (item) escolherTomador(resultadosBusca[Number(item.dataset.i)]);
-});
-
-$("#termo-tomador").addEventListener("blur", () => setTimeout(() => ($("#resultados-tomador").hidden = true), 150));
+ligarBuscaTomador($("#termo-tomador"), $("#resultados-tomador"), (t) => escolherTomador(t));
 
 $("#novo-tomador-emitir").addEventListener("click", (ev) => {
   ev.preventDefault();
@@ -480,9 +491,23 @@ $("#confirmar-emissao").addEventListener("click", async () => {
         <div class="acoes" style="justify-content:flex-start">
           <button class="botao primario" data-abrir="pdf">Abrir PDF</button>
           <button class="botao" data-abrir="pasta">Abrir pasta</button>
+          <button class="botao" data-recorrente title="Cria uma recorrência com este tomador, serviço, valor e descrição">Tornar recorrente</button>
         </div>`;
       res.querySelector('[data-abrir="pdf"]').onclick = () => abrirNota(r.nfse_id, false);
       res.querySelector('[data-abrir="pasta"]').onclick = () => abrirNota(r.nfse_id, true);
+      const emitido = estado.pedido;
+      const tomadorEmitido = estado.tomador;
+      res.querySelector("[data-recorrente]").onclick = () =>
+        editarRecorrencia(null, {
+          tomador_id: tomadorEmitido?.pessoa_id,
+          tomador: tomadorEmitido
+            ? `${tomadorEmitido.tomador.nome} — ${formatarDocumento(tomadorEmitido.tomador.documento)}`
+            : null,
+          servico_id: emitido.servico_id,
+          valor: emitido.valor.replace(",", "."),
+          descricao: emitido.descricao,
+          informacoes_complementares: emitido.informacoes_complementares,
+        });
       // Prepara a próxima nota (mesmo serviço e mês) sem permitir reenviar a anterior por engano.
       escolherTomador(null);
       $("#info-compl").value = "";
@@ -633,6 +658,263 @@ function cancelarNota(n) {
     await carregarNotas();
   });
 }
+
+// ---------------------------------------------------------------- recorrentes
+
+let recorrenciasCarregadas = [];
+
+async function carregarRecorrencias() {
+  const corpo = $("#lista-recorrencias");
+  if (!estado.empresa) {
+    corpo.innerHTML = `<tr><td colspan="5" class="vazio">Nenhuma empresa selecionada.</td></tr>`;
+    return;
+  }
+  recorrenciasCarregadas = await invoke("listar_recorrencias", { empresaId: estado.empresa.id, mes: mesAnterior() });
+  corpo.innerHTML = recorrenciasCarregadas.length
+    ? recorrenciasCarregadas
+        .map(
+          (r, i) => `<tr>
+          <td>${esc(r.tomador ?? "—")}</td>
+          <td>${esc(r.servico)}</td>
+          <td class="truncar" title="${esc(r.descricao_no_mes)}">${esc(r.descricao ?? "(a do serviço)")}</td>
+          <td class="num">${r.valor_efetivo ? "R$ " + moeda(r.valor_efetivo) : ""}${r.valor ? "" : '<div class="ajuda">do serviço</div>'}</td>
+          <td><div class="acoes">
+            <button class="botao pequeno" data-acao="editar" data-i="${i}">Editar</button>
+            <button class="botao pequeno perigo" data-acao="remover" data-i="${i}">Remover</button>
+          </div></td>
+        </tr>`,
+        )
+        .join("")
+    : `<tr><td colspan="5" class="vazio">Nenhuma recorrência nesta empresa. Crie uma aqui ou use "Tornar recorrente" depois de emitir uma nota.</td></tr>`;
+}
+
+$("#lista-recorrencias").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("button[data-acao]");
+  if (!b) return;
+  const r = recorrenciasCarregadas[Number(b.dataset.i)];
+  if (b.dataset.acao === "editar") return editarRecorrencia(r);
+  if (!confirm(`Remover a recorrência de ${r.tomador ?? "nota sem tomador"}? As notas já emitidas não mudam.`)) return;
+  try {
+    await chamar("desativar_recorrencia", { id: r.id });
+    await carregarRecorrencias();
+  } catch (e) {
+    toast(String(e), true);
+  }
+});
+
+$("#nova-recorrencia").addEventListener("click", () => editarRecorrencia(null));
+
+const dlgRecorrencia = $("#dlg-recorrencia");
+let tomadorRecorrencia = null; // { pessoa_id, nome } escolhido no diálogo
+
+function escolherTomadorRecorrencia(t) {
+  tomadorRecorrencia = t;
+  $("[data-rec-escolhido]", dlgRecorrencia).hidden = !t;
+  $("[data-rec-busca]", dlgRecorrencia).hidden = !!t;
+  $("[data-rec-termo]", dlgRecorrencia).value = "";
+  $("[data-rec-resultados]", dlgRecorrencia).hidden = true;
+  if (t) $("[data-rec-tomador]", dlgRecorrencia).textContent = t.nome;
+}
+
+ligarBuscaTomador($("[data-rec-termo]", dlgRecorrencia), $("[data-rec-resultados]", dlgRecorrencia), (t) =>
+  escolherTomadorRecorrencia({
+    pessoa_id: t.pessoa_id,
+    nome: `${t.tomador.nome} — ${formatarDocumento(t.tomador.documento)}`,
+  }),
+);
+$("[data-rec-trocar]", dlgRecorrencia).addEventListener("click", () => escolherTomadorRecorrencia(null));
+
+/** Abre o diálogo de recorrência: `r` é uma existente; `base`, dados para preencher uma nova. */
+function editarRecorrencia(r, base = null) {
+  if (!estado.empresa) return toast("Escolha a empresa.", true);
+  if (!estado.servicos.length) return toast('Cadastre um serviço antes, em "Serviços".', true);
+  const form = $("form", dlgRecorrencia);
+  form.reset();
+  $("#titulo-recorrencia").textContent = r ? "Editar recorrência" : "Nova recorrência";
+  form.elements.servico.innerHTML = estado.servicos
+    .map(
+      (s) =>
+        `<option value="${s.id}">${esc(s.nome)}${s.valor_sugerido ? ` (R$ ${moeda(s.valor_sugerido)})` : ""}</option>`,
+    )
+    .join("");
+  const dados = r ?? base ?? {};
+  escolherTomadorRecorrencia(dados.tomador_id ? { pessoa_id: dados.tomador_id, nome: dados.tomador } : null);
+  if (dados.servico_id) form.elements.servico.value = String(dados.servico_id);
+  form.elements.valor.value = dados.valor ? moeda(dados.valor) : "";
+  form.elements.descricao.value = dados.descricao ?? "";
+  form.elements.info.value = dados.informacoes_complementares ?? "";
+  const dicas = () => {
+    const s = estado.servicos.find((x) => x.id === Number(form.elements.servico.value));
+    form.elements.valor.placeholder = s?.valor_sugerido ? `${moeda(s.valor_sugerido)} (do serviço)` : "obrigatório";
+    form.elements.descricao.placeholder = s?.descricao ?? "";
+  };
+  form.elements.servico.onchange = dicas;
+  dicas();
+  abrirDialogo(dlgRecorrencia, $("#erro-recorrencia"), async (d) => {
+    await chamar("salvar_recorrencia", {
+      recorrencia: {
+        id: r?.id ?? null,
+        empresa_id: estado.empresa.id,
+        tomador: tomadorRecorrencia?.pessoa_id ?? null,
+        servico_id: Number(d.servico),
+        valor: valorDigitado(d.valor),
+        descricao: vazio(d.descricao),
+        informacoes_complementares: vazio(d.info),
+      },
+    });
+    toast("Recorrência salva.");
+    if (!$('section[data-tela="recorrentes"]').hidden) await carregarRecorrencias();
+  });
+}
+
+// ---------------------------------------------------------------- lote do mês
+
+let loteCarregado = [];
+let loteEmAndamento = false;
+
+const podeEmitirNoLote = (r) => !r.erros.length && (!r.no_mes || r.no_mes.libera);
+const ambienteDe = (empresaId) => estado.empresas.find((e) => e.id === empresaId)?.ambiente;
+const marcadosLote = () =>
+  $$("#lista-lote input[type=checkbox]:checked").map((c) => loteCarregado[Number(c.dataset.i)]);
+const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function carregarLote() {
+  const mes = $("#mes-lote").value;
+  if (!mes) {
+    $("#lista-lote").innerHTML = `<tr><td colspan="6" class="vazio">Escolha o mês de referência.</td></tr>`;
+    return;
+  }
+  const soEmpresa = $("#lote-so-empresa").checked && estado.empresa;
+  loteCarregado = await invoke("listar_recorrencias", { empresaId: soEmpresa ? estado.empresa.id : null, mes });
+  desenharLote();
+}
+
+function situacaoLote(r) {
+  const t = r.no_mes;
+  if (t && !t.libera) {
+    const nota = t.numero_nfse ? ` nº ${esc(t.numero_nfse)}` : "";
+    return `<span class="selo ${esc(t.situacao)}">${esc(NOME_SITUACAO[t.situacao] ?? t.situacao)}${nota}</span>`;
+  }
+  const anterior = t
+    ? `<div class="ajuda">Antes: ${esc(NOME_SITUACAO[t.situacao] ?? t.situacao)} — ${esc(t.erro ?? "")}</div>`
+    : "";
+  if (r.erros.length) {
+    return `<span class="selo rejeitada">Não pode emitir</span>
+      <div class="ajuda" style="color:var(--vermelho)">${r.erros.map(esc).join("<br>")}</div>${anterior}`;
+  }
+  return `<span class="selo pendente">Pendente</span>${anterior}`;
+}
+
+function desenharLote() {
+  const corpo = $("#lista-lote");
+  $("#lote-todos").checked = false;
+  if (!loteCarregado.length) {
+    corpo.innerHTML = `<tr><td colspan="6" class="vazio">Nenhuma recorrência cadastrada${
+      $("#lote-so-empresa").checked ? " nesta empresa" : ""
+    }. Cadastre em "Recorrentes".</td></tr>`;
+    atualizarBotaoLote();
+    return;
+  }
+  corpo.innerHTML = loteCarregado
+    .map(
+      (r, i) => `<tr data-i="${i}">
+        <td><input type="checkbox" data-i="${i}" ${podeEmitirNoLote(r) ? "" : "disabled"}></td>
+        <td>${esc(r.empresa)}${
+          ambienteDe(r.empresa_id) === "homologacao" ? ' <span class="selo homologacao">Homologação</span>' : ""
+        }</td>
+        <td>${esc(r.tomador ?? "—")}</td>
+        <td class="truncar" title="${esc(r.descricao_no_mes)}">${esc(r.descricao_no_mes)}</td>
+        <td class="num">${r.valor_efetivo ? "R$ " + moeda(r.valor_efetivo) : ""}</td>
+        <td data-situacao>${situacaoLote(r)}</td>
+      </tr>`,
+    )
+    .join("");
+  atualizarBotaoLote();
+}
+
+function atualizarBotaoLote() {
+  const n = marcadosLote().length;
+  const botao = $("#lote-emitir");
+  botao.textContent = n ? `Emitir selecionadas (${n})` : "Emitir selecionadas";
+  botao.disabled = loteEmAndamento || !n;
+  $("#lote-marcar").disabled = loteEmAndamento;
+}
+
+function marcarPendentes(marcar) {
+  for (const c of $$("#lista-lote input[type=checkbox]")) if (!c.disabled) c.checked = marcar;
+  atualizarBotaoLote();
+}
+
+$("#lista-lote").addEventListener("change", atualizarBotaoLote);
+$("#lote-marcar").addEventListener("click", () => marcarPendentes(true));
+$("#lote-todos").addEventListener("change", (ev) => marcarPendentes(ev.target.checked));
+$("#mes-lote").addEventListener("change", () => carregarLote().catch((e) => toast(String(e), true)));
+$("#lote-so-empresa").addEventListener("change", () => carregarLote().catch((e) => toast(String(e), true)));
+
+/** Emite um item; com limite de requisições da Sefin, espera e tenta mais uma vez. */
+async function emitirItemDoLote(r, mes, celula) {
+  for (let tentativa = 1; ; tentativa++) {
+    try {
+      return { ok: true, res: await invoke("emitir_recorrencia", { recorrenciaId: r.id, mes }) };
+    } catch (e) {
+      if (tentativa === 1 && /limite|429|too many/i.test(String(e))) {
+        celula.innerHTML = `<span class="selo enviando">Aguardando a Sefin...</span>`;
+        await esperar(15000);
+        continue;
+      }
+      return { ok: false, erro: String(e) };
+    }
+  }
+}
+
+$("#lote-emitir").addEventListener("click", async () => {
+  const itens = marcadosLote();
+  const mes = $("#mes-lote").value;
+  if (!itens.length || !mes) return;
+  const [ano, m] = mes.split("-");
+  const producao = itens.filter((r) => ambienteDe(r.empresa_id) === "producao").length;
+  const total = itens.reduce((soma, r) => soma + Number(r.valor_efetivo ?? 0), 0);
+  const pergunta =
+    `Emitir ${itens.length} nota(s) com referência ${m}/${ano}, total R$ ${moeda(total.toFixed(2))}?` +
+    (producao ? `\n\n${producao} em PRODUÇÃO (valor fiscal).` : "");
+  if (!confirm(pergunta)) return;
+
+  loteEmAndamento = true;
+  atualizarBotaoLote();
+  for (const c of $$("#lista-lote input[type=checkbox]")) c.disabled = true;
+  const andamento = $("#lote-andamento");
+  const contagem = { autorizada: 0, falha: 0, incerta: 0 };
+  for (const [n, r] of itens.entries()) {
+    andamento.innerHTML = `<div class="aviso atencao">Emitindo ${n + 1} de ${itens.length}: ${esc(r.empresa)} → ${esc(
+      r.tomador ?? "sem tomador",
+    )}... Não feche o programa.</div>`;
+    const celula = $(`#lista-lote tr[data-i="${loteCarregado.indexOf(r)}"] [data-situacao]`);
+    celula.innerHTML = `<span class="selo enviando">Enviando...</span>`;
+    const resultado = await emitirItemDoLote(r, mes, celula);
+    if (resultado.ok && resultado.res.autorizada) {
+      contagem.autorizada++;
+      celula.innerHTML = `<span class="selo autorizada">Autorizada nº ${esc(resultado.res.numero ?? "")}</span>`;
+    } else if (resultado.ok) {
+      contagem.incerta++;
+      celula.innerHTML = `<span class="selo incerta">Sem resposta</span><div class="ajuda">${esc(resultado.res.motivo)}</div>`;
+    } else {
+      contagem.falha++;
+      celula.innerHTML = `<span class="selo rejeitada">Não emitida</span>
+        <div class="ajuda" style="color:var(--vermelho)">${esc(resultado.erro)}</div>`;
+    }
+  }
+  loteEmAndamento = false;
+  const resumo =
+    `<div class="aviso ${contagem.falha || contagem.incerta ? "atencao" : "ok"}">Lote concluído: ` +
+    `${contagem.autorizada} autorizada(s)` +
+    (contagem.falha ? `, ${contagem.falha} não emitida(s) — o motivo está em cada linha` : "") +
+    (contagem.incerta ? `, ${contagem.incerta} sem resposta — confira em "Notas emitidas" (Verificar)` : "") +
+    ".</div>";
+  toast(`Lote concluído: ${contagem.autorizada} autorizada(s).`);
+  // Recarrega para mostrar a situação gravada (as rejeitadas voltam a ficar pendentes).
+  await carregarLote().catch((e) => toast(String(e), true));
+  andamento.innerHTML = resumo;
+});
 
 // ---------------------------------------------------------------- tomadores
 

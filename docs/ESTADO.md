@@ -16,8 +16,9 @@ escritório: o contribuinte não está no CNC desse ambiente (rejeição E0084).
 | 2. Emissão confiável, reconciliação, cancelamento (`nfse-emissor`) | feito |
 | 3. Conferir assinatura da Sefin e arquivar em `<empresa>/<AAAA-MM>/` | feito |
 | 4. DANFSe v2.0 em PDF (`nfse-pdf`, NT 008/2026) | feito |
-| 5. Interface desktop Tauri 2 (`crates/app`) | **em andamento** |
-| 6. Notas recorrentes (`{mes_ref}`) e emissão em lote (convênios) | pendente |
+| 5. Interface desktop Tauri 2 (`crates/app`) | feito (falta instalador MSI e CI) |
+| 6a. Notas recorrentes (`{mes_ref}`) e lote do mês | feito |
+| 6b. Importação de planilha para convênios (valores variáveis) | pendente |
 | 7. Envio por e-mail ao tomador | pendente |
 
 ## Item 5 — o que falta
@@ -27,7 +28,7 @@ escritório: o contribuinte não está no CNC desse ambiente (rejeição E0084).
 - `crates/app/ui/index.html` e `estilo.css`: telas e diálogos prontos.
 - `crates/app/ui/app.js` escrito e conferido no navegador com os comandos simulados (dados fictícios).
   Argumentos de primeiro nível do `invoke` vão em camelCase (`empresaId`, `nfseId`, `dpsId`).
-  **Falta abrir o app de verdade** (`cargo run -p emissor-nfse`) com o banco real. Comportamentos:
+  Em 16/10/2026 o app emitiu e cancelou uma NFS-e real em Produção. Comportamentos:
   - trava: `situacao_cofre` → criar (senha + confirmação) ou abrir; mostrar `pendencias` da abertura;
   - seletor de empresa no topo (lembrar a última em `localStorage`), selo do ambiente, validade do certificado;
   - emitir: busca de tomador com `buscar_tomadores`, serviço preenche valor e descrição, mês de
@@ -64,4 +65,3 @@ escritório: o contribuinte não está no CNC desse ambiente (rejeição E0084).
 - Nome de município de tomador fora do município emissor aparece como código IBGE (falta tabela IBGE).
 - Consulta de CNPJ (publica.cnpj.ws, 3 por minuto) preenche tomador e empresa; não há cache local
   nem fila — se o escritório esbarrar no limite, guardar o resultado em `pessoa` e reaproveitar.
-- Cancelamento ainda não testado contra a Sefin real pelo nosso código (a nota de teste foi cancelada pelo portal).

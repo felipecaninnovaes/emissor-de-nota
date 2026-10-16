@@ -98,6 +98,7 @@ td .acoes { margin: 0; justify-content: flex-start; flex-wrap: wrap; gap: 4px; }
 .selo.autorizada { background: var(--verde-claro); color: var(--verde); }
 .selo.rejeitada, .selo.cancelada { background: var(--vermelho-claro); color: var(--vermelho); }
 .selo.incerta, .selo.enviando { background: var(--amarelo-claro); color: var(--amarelo); }
+.selo.pendente { background: var(--azul-claro); color: var(--azul); }
 .selo.substituida { background: var(--fundo); color: var(--suave); }
 .selo.producao { background: var(--vermelho-claro); color: var(--vermelho); }
 .selo.homologacao { background: var(--amarelo-claro); color: var(--amarelo); }

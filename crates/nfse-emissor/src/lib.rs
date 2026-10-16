@@ -104,6 +104,9 @@ pub struct PedidoEmissao {
     /// Mês usado em `{mes_ref}`; padrão: mês anterior ao da emissão.
     pub mes_referencia: Option<NaiveDate>,
     pub informacoes_complementares: Option<String>,
+    /// Emissão de uma nota recorrente: o mês (`mes_referencia`, obrigatório) fica reservado
+    /// para ela a partir da reserva do número, antes do envio.
+    pub recorrencia_id: Option<i64>,
 }
 
 /// Brasília (sem horário de verão desde 2019), um minuto atrás: `dhEmi` no futuro é rejeitado.
@@ -340,12 +343,40 @@ impl<C: Conector> Emissor<C> {
             None => None,
         };
 
+        let recorrencia = match pedido.recorrencia_id {
+            Some(id) => {
+                let mes = pedido
+                    .mes_referencia
+                    .ok_or_else(|| ErroEmissao::Regra("nota recorrente exige o mês de referência".into()))?
+                    .format("%Y-%m")
+                    .to_string();
+                let anterior = self.banco.tentativa_no_mes(id, &mes).await?;
+                if let Some(t) = anterior.filter(|t| !t.libera_o_mes()) {
+                    return Err(ErroEmissao::Regra(format!(
+                        "esta recorrência já tem nota {} em {mes}",
+                        t.situacao.texto()
+                    )));
+                }
+                Some((id, mes))
+            }
+            None => None,
+        };
+
         // Valida antes de reservar número: DPS inválida não gasta numeração.
         let mut modelo = montar_dps(&empresa, tomador.as_ref(), &servico, pedido, agora_brasilia());
         nfse_xml::gerar_dps(&modelo)?;
         let (cert, sefin) = self.conectar(&empresa, empresa.ambiente).await?;
 
         let reserva = self.banco.reservar_dps(empresa.id).await?;
+        if let Some((id, mes)) = &recorrencia {
+            if let Err(e) = self.banco.registrar_emissao_recorrente(*id, mes, reserva.id).await {
+                // Outra emissão do mesmo mês começou entre a conferência e a reserva.
+                self.banco
+                    .registrar_rejeicao(reserva.id, &format!("não enviada: {e}"))
+                    .await?;
+                return Err(e.into());
+            }
+        }
         modelo.serie = reserva.serie.clone();
         modelo.numero = reserva.numero;
         let (xml, id) = nfse_xml::gerar_dps(&modelo)?;
@@ -544,6 +575,36 @@ impl<C: Conector> Emissor<C> {
                 .await?;
         }
         Ok(((ocupado > 0).then_some(ocupado), livre))
+    }
+
+    /// Emite a recorrência no mês de referência (o dia é ignorado).
+    pub async fn emitir_recorrencia(
+        &self,
+        recorrencia_id: i64,
+        mes: NaiveDate,
+    ) -> Result<ResultadoEmissao, ErroEmissao> {
+        let item = self.banco.recorrencia(recorrencia_id).await?;
+        if !item.servico_ativo {
+            return Err(ErroEmissao::Regra(format!(
+                "o serviço \"{}\" foi removido do cadastro; edite a recorrência",
+                item.servico
+            )));
+        }
+        let r = item.recorrencia;
+        let valor = item
+            .valor_efetivo
+            .ok_or_else(|| ErroEmissao::Regra("recorrência sem valor".into()))?;
+        self.emitir(&PedidoEmissao {
+            empresa_id: r.empresa_id,
+            tomador: r.tomador,
+            servico_id: r.servico_id,
+            valor,
+            descricao: r.descricao,
+            mes_referencia: Some(mes.with_day(1).expect("dia 1 existe")),
+            informacoes_complementares: r.informacoes_complementares,
+            recorrencia_id: Some(recorrencia_id),
+        })
+        .await
     }
 
     /// Lê uma DPS rejeitada (pela Sefin ou não enviada por falta de conexão) para emitir de novo.

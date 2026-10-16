@@ -7,6 +7,7 @@ mod ajustes;
 pub mod cofre;
 pub mod dps;
 pub mod empresas;
+pub mod recorrencias;
 pub mod servicos;
 pub mod tomadores;
 
