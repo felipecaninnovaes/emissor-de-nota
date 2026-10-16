@@ -668,3 +668,10 @@ pub async fn abrir_nota(estado: State<'_, Estado>, nfse_id: i64, pasta: bool) ->
         .map_err(texto)?;
     Ok(())
 }
+
+/// Consulta pública do CNPJ para sugerir nome, endereço e contato no cadastro.
+#[tauri::command]
+pub async fn consultar_cnpj(cnpj: String) -> R<crate::cnpj::DadosCnpj> {
+    let cnpj = Cnpj::parse(&cnpj).map_err(|e| format!("CNPJ: {e}"))?;
+    crate::cnpj::consultar(cnpj.as_str()).await
+}

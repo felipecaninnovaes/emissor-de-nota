@@ -651,6 +651,8 @@ function editarTomador(dto, depois) {
   const dlg = $("#dlg-tomador");
   const form = $("form", dlg);
   form.reset();
+  $("[data-municipio-nome]", dlg).textContent = "";
+  $("[data-aviso-cnpj]", dlg).hidden = true;
   if (dto) {
     const t = dto.tomador;
     const e = t.endereco ?? {};
@@ -706,6 +708,93 @@ function editarTomador(dto, depois) {
     depois?.({ pessoa_id: pessoaId, tomador, emails });
   });
 }
+
+// ---------------------------------------------------------------- consulta de CNPJ
+
+/**
+ * Liga o botão "Consultar" (e a saída do campo, quando o nome ainda está vazio) à consulta
+ * pública de CNPJ. `preencher(form, dados)` copia o que veio para o formulário.
+ */
+function ligarConsultaCnpj(dlg, campo, ehCnpj, preencher) {
+  const form = $("form", dlg);
+  const aviso = $("[data-aviso-cnpj]", dlg);
+  const botao = $("[data-consultar-cnpj]", dlg);
+
+  async function consultar(automatico) {
+    const cnpj = form.elements[campo].value.replace(/[^0-9A-Za-z]/g, "");
+    if (!ehCnpj(form)) return automatico || toast("A consulta é só para CNPJ.", true);
+    if (cnpj.length !== 14) return automatico || toast("Informe os 14 caracteres do CNPJ.", true);
+    aviso.hidden = true;
+    botao.disabled = true;
+    botao.textContent = "Consultando...";
+    try {
+      const d = await chamar("consultar_cnpj", { cnpj });
+      preencher(form, d);
+      if (d.situacao && d.situacao.toLowerCase() !== "ativa") {
+        aviso.textContent = `Atenção: situação cadastral na Receita é "${d.situacao}".`;
+        aviso.hidden = false;
+      }
+    } catch (e) {
+      toast(String(e), true);
+    } finally {
+      botao.disabled = false;
+      botao.textContent = "Consultar";
+    }
+  }
+
+  botao.addEventListener("click", () => consultar(false));
+  form.elements[campo].addEventListener("change", () => {
+    if (vazio(form.elements.nome.value)) return; // não sobrescreve um cadastro já preenchido
+    consultar(true);
+  });
+}
+
+/** Copia só os valores que vieram da consulta (não apaga o que o operador já digitou). */
+function copiarSeVeio(form, pares) {
+  for (const [nome, valor] of pares) if (valor != null && valor !== "") form.elements[nome].value = valor;
+}
+
+ligarConsultaCnpj(
+  $("#dlg-tomador"),
+  "documento",
+  (form) => form.elements.tipo.value === "cnpj",
+  (form, d) => {
+    copiarSeVeio(form, [
+      ["nome", d.razao_social],
+      ["cep", d.cep],
+      ["municipio", d.municipio],
+      ["logradouro", d.logradouro],
+      ["numero", d.numero],
+      ["complemento", d.complemento],
+      ["bairro", d.bairro],
+      ["telefone", d.telefone],
+      ["email", d.email],
+    ]);
+    $("[data-municipio-nome]", form).textContent = d.municipio_nome ? `${d.municipio_nome}/${d.uf ?? ""}` : "";
+  },
+);
+
+$("#form-tomador").elements.municipio.addEventListener("input", () => {
+  $("#dlg-tomador [data-municipio-nome]").textContent = "";
+});
+
+ligarConsultaCnpj(
+  $("#dlg-empresa"),
+  "cnpj",
+  () => true,
+  (form, d) => {
+    copiarSeVeio(form, [
+      ["nome", d.razao_social],
+      ["municipio", d.municipio],
+      ["telefone", d.telefone],
+      ["email", d.email],
+    ]);
+    if (d.mei) form.elements.simples.value = "mei";
+    else if (d.optante_simples === true) form.elements.simples.value = "me_epp";
+    else if (d.optante_simples === false) form.elements.simples.value = "nao_optante";
+    if (d.municipio_nome) toast(`Município: ${d.municipio_nome}/${d.uf ?? ""}`);
+  },
+);
 
 // ---------------------------------------------------------------- serviços
 
@@ -891,6 +980,7 @@ $("#lista-empresas").addEventListener("click", (ev) => {
 $("#nova-empresa").addEventListener("click", () => {
   const dlg = $("#dlg-empresa");
   $("form", dlg).reset();
+  $("[data-aviso-cnpj]", dlg).hidden = true;
   abrirDialogo(dlg, $("#erro-empresa"), async (d) => {
     if (d.simples === "me_epp" && !d.apuracao) throw "Para ME/EPP optante, escolha a forma de apuração.";
     const regime = { simples: d.simples, regime_especial: Number(d.regime_especial) };

@@ -202,11 +202,13 @@
     <div class="grade">
       <div class="c3"><label>Tipo</label>
         <select name="tipo"><option value="cnpj">CNPJ</option><option value="cpf">CPF</option></select></div>
-      <div class="c4"><label>CNPJ / CPF</label><input name="documento" required></div>
-      <div class="c5"><label>Inscrição municipal</label><input name="im"></div>
+      <div class="c5"><label>CNPJ / CPF</label>
+        <div class="com-botao"><input name="documento" required><button type="button" class="botao pequeno" data-consultar-cnpj>Consultar</button></div></div>
+      <div class="c4"><label>Inscrição municipal</label><input name="im"></div>
       <div class="c12"><label>Nome / razão social</label><input name="nome" required maxlength="300"></div>
       <div class="c3"><label>CEP</label><input name="cep" maxlength="9"></div>
-      <div class="c3"><label>Município (IBGE)</label><input name="municipio" maxlength="7" placeholder="3511102"></div>
+      <div class="c3"><label>Município (IBGE)</label><input name="municipio" maxlength="7" placeholder="3511102">
+        <p class="ajuda" data-municipio-nome></p></div>
       <div class="c6"><label>Logradouro</label><input name="logradouro"></div>
       <div class="c2"><label>Número</label><input name="numero"></div>
       <div class="c4"><label>Complemento</label><input name="complemento"></div>
@@ -216,6 +218,7 @@
       <div class="c12"><label>E-mails de envio desta empresa (separados por ;)</label><input name="emails"></div>
     </div>
     <p class="ajuda">Endereço é opcional; se informar, preencha CEP, município, logradouro e bairro.</p>
+    <div class="aviso atencao" data-aviso-cnpj style="margin-top:12px" hidden></div>
     <div id="erro-tomador" class="aviso erro" style="margin-top:12px" hidden></div>
     <div class="acoes"><button class="botao" value="cancelar" formnovalidate>Cancelar</button><button class="botao primario" value="salvar">Salvar</button></div>
   </form>
@@ -287,7 +290,8 @@
   <form method="dialog" id="form-empresa">
     <h2>Nova empresa</h2>
     <div class="grade">
-      <div class="c4"><label>CNPJ</label><input name="cnpj" required></div>
+      <div class="c4"><label>CNPJ</label>
+        <div class="com-botao"><input name="cnpj" required><button type="button" class="botao pequeno" data-consultar-cnpj>Consultar</button></div></div>
       <div class="c8"><label>Razão social</label><input name="nome" required></div>
       <div class="c4"><label>Inscrição municipal</label><input name="im"></div>
       <div class="c4"><label>Município emissor (IBGE)</label><input name="municipio" value="3511102" maxlength="7" required></div>
@@ -309,6 +313,7 @@
       <div class="c8"><label>E-mail</label><input name="email" type="email"></div>
     </div>
     <p class="ajuda">A série 70000 é usada pelo Emissor Web nacional; use outra para este sistema.</p>
+    <div class="aviso atencao" data-aviso-cnpj style="margin-top:12px" hidden></div>
     <div id="erro-empresa" class="aviso erro" style="margin-top:12px" hidden></div>
     <div class="acoes"><button class="botao" value="cancelar" formnovalidate>Cancelar</button><button class="botao primario" value="salvar">Salvar</button></div>
   </form>

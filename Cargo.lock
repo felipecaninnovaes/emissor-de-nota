@@ -1225,6 +1225,7 @@ dependencies = [
  "nfse-emissor",
  "nfse-pdf",
  "nfse-xml",
+ "reqwest",
  "serde",
  "serde_json",
  "tauri",

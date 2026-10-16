@@ -66,6 +66,8 @@ textarea { resize: vertical; min-height: 64px; }
 .c6 { grid-column: span 6; } .c8 { grid-column: span 8; } .c9 { grid-column: span 9; } .c12 { grid-column: span 12; }
 fieldset { border: 1px solid var(--borda); border-radius: var(--raio); padding: 14px; margin: 0; }
 legend { font-weight: 600; padding: 0 6px; }
+.com-botao { display: flex; gap: 6px; }
+.com-botao .botao { white-space: nowrap; }
 .linha-check { display: flex; align-items: center; gap: 8px; font-weight: 400; color: var(--texto); }
 .linha-check input { width: auto; }
 

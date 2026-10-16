@@ -13,10 +13,14 @@ nfse-db = { version = "0.1.0", path = "../nfse-db" }
 nfse-emissor = { version = "0.1.0", path = "../nfse-emissor" }
 nfse-pdf = { version = "0.1.0", path = "../nfse-pdf" }
 nfse-xml = { version = "0.1.0", path = "../nfse-xml" }
+reqwest = { version = "0.13.5", default-features = false, features = ["native-tls", "json"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 tauri = "2.11.6"
 tokio = { version = "1.53.3", features = ["sync"] }
+
+[dev-dependencies]
+tokio = { version = "1.53.3", features = ["rt-multi-thread", "macros"] }
 
 [build-dependencies]
 tauri-build = "2.6.3"

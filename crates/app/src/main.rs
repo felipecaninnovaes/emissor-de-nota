@@ -3,6 +3,7 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod cnpj;
 mod comandos;
 
 use std::path::PathBuf;
@@ -56,6 +57,7 @@ fn main() {
             comandos::pendentes,
             comandos::abrir_arquivo,
             comandos::abrir_nota,
+            comandos::consultar_cnpj,
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o aplicativo");
