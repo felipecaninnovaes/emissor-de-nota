@@ -11,6 +11,7 @@ chrono = "0.4.45"
 clap = { version = "4.6.7", features = ["derive"] }
 nfse-cert = { version = "0.1.0", path = "../nfse-cert" }
 nfse-core = { version = "0.1.0", path = "../nfse-core" }
+nfse-emissor = { version = "0.1.0", path = "../nfse-emissor" }
 nfse-nacional = { version = "0.1.0", path = "../nfse-nacional" }
 nfse-xml = { version = "0.1.0", path = "../nfse-xml" }
 roxmltree = "0.21.1"

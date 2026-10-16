@@ -6,6 +6,8 @@
 //! Regra de idempotência: se `emitir` devolver [`ErroSefin::Incerto`], a DPS pode ter sido
 //! autorizada. Consultar com [`ClienteSefin::consultar_dps`] antes de qualquer reenvio.
 
+pub mod mensagens;
+
 use std::io::{Read, Write};
 use std::time::Duration;
 
@@ -98,6 +100,7 @@ struct CorpoResposta {
     id_dps: Option<String>,
     chave_acesso: Option<String>,
     nfse_xml_g_zip_b64: Option<String>,
+    evento_xml_g_zip_b64: Option<String>,
     #[serde(default)]
     alertas: Option<Vec<MensagemSefin>>,
     #[serde(default)]
@@ -212,6 +215,60 @@ impl ClienteSefin {
         } else {
             Err(erro_http(status, texto))
         }
+    }
+
+    /// Registra um evento (ex.: cancelamento) e devolve o XML do evento homologado.
+    /// Repetir o mesmo pedido não duplica o evento (o Id do pedido é fixo por chave e tipo).
+    pub async fn registrar_evento(&self, chave_acesso: &str, pedido_assinado: &str) -> Result<String, ErroSefin> {
+        let corpo = serde_json::json!({ "pedidoRegistroEventoXmlGZipB64": gzip_base64(pedido_assinado) });
+        let resposta = self
+            .http
+            .post(format!("{}/nfse/{}/eventos", self.base, chave_acesso))
+            .json(&corpo)
+            .send()
+            .await
+            .map_err(classificar_envio)?;
+        let (status, texto) = ler(resposta).await?;
+        if !status.is_success() {
+            return Err(erro_http(status, texto));
+        }
+        let corpo: CorpoResposta = serde_json::from_str(&texto).map_err(|e| ErroSefin::Formato(e.to_string()))?;
+        match (corpo.evento_xml_g_zip_b64, corpo.erros.filter(|e| !e.is_empty())) {
+            (Some(evento), _) => de_gzip_base64(&evento),
+            (None, Some(erros)) => Err(ErroSefin::Rejeitada {
+                status: status.as_u16(),
+                erros,
+                corpo: texto,
+            }),
+            (None, None) => Err(ErroSefin::Formato("resposta sem eventoXmlGZipB64".into())),
+        }
+    }
+}
+
+/// Operações da Sefin usadas pelo emissor. Existe para trocar o cliente real por um simulado nos testes.
+#[allow(async_fn_in_trait)]
+pub trait Sefin {
+    async fn emitir(&self, dps_assinada: &str) -> Result<NfseAutorizada, ErroSefin>;
+    async fn consultar_dps(&self, id_dps: &str) -> Result<Option<String>, ErroSefin>;
+    async fn consultar_nfse(&self, chave_acesso: &str) -> Result<NfseAutorizada, ErroSefin>;
+    async fn registrar_evento(&self, chave_acesso: &str, pedido_assinado: &str) -> Result<String, ErroSefin>;
+}
+
+impl Sefin for ClienteSefin {
+    async fn emitir(&self, dps_assinada: &str) -> Result<NfseAutorizada, ErroSefin> {
+        ClienteSefin::emitir(self, dps_assinada).await
+    }
+
+    async fn consultar_dps(&self, id_dps: &str) -> Result<Option<String>, ErroSefin> {
+        ClienteSefin::consultar_dps(self, id_dps).await
+    }
+
+    async fn consultar_nfse(&self, chave_acesso: &str) -> Result<NfseAutorizada, ErroSefin> {
+        ClienteSefin::consultar_nfse(self, chave_acesso).await
+    }
+
+    async fn registrar_evento(&self, chave_acesso: &str, pedido_assinado: &str) -> Result<String, ErroSefin> {
+        ClienteSefin::registrar_evento(self, chave_acesso, pedido_assinado).await
     }
 }
 

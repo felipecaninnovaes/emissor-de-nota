@@ -28,6 +28,7 @@ cadastrado nesse ambiente (rejeição E0084).
 | `nfse-xml` | Canonicalização e assinatura/verificação XMLDSIG |
 | `nfse-nacional` | Cliente mTLS da Sefin Nacional, GZip+Base64, reconciliação |
 | `nfse-db` | SQLite: cofre de certificados (Argon2id + AES-256-GCM), empresas, tomadores, serviços, numeração e ciclo da DPS |
+| `nfse-emissor` | Emissão confiável: valida antes de numerar, grava antes de enviar, reconcilia timeout pelo Id da DPS, cancela |
 | `nfse-poc` | CLI da prova de conceito |
 
 ## Testando com um certificado real
@@ -54,7 +55,12 @@ cargo run -p nfse-poc -- gerar-dps --entrada certs/dps.json --saida certs/dps-as
 cargo run -p nfse-poc -- emitir --pfx caminho/empresa.pfx --xml certs/dps-assinada.xml --ambiente restrita --saida certs/nfse.xml
 ```
 
-Emitir em Produção exige `--ambiente producao --confirmo-producao`.
+Emitir em Produção exige `--ambiente producao --confirmo-producao`. Para cancelar (motivo `erro-na-emissao`,
+`servico-nao-prestado` ou `outros`; justificativa de 15 a 255 caracteres):
+
+```bash
+cargo run -p nfse-poc -- cancelar --pfx caminho/empresa.pfx --chave <chave de 50 posições> --motivo erro-na-emissao --justificativa "Valor informado errado" --ambiente producao --confirmo-producao
+```
 
 ## Segurança
 

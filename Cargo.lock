@@ -1411,6 +1411,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "nfse-emissor"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "nfse-cert",
+ "nfse-core",
+ "nfse-db",
+ "nfse-nacional",
+ "nfse-xml",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "nfse-nacional"
 version = "0.1.0"
 dependencies = [
@@ -1432,6 +1447,7 @@ dependencies = [
  "clap",
  "nfse-cert",
  "nfse-core",
+ "nfse-emissor",
  "nfse-nacional",
  "nfse-xml",
  "roxmltree",
@@ -1446,10 +1462,12 @@ name = "nfse-xml"
 version = "0.1.0"
 dependencies = [
  "base64 0.23.1",
+ "chrono",
  "nfse-cert",
  "nfse-core",
  "roxmltree",
  "rsa",
+ "serde",
  "serde_json",
  "sha1 0.10.7",
  "thiserror",

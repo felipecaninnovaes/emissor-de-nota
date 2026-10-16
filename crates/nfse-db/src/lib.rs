@@ -111,9 +111,10 @@ impl Banco {
         Ok(cofre)
     }
 
-    #[cfg(test)]
-    pub(crate) async fn criar_cofre_rapido(&self, senha: &str) -> Resultado<Cofre> {
-        let (cofre, cabecalho) = cofre::testes::cofre_rapido(senha);
+    /// Cofre com Argon2 leve, só para testes (aqui e nos crates que usam o banco).
+    #[cfg(any(test, feature = "teste"))]
+    pub async fn criar_cofre_rapido(&self, senha: &str) -> Resultado<Cofre> {
+        let (cofre, cabecalho) = Cofre::criar_com(senha, 1024, 1, 1)?;
         self.gravar_cabecalho(&cabecalho).await?;
         Ok(cofre)
     }

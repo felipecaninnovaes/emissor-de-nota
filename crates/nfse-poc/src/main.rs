@@ -35,6 +35,23 @@ impl From<AmbienteArg> for Ambiente {
     }
 }
 
+#[derive(Clone, Copy, ValueEnum)]
+enum MotivoArg {
+    ErroNaEmissao,
+    ServicoNaoPrestado,
+    Outros,
+}
+
+impl From<MotivoArg> for nfse_xml::MotivoCancelamento {
+    fn from(m: MotivoArg) -> Self {
+        match m {
+            MotivoArg::ErroNaEmissao => Self::ErroNaEmissao,
+            MotivoArg::ServicoNaoPrestado => Self::ServicoNaoPrestado,
+            MotivoArg::Outros => Self::Outros,
+        }
+    }
+}
+
 #[derive(Subcommand)]
 enum Comando {
     /// Mostra titular, CNPJ, validade, AC e EKU do certificado.
@@ -71,6 +88,26 @@ enum Comando {
     Verificar {
         #[arg(long)]
         xml: PathBuf,
+    },
+    /// Cancela uma NFS-e pela chave (evento e101101). Com --somente-gerar, só grava o pedido assinado.
+    Cancelar {
+        #[arg(long)]
+        pfx: PathBuf,
+        #[arg(long)]
+        chave: String,
+        /// erro-na-emissao, servico-nao-prestado ou outros.
+        #[arg(long, value_enum)]
+        motivo: MotivoArg,
+        /// Justificativa (15 a 255 caracteres).
+        #[arg(long)]
+        justificativa: String,
+        #[arg(long, value_enum, default_value = "restrita")]
+        ambiente: AmbienteArg,
+        #[arg(long)]
+        confirmo_producao: bool,
+        /// Grava o pedido assinado neste arquivo e não envia.
+        #[arg(long)]
+        somente_gerar: Option<PathBuf>,
     },
     /// Testa o mTLS consultando uma DPS pelo Id (404 = conexão ok, DPS inexistente).
     ConsultarDps {
@@ -198,6 +235,43 @@ async fn main() -> Result<()> {
                 let info = nfse_cert::InfoCertificado::de_der(&der)?;
                 println!("Assinatura válida — {} (AC: {})", info.titular, info.emissor);
             }
+        }
+        Comando::Cancelar {
+            pfx,
+            chave,
+            motivo,
+            justificativa,
+            ambiente,
+            confirmo_producao,
+            somente_gerar,
+        } => {
+            if somente_gerar.is_none() && matches!(ambiente, AmbienteArg::Producao) && !confirmo_producao {
+                bail!("cancelar em Produção afeta uma nota com valor fiscal; repita com --confirmo-producao");
+            }
+            let cert = abrir_certificado(&pfx)?;
+            let cnpj = cert.info().cnpj.clone().context("o certificado não tem CNPJ")?;
+            let pedido = nfse_xml::PedidoCancelamento {
+                ambiente: match ambiente {
+                    AmbienteArg::Restrita => nfse_core::modelo::Ambiente::Homologacao,
+                    AmbienteArg::Producao => nfse_core::modelo::Ambiente::Producao,
+                },
+                versao_aplicativo: concat!("emissor-nfse/", env!("CARGO_PKG_VERSION")).into(),
+                quando: nfse_emissor::agora_brasilia(),
+                autor: nfse_core::modelo::Documento::Cnpj(cnpj),
+                chave: chave.clone(),
+                motivo: motivo.into(),
+                descricao: justificativa,
+            };
+            let (xml, id) = nfse_xml::gerar_pedido_cancelamento(&pedido)?;
+            let assinado = nfse_xml::assinar(&xml, &id, &cert)?;
+            if let Some(arquivo) = somente_gerar {
+                std::fs::write(&arquivo, assinado)?;
+                println!("Pedido {id} gravado em {} (não enviado)", arquivo.display());
+                return Ok(());
+            }
+            let cliente = ClienteSefin::novo(&cert, ambiente.into())?;
+            let evento = cliente.registrar_evento(&chave, &assinado).await?;
+            println!("Cancelamento registrado. Evento:\n{evento}");
         }
         Comando::ConsultarDps { pfx, id, ambiente } => {
             let id = DpsId::parse(&id).context("Id da DPS inválido")?;

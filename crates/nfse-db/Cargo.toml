@@ -19,3 +19,7 @@ sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio
 thiserror = "2.0.21"
 tokio = { version = "1.53.3", features = ["rt-multi-thread", "macros"] }
 zeroize = "1.9.1"
+
+[features]
+# Expõe utilitários de teste (cofre com Argon2 leve) para outros crates.
+teste = []
