@@ -25,8 +25,9 @@ escritório: o contribuinte não está no CNC desse ambiente (rejeição E0084).
 - `crates/app/src/comandos.rs`: comandos Tauri prontos e compilando (cofre, pasta, empresas,
   certificado, tomadores, serviços, prévia, emitir, notas, cancelar, reconciliar, pendentes, abrir PDF/pasta).
 - `crates/app/ui/index.html` e `estilo.css`: telas e diálogos prontos.
-- **Falta `crates/app/ui/app.js`**: ligar as telas aos comandos via `window.__TAURI__.core.invoke`
-  (sem bundler; CSP só permite script de `'self'`). Comportamentos esperados:
+- `crates/app/ui/app.js` escrito e conferido no navegador com os comandos simulados (dados fictícios).
+  Argumentos de primeiro nível do `invoke` vão em camelCase (`empresaId`, `nfseId`, `dpsId`).
+  **Falta abrir o app de verdade** (`cargo run -p emissor-nfse`) com o banco real. Comportamentos:
   - trava: `situacao_cofre` → criar (senha + confirmação) ou abrir; mostrar `pendencias` da abertura;
   - seletor de empresa no topo (lembrar a última em `localStorage`), selo do ambiente, validade do certificado;
   - emitir: busca de tomador com `buscar_tomadores`, serviço preenche valor e descrição, mês de
