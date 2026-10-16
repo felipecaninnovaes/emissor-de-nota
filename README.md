@@ -7,14 +7,16 @@ Escopo completo: [Escopo — Emissor de NFS-e Multiempresa (Rust).md](<Escopo �
 
 ## Situação
 
-**Fase 0 — prova de conceito** (critério de continuidade do projeto):
+**Fase 0 — prova de conceito: concluída em 16/10/2026.** A primeira NFS-e emitida por este código foi autorizada
+em Produção (e cancelada em seguida). Produção Restrita não serviu de teste, porque o contribuinte não está
+cadastrado nesse ambiente (rejeição E0084).
 
 | Item | Situação |
 | --- | --- |
 | Leitura de .pfx A1 (formato legado 3DES/RC2 e AES) | feito, testado |
 | Diagnóstico do certificado (CNPJ ICP-Brasil, validade, AC, EKU Client Auth) | feito, testado |
-| C14N inclusivo + XMLDSIG RSA-SHA1 sem prefixo `ds:` | feito; conferido com lxml e (no CI) com xmlsec1 |
-| Cliente mTLS da Sefin (emitir, consultar DPS, consultar NFS-e) | feito; **falta testar com certificado real em Produção Restrita** |
+| C14N inclusivo + XMLDSIG RSA-SHA1 sem prefixo `ds:` | feito; aceito pela Sefin |
+| Cliente mTLS da Sefin (emitir, consultar DPS, consultar NFS-e) | feito; nota autorizada em Produção com certificado real |
 | Geração da DPS (leiaute 1.01) a partir de JSON | feito; idêntica à DPS de uma nota real do Emissor Web e válida no XSD |
 
 ## Estrutura
