@@ -120,11 +120,16 @@
           <span class="espaco" style="flex:1"></span>
           <button class="botao" id="abrir-pasta-mes">Abrir pasta</button>
         </div>
-        <div class="cartao" style="padding:0">
+        <div class="cartao tabela">
+          <div class="rolagem">
           <table>
-            <thead><tr><th>NFS-e</th><th>DPS</th><th>Tomador</th><th>Descrição</th><th>Valor</th><th>Situação</th><th></th></tr></thead>
+            <caption class="sr">Notas emitidas da empresa selecionada</caption>
+            <thead><tr><th class="w-detalhe"><span class="sr">Detalhes</span></th><th class="w-nfse">NFS-e</th><th class="w-dps sec-2">DPS</th><th>Tomador</th><th class="sec-1">Descrição</th>
+              <th class="w-valor num">Valor</th><th class="w-situacao">Situação</th><th class="w-acoes larga"><span class="sr">Ações</span></th></tr></thead>
             <tbody id="lista-notas"></tbody>
+            <tfoot id="rodape-notas"></tfoot>
           </table>
+          </div>
         </div>
       </section>
 
@@ -139,12 +144,16 @@
           <button class="botao primario" id="lote-emitir">Emitir selecionadas</button>
         </div>
         <div id="lote-andamento"></div>
-        <div class="cartao" style="padding:0">
+        <div class="cartao tabela">
+          <div class="rolagem">
           <table>
-            <thead><tr><th style="width:28px"><input type="checkbox" id="lote-todos" title="Marcar todas as pendentes"></th>
-              <th>Empresa</th><th>Tomador</th><th>Descrição</th><th>Valor</th><th>Situação</th></tr></thead>
+            <caption class="sr">Recorrências do mês de referência</caption>
+            <thead><tr><th class="w-check"><input type="checkbox" id="lote-todos" title="Marcar todas as pendentes" aria-label="Marcar todas as pendentes"></th>
+              <th class="w-detalhe"><span class="sr">Detalhes</span></th><th>Empresa</th><th>Tomador</th><th class="sec-1">Descrição</th><th class="w-valor num">Valor</th><th class="w-situacao larga">Situação</th></tr></thead>
             <tbody id="lista-lote"></tbody>
+            <tfoot id="rodape-lote"></tfoot>
           </table>
+          </div>
         </div>
         <p class="ajuda">Cada recorrência é emitida uma vez por mês: as já emitidas ou em andamento não podem ser marcadas.
           Rejeitadas e canceladas voltam a ficar pendentes. Cadastre as recorrências em "Recorrentes".</p>
@@ -174,12 +183,15 @@
           <button class="botao primario" id="planilha-emitir" disabled>Emitir selecionadas</button>
         </div>
         <div id="planilha-andamento"></div>
-        <div class="cartao" style="padding:0">
+        <div class="cartao tabela">
+          <div class="rolagem">
           <table>
-            <thead><tr><th style="width:28px"><input type="checkbox" id="planilha-todos" title="Marcar todas as prontas"></th>
-              <th>Linha</th><th>Empresa</th><th>Tomador</th><th>Descrição</th><th>Valor</th><th>Situação</th></tr></thead>
+            <caption class="sr">Linhas da planilha</caption>
+            <thead><tr><th class="w-check"><input type="checkbox" id="planilha-todos" title="Marcar todas as prontas" aria-label="Marcar todas as prontas"></th>
+              <th class="w-detalhe"><span class="sr">Detalhes</span></th><th class="w-linha num">Linha</th><th class="sec-2">Empresa</th><th>Tomador</th><th class="sec-1">Descrição</th><th class="w-valor num">Valor</th><th class="w-situacao larga">Situação</th></tr></thead>
             <tbody id="lista-planilha"></tbody>
           </table>
+          </div>
         </div>
       </section>
 
@@ -187,14 +199,17 @@
       <section data-tela="recorrentes" hidden>
         <h1 tabindex="-1">Notas recorrentes</h1>
         <div class="cartao" style="display:flex;justify-content:space-between;align-items:center">
-          <p class="ajuda" style="margin:0">Mensalidades da empresa selecionada. <code>{mes_ref}</code> na descrição vira o mês do lote.</p>
+          <p class="ajuda" style="margin:0">Mensalidades da empresa selecionada. <code>{mes_ref}</code> na descrição vira o mês do lote; valor com * vem do serviço.</p>
           <button class="botao primario" id="nova-recorrencia">Nova recorrência</button>
         </div>
-        <div class="cartao" style="padding:0">
+        <div class="cartao tabela">
+          <div class="rolagem">
           <table>
-            <thead><tr><th>Tomador</th><th>Serviço</th><th>Descrição</th><th>Valor</th><th></th></tr></thead>
+            <caption class="sr">Recorrências da empresa selecionada</caption>
+            <thead><tr><th>Tomador</th><th class="sec-2">Serviço</th><th class="sec-1">Descrição</th><th class="w-valor num">Valor</th><th class="w-acoes"><span class="sr">Ações</span></th></tr></thead>
             <tbody id="lista-recorrencias"></tbody>
           </table>
+          </div>
         </div>
       </section>
 
@@ -205,11 +220,14 @@
           <input id="busca-tomadores" placeholder="Buscar por nome ou CNPJ/CPF...">
           <button class="botao primario" id="novo-tomador" style="white-space:nowrap">Novo tomador</button>
         </div>
-        <div class="cartao" style="padding:0">
+        <div class="cartao tabela">
+          <div class="rolagem">
           <table>
-            <thead><tr><th>Documento</th><th>Nome</th><th>Município</th><th>E-mails de envio</th><th></th></tr></thead>
+            <caption class="sr">Tomadores da empresa selecionada</caption>
+            <thead><tr><th class="w-documento">Documento</th><th>Nome</th><th class="w-municipio sec-1">Município</th><th class="sec-2">E-mails de envio</th><th class="w-acoes estreita"><span class="sr">Ações</span></th></tr></thead>
             <tbody id="lista-tomadores"></tbody>
           </table>
+          </div>
         </div>
         <p class="ajuda">O tomador é cadastrado uma vez e pode ser usado por várias empresas (ex.: um convênio de várias clínicas).</p>
       </section>
@@ -220,11 +238,14 @@
         <div class="cartao" style="display:flex;justify-content:flex-end">
           <button class="botao primario" id="novo-servico">Novo serviço</button>
         </div>
-        <div class="cartao" style="padding:0">
+        <div class="cartao tabela">
+          <div class="rolagem">
           <table>
-            <thead><tr><th>Nome</th><th>Código nacional</th><th>NBS</th><th>Valor sugerido</th><th>Retenções</th><th></th></tr></thead>
+            <caption class="sr">Serviços da empresa selecionada</caption>
+            <thead><tr><th>Nome</th><th class="w-codigo">Cód. nacional</th><th class="w-codigo sec-2">NBS</th><th class="w-valor num">Valor sugerido</th><th class="sec-1">Retenções</th><th class="w-acoes"><span class="sr">Ações</span></th></tr></thead>
             <tbody id="lista-servicos"></tbody>
           </table>
+          </div>
         </div>
       </section>
 
@@ -234,11 +255,14 @@
         <div class="cartao" style="display:flex;justify-content:flex-end">
           <button class="botao primario" id="nova-empresa">Nova empresa</button>
         </div>
-        <div class="cartao" style="padding:0">
+        <div class="cartao tabela">
+          <div class="rolagem">
           <table>
-            <thead><tr><th>CNPJ</th><th>Razão social</th><th>Ambiente</th><th>Série</th><th>Certificado</th><th></th></tr></thead>
+            <caption class="sr">Empresas cadastradas</caption>
+            <thead><tr><th class="w-documento sec-2">CNPJ</th><th>Razão social</th><th class="w-ambiente">Ambiente</th><th class="w-serie sec-1">Série</th><th class="w-certificado">Certificado</th><th class="w-acoes"><span class="sr">Ações</span></th></tr></thead>
             <tbody id="lista-empresas"></tbody>
           </table>
+          </div>
         </div>
       </section>
 

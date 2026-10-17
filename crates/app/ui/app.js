@@ -44,6 +44,135 @@ function toast(texto, erro = false) {
   $("#toasts").append(el);
 }
 
+// ---------------------------------------------------------------- tabelas: ações e detalhe da linha
+
+let sequenciaMenu = 0;
+
+/**
+ * Ações de uma linha de tabela. Até duas ficam visíveis; com mais, a primeira fica e as outras vão
+ * para o menu "Mais". `acoes`: [{ acao, texto, perigo? }]; `i`: índice da linha (data-i);
+ * `alvo`: o que a linha representa, para o leitor de tela ("nota 1234").
+ */
+function acoesLinha(acoes, i, alvo) {
+  if (!acoes.length) return "";
+  const botao = (a) =>
+    `<button type="button" class="botao pequeno${a.perigo ? " perigo" : ""}" data-acao="${a.acao}" data-i="${i}"
+      aria-label="${esc(`${a.texto} — ${alvo}`)}">${esc(a.texto)}</button>`;
+  if (acoes.length <= 2) return `<div class="acoes-linha">${acoes.map(botao).join("")}</div>`;
+  const id = `menu-linha-${++sequenciaMenu}`;
+  const itens = acoes
+    .slice(1)
+    .map(
+      (a) => `<button type="button" role="menuitem" class="${a.perigo ? "perigo" : ""}" data-acao="${a.acao}"
+        data-i="${i}">${esc(a.texto)}</button>`,
+    )
+    .join("");
+  return `<div class="acoes-linha">${botao(acoes[0])}<button type="button" class="botao pequeno mais"
+      popovertarget="${id}" aria-haspopup="menu" aria-label="${esc(`Mais ações — ${alvo}`)}">Mais ▾</button>
+    <div class="menu" id="${id}" popover role="menu" aria-label="${esc(`Ações — ${alvo}`)}">${itens}</div></div>`;
+}
+
+// O menu abre colado ao botão "Mais" (acima dele se não couber embaixo) com o foco no primeiro item.
+document.addEventListener(
+  "toggle",
+  (ev) => {
+    const menu = ev.target;
+    if (!menu.classList?.contains("menu") || ev.newState !== "open") return;
+    const dono = document.querySelector(`[popovertarget="${menu.id}"]`);
+    if (!dono) return;
+    const r = dono.getBoundingClientRect();
+    const { offsetWidth: largura, offsetHeight: altura } = menu;
+    menu.style.left = `${Math.max(8, Math.min(r.right - largura, innerWidth - largura - 8))}px`;
+    menu.style.top = `${r.bottom + 4 + altura > innerHeight - 8 ? Math.max(8, r.top - altura - 4) : r.bottom + 4}px`;
+    menu.querySelector("button")?.focus();
+  },
+  true,
+);
+
+// Setas, Home e End percorrem os itens; escolher um item fecha o menu (o clique segue para a tabela).
+document.addEventListener("keydown", (ev) => {
+  const menu = ev.target.closest?.(".menu");
+  if (!menu) return;
+  const itens = $$("button", menu);
+  const i = itens.indexOf(ev.target);
+  const destino = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: itens.length - 1 }[ev.key];
+  if (destino === undefined) return;
+  ev.preventDefault();
+  itens[(destino + itens.length) % itens.length].focus();
+});
+document.addEventListener(
+  "click",
+  (ev) => {
+    const item = ev.target.closest(".menu button");
+    if (item) item.closest(".menu").hidePopover();
+  },
+  true,
+);
+
+/**
+ * Linha de detalhe que abre embaixo da linha principal: texto completo das colunas que ficam
+ * cortadas ou escondidas em janelas estreitas, e o motivo de rejeição/avisos (`motivo`, HTML).
+ * Devolve { botao, linha }: o botão vai na coluna "Detalhes" da linha principal.
+ */
+function detalheLinha({ id, colunas, alvo, itens, motivo = "", erro = false, aberta = false }) {
+  const lista = itens
+    .filter(([, v]) => v != null && v !== "")
+    .map(([rotulo, valor]) => `<dt>${esc(rotulo)}</dt><dd>${valor}</dd>`)
+    .join("");
+  const botao = `<button type="button" class="ver-detalhe${motivo ? " tem-motivo" : ""}" aria-expanded="${aberta}"
+    aria-controls="${id}" aria-label="${esc(`Detalhes — ${alvo}`)}"></button>`;
+  const linha = `<tr class="detalhe" id="${id}"${aberta ? "" : " hidden"}><td colspan="${colunas}">
+    <dl class="detalhe-lista">${lista}</dl>
+    <div class="detalhe-motivo${erro ? " erro" : ""}" data-motivo${motivo ? "" : " hidden"}>${motivo}</div></td></tr>`;
+  return { botao, linha };
+}
+
+function abrirDetalhe(botao, abrir) {
+  const linha = document.getElementById(botao.getAttribute("aria-controls"));
+  if (!linha) return;
+  linha.hidden = !abrir;
+  botao.setAttribute("aria-expanded", String(abrir));
+}
+
+document.addEventListener("click", (ev) => {
+  const b = ev.target.closest(".ver-detalhe");
+  if (b) abrirDetalhe(b, b.getAttribute("aria-expanded") !== "true");
+});
+
+/**
+ * Linhas que ocupam a tabela toda (detalhe, rodapé, "nenhum registro") usam colspan; quando colunas
+ * somem em janelas estreitas, um colspan maior que as colunas visíveis criaria colunas fantasmas.
+ * O colspan acompanha o número de colunas visíveis do cabeçalho.
+ */
+function ajustarColspan(tabela) {
+  const visiveis = $$("thead th", tabela).filter((th) => getComputedStyle(th).display !== "none").length;
+  for (const td of $$("tbody td[colspan], tfoot td[colspan]", tabela)) {
+    if (td.colSpan !== visiveis) td.colSpan = visiveis;
+  }
+}
+const observarLargura = new ResizeObserver((entradas) => {
+  for (const e of entradas) ajustarColspan($("table", e.target));
+});
+const observarLinhas = new MutationObserver((mudancas) => {
+  for (const tabela of new Set(mudancas.map((m) => m.target.closest("table")))) if (tabela) ajustarColspan(tabela);
+});
+for (const cartao of $$(".cartao.tabela")) {
+  observarLargura.observe(cartao);
+  for (const parte of $$("tbody, tfoot", cartao)) observarLinhas.observe(parte, { childList: true });
+}
+
+/** Troca o motivo mostrado no detalhe de uma linha (usado durante o lote); `abrir` já mostra. */
+function definirMotivo(tr, html, { erro = false, abrir = false } = {}) {
+  const botao = $(".ver-detalhe", tr);
+  const caixa = botao && $("[data-motivo]", document.getElementById(botao.getAttribute("aria-controls")));
+  if (!caixa) return;
+  caixa.innerHTML = html;
+  caixa.hidden = !html;
+  caixa.classList.toggle("erro", erro);
+  botao.classList.toggle("tem-motivo", !!html);
+  if (abrir && html) abrirDetalhe(botao, true);
+}
+
 /** Chama um comando mostrando o cursor de espera; o erro volta como texto. */
 async function chamar(comando, args) {
   document.body.classList.add("ocupado");
@@ -564,48 +693,62 @@ let notasCarregadas = [];
 
 async function carregarNotas() {
   const corpo = $("#lista-notas");
+  $("#rodape-notas").innerHTML = "";
   if (!estado.empresa) {
-    corpo.innerHTML = `<tr><td colspan="7" class="vazio">Nenhuma empresa selecionada.</td></tr>`;
+    corpo.innerHTML = `<tr><td colspan="8" class="vazio">Nenhuma empresa selecionada.</td></tr>`;
     return;
   }
   notasCarregadas = await invoke("listar_notas", { empresaId: estado.empresa.id, mes: vazio($("#mes-notas").value) });
   if (!notasCarregadas.length) {
-    corpo.innerHTML = `<tr><td colspan="7" class="vazio">Nenhuma nota neste período.</td></tr>`;
+    corpo.innerHTML = `<tr><td colspan="8" class="vazio">Nenhuma nota neste período.</td></tr>`;
     return;
   }
   corpo.innerHTML = notasCarregadas
     .map((n, i) => {
+      // a ação mais usada em cada situação fica visível; as outras vão para "Mais"
       const acoes = [];
+      if (n.situacao === "rejeitada") acoes.push({ acao: "refazer", texto: "Corrigir e emitir" });
+      if (n.situacao === "incerta" || n.situacao === "enviando") acoes.push({ acao: "verificar", texto: "Verificar" });
       if (n.nfse_id) {
-        acoes.push(`<button class="botao pequeno" data-acao="pdf" data-i="${i}">PDF</button>`);
-        acoes.push(`<button class="botao pequeno" data-acao="pasta" data-i="${i}">Pasta</button>`);
+        acoes.push({ acao: "pdf", texto: "PDF" }, { acao: "pasta", texto: "Pasta" });
+        if (n.situacao === "autorizada" || n.situacao === "cancelada") acoes.push({ acao: "email", texto: "E-mail" });
+        if (n.situacao === "autorizada") acoes.push({ acao: "cancelar", texto: "Cancelar nota", perigo: true });
       }
-      if (n.nfse_id && (n.situacao === "autorizada" || n.situacao === "cancelada")) {
-        acoes.push(`<button class="botao pequeno" data-acao="email" data-i="${i}">E-mail</button>`);
-      }
-      if (n.situacao === "autorizada") {
-        acoes.push(`<button class="botao pequeno perigo" data-acao="cancelar" data-i="${i}">Cancelar</button>`);
-      }
-      if (n.situacao === "rejeitada") {
-        acoes.push(`<button class="botao pequeno" data-acao="refazer" data-i="${i}">Corrigir e emitir</button>`);
-      }
-      if (n.situacao === "incerta" || n.situacao === "enviando") {
-        acoes.push(`<button class="botao pequeno" data-acao="verificar" data-i="${i}">Verificar</button>`);
-      }
-      const erro = n.erro && n.situacao !== "autorizada" ? `<div class="ajuda">${esc(n.erro)}</div>` : "";
+      const alvo = n.numero_nfse ? `nota ${n.numero_nfse}` : `DPS ${n.serie}/${n.numero_dps}`;
+      const motivo = n.erro && n.situacao !== "autorizada" ? esc(n.erro) : "";
+      const det = detalheLinha({
+        id: `det-nota-${i}`,
+        colunas: 8,
+        alvo,
+        itens: [
+          ["Tomador", esc(n.tomador ?? "Não identificado")],
+          ["Descrição", esc(n.descricao ?? "")],
+          ["DPS", `<span class="dado">${esc(n.serie)}/${n.numero_dps}</span>`],
+          ["E-mail", n.email_enviado_em ? `enviado em ${esc(dataHora(n.email_enviado_em))}` : ""],
+        ],
+        motivo,
+        erro: n.situacao === "rejeitada",
+      });
+      const email = n.email_enviado_em ? `E-mail enviado em ${dataHora(n.email_enviado_em)}` : "";
       return `<tr>
+        <td>${det.botao}</td>
         <td class="dado">${esc(n.numero_nfse ?? "—")}</td>
-        <td class="dado">${esc(n.serie)}/${n.numero_dps}</td>
-        <td class="truncar" title="${esc(n.tomador)}">${esc(n.tomador ?? "—")}</td>
-        <td class="truncar" title="${esc(n.descricao)}">${esc(n.descricao ?? "")}${erro}</td>
+        <td class="dado sec-2">${esc(n.serie)}/${n.numero_dps}</td>
+        <td title="${esc(n.tomador)}">${esc(n.tomador ?? "—")}</td>
+        <td class="sec-1" title="${esc(n.descricao)}">${esc(n.descricao ?? "")}</td>
         <td class="num">${n.valor ? "R$ " + moeda(n.valor) : ""}</td>
-        <td><span class="selo ${esc(n.situacao)}">${esc(NOME_SITUACAO[n.situacao] ?? n.situacao)}</span>${
-          n.email_enviado_em ? `<div class="ajuda">E-mail enviado ${esc(dataHora(n.email_enviado_em))}</div>` : ""
-        }</td>
-        <td><div class="acoes">${acoes.join("")}</div></td>
-      </tr>`;
+        <td><span class="selo ${esc(n.situacao)}" title="${esc(email)}">${esc(NOME_SITUACAO[n.situacao] ?? n.situacao)}</span></td>
+        <td>${acoesLinha(acoes, i, alvo)}</td>
+      </tr>${det.linha}`;
     })
     .join("");
+  const autorizadas = notasCarregadas.filter((n) => n.situacao === "autorizada");
+  const total = autorizadas.reduce((soma, n) => soma + Number(n.valor ?? 0), 0);
+  const outras = notasCarregadas.length - autorizadas.length;
+  $("#rodape-notas").innerHTML = `<tr><td colspan="8">${notasCarregadas.length} nota(s) · ${autorizadas.length}
+    autorizada(s), total <span class="dado">R$ ${moeda(total.toFixed(2))}</span>${
+      outras ? ` · ${outras} em outra situação` : ""
+    }</td></tr>`;
 }
 
 $("#mes-notas").addEventListener("change", () => carregarNotas().catch((e) => toast(String(e), true)));
@@ -733,14 +876,20 @@ async function carregarRecorrencias() {
     ? recorrenciasCarregadas
         .map(
           (r, i) => `<tr>
-          <td>${esc(r.tomador ?? "—")}</td>
-          <td>${esc(r.servico)}</td>
-          <td class="truncar" title="${esc(r.descricao_no_mes)}">${esc(r.descricao ?? "(a do serviço)")}</td>
-          <td class="num">${r.valor_efetivo ? "R$ " + moeda(r.valor_efetivo) : ""}${r.valor ? "" : '<div class="ajuda">do serviço</div>'}</td>
-          <td><div class="acoes">
-            <button class="botao pequeno" data-acao="editar" data-i="${i}">Editar</button>
-            <button class="botao pequeno perigo" data-acao="remover" data-i="${i}">Remover</button>
-          </div></td>
+          <td title="${esc(r.tomador)}">${esc(r.tomador ?? "—")}</td>
+          <td class="sec-2" title="${esc(r.servico)}">${esc(r.servico)}</td>
+          <td class="sec-1" title="${esc(r.descricao_no_mes)}">${esc(r.descricao ?? "(a do serviço)")}</td>
+          <td class="num" title="${r.valor ? "" : "Valor do serviço"}">${r.valor_efetivo ? "R$ " + moeda(r.valor_efetivo) : ""}${
+            r.valor ? "" : "*"
+          }</td>
+          <td>${acoesLinha(
+            [
+              { acao: "editar", texto: "Editar" },
+              { acao: "remover", texto: "Remover", perigo: true },
+            ],
+            i,
+            `recorrência de ${r.tomador ?? "nota sem tomador"}`,
+          )}</td>
         </tr>`,
         )
         .join("")
@@ -848,46 +997,78 @@ async function carregarLote() {
   desenharLote();
 }
 
+/** Carimbo da situação no lote e o motivo (vai para o detalhe da linha). */
 function situacaoLote(r) {
   const t = r.no_mes;
   if (t && !t.libera) {
     const nota = t.numero_nfse ? ` nº ${esc(t.numero_nfse)}` : "";
-    return `<span class="selo ${esc(t.situacao)}">${esc(NOME_SITUACAO[t.situacao] ?? t.situacao)}${nota}</span>`;
+    return { selo: `<span class="selo ${esc(t.situacao)}">${esc(NOME_SITUACAO[t.situacao] ?? t.situacao)}${nota}</span>` };
   }
-  const anterior = t
-    ? `<div class="ajuda">Antes: ${esc(NOME_SITUACAO[t.situacao] ?? t.situacao)} — ${esc(t.erro ?? "")}</div>`
-    : "";
+  const anterior = t ? `<p>Antes: ${esc(NOME_SITUACAO[t.situacao] ?? t.situacao)} — ${esc(t.erro ?? "")}</p>` : "";
   if (r.erros.length) {
-    return `<span class="selo rejeitada">Não pode emitir</span>
-      <div class="ajuda" style="color:var(--vermelho)">${r.erros.map(esc).join("<br>")}</div>${anterior}`;
+    return {
+      selo: `<span class="selo rejeitada">Não pode emitir</span>`,
+      motivo: `<p>${r.erros.map(esc).join("<br>")}</p>${anterior}`,
+      erro: true,
+    };
   }
-  return `<span class="selo pendente">Pendente</span>${anterior}`;
+  return { selo: `<span class="selo pendente">Pendente</span>`, motivo: anterior };
+}
+
+/** Empresa na linha do lote/planilha: o nome corta com reticências e o carimbo de homologação fica inteiro. */
+function celulaEmpresa(nome, empresaId) {
+  const emHomologacao = ambienteDe(empresaId) === "homologacao";
+  const hom = emHomologacao ? `<span class="selo homologacao">Homologação</span>` : "";
+  const titulo = emHomologacao ? `${nome} (homologação, sem valor fiscal)` : nome;
+  return `<div class="celula-flex"><span class="corta" title="${esc(titulo)}">${esc(nome ?? "—")}</span>${hom}</div>`;
 }
 
 function desenharLote() {
   const corpo = $("#lista-lote");
   $("#lote-todos").checked = false;
+  $("#rodape-lote").innerHTML = "";
   if (!loteCarregado.length) {
-    corpo.innerHTML = `<tr><td colspan="6" class="vazio">Nenhuma recorrência cadastrada${
+    corpo.innerHTML = `<tr><td colspan="7" class="vazio">Nenhuma recorrência cadastrada${
       $("#lote-so-empresa").checked ? " nesta empresa" : ""
     }. Cadastre em "Recorrentes".</td></tr>`;
     atualizarBotaoLote();
     return;
   }
   corpo.innerHTML = loteCarregado
-    .map(
-      (r, i) => `<tr data-i="${i}">
-        <td><input type="checkbox" data-i="${i}" ${podeEmitirNoLote(r) ? "" : "disabled"}></td>
-        <td>${esc(r.empresa)}${
-          ambienteDe(r.empresa_id) === "homologacao" ? ' <span class="selo homologacao">Homologação</span>' : ""
-        }</td>
-        <td>${esc(r.tomador ?? "—")}</td>
-        <td class="truncar" title="${esc(r.descricao_no_mes)}">${esc(r.descricao_no_mes)}</td>
+    .map((r, i) => {
+      const s = situacaoLote(r);
+      const alvo = `${r.empresa} para ${r.tomador ?? "nota sem tomador"}`;
+      const det = detalheLinha({
+        id: `det-lote-${i}`,
+        colunas: 7,
+        alvo,
+        itens: [
+          ["Empresa", esc(r.empresa)],
+          ["Tomador", esc(r.tomador ?? "Não identificado")],
+          ["Descrição", esc(r.descricao_no_mes)],
+        ],
+        motivo: s.motivo ?? "",
+        erro: !!s.erro,
+        aberta: !!s.erro,
+      });
+      return `<tr data-i="${i}">
+        <td><input type="checkbox" data-i="${i}" ${podeEmitirNoLote(r) ? "" : "disabled"} aria-label="${esc(`Marcar ${alvo}`)}"></td>
+        <td>${det.botao}</td>
+        <td>${celulaEmpresa(r.empresa, r.empresa_id)}</td>
+        <td title="${esc(r.tomador)}">${esc(r.tomador ?? "—")}</td>
+        <td class="sec-1" title="${esc(r.descricao_no_mes)}">${esc(r.descricao_no_mes)}</td>
         <td class="num">${r.valor_efetivo ? "R$ " + moeda(r.valor_efetivo) : ""}</td>
-        <td data-situacao>${situacaoLote(r)}</td>
-      </tr>`,
-    )
+        <td data-situacao>${s.selo}</td>
+      </tr>${det.linha}`;
+    })
     .join("");
+  const pendentes = loteCarregado.filter(podeEmitirNoLote);
+  const total = pendentes.reduce((soma, r) => soma + Number(r.valor_efetivo ?? 0), 0);
+  const comErro = loteCarregado.filter((r) => r.erros.length).length;
+  $("#rodape-lote").innerHTML = `<tr><td colspan="7">${loteCarregado.length} recorrência(s) · ${pendentes.length}
+    pendente(s), total <span class="dado">R$ ${moeda(total.toFixed(2))}</span>${
+      comErro ? ` · ${comErro} com erro` : ""
+    }</td></tr>`;
   atualizarBotaoLote();
 }
 
@@ -936,25 +1117,27 @@ async function emitirEmSequencia({ itens, andamento, celulaDe, descrever, emitir
         resultado = { ok: false, erro: String(e) };
       }
     }
+    // o carimbo fica na célula; avisos e motivos vão para o detalhe da linha (aberto quando não emitiu)
+    const linha = celula.closest("tr");
     if (resultado.ok && resultado.res.autorizada) {
       contagem.autorizada++;
-      celula.innerHTML = `<span class="selo autorizada">Autorizada nº ${esc(resultado.res.numero ?? "")}</span>${resultado.res.avisos
-        .map((a) => `<div class="ajuda">${esc(a)}</div>`)
-        .join("")}`;
+      celula.innerHTML = `<span class="selo autorizada">Autorizada nº ${esc(resultado.res.numero ?? "")}</span>`;
+      definirMotivo(linha, resultado.res.avisos.map((a) => `<p>${esc(a)}</p>`).join(""));
     } else if (resultado.ok) {
       contagem.incerta++;
-      celula.innerHTML = `<span class="selo incerta">Sem resposta</span><div class="ajuda">${esc(resultado.res.motivo)}</div>`;
+      celula.innerHTML = `<span class="selo incerta">Sem resposta</span>`;
+      definirMotivo(linha, `<p>${esc(resultado.res.motivo)}</p>`, { abrir: true });
     } else {
       contagem.falha++;
-      celula.innerHTML = `<span class="selo rejeitada">Não emitida</span>
-        <div class="ajuda" style="color:var(--vermelho)">${esc(resultado.erro)}</div>`;
+      celula.innerHTML = `<span class="selo rejeitada">Não emitida</span>`;
+      definirMotivo(linha, `<p>${esc(resultado.erro)}</p>`, { erro: true, abrir: true });
     }
   }
   toast(`Concluído: ${contagem.autorizada} autorizada(s).`);
   return (
     `<div class="aviso ${contagem.falha || contagem.incerta ? "atencao" : "ok"}">Concluído: ` +
     `${contagem.autorizada} autorizada(s)` +
-    (contagem.falha ? `, ${contagem.falha} não emitida(s) — o motivo está em cada linha` : "") +
+    (contagem.falha ? `, ${contagem.falha} não emitida(s) — o motivo aparece embaixo de cada linha` : "") +
     (contagem.incerta ? `, ${contagem.incerta} sem resposta — confira em "Notas emitidas" (Verificar)` : "") +
     ".</div>"
   );
@@ -1038,32 +1221,36 @@ async function lerPlanilha() {
   desenharPlanilha();
 }
 
+/** Carimbo da situação da linha da planilha e o motivo (vai para o detalhe da linha). */
 function situacaoPlanilha(it) {
   const t = it.anterior;
   if (t && !t.libera) {
     const nota = t.numero_nfse ? ` nº ${esc(t.numero_nfse)}` : "";
-    return `<span class="selo ${esc(t.situacao)}">Já ${esc((NOME_SITUACAO[t.situacao] ?? t.situacao).toLowerCase())}${nota}</span>`;
+    return {
+      selo: `<span class="selo ${esc(t.situacao)}">Já ${esc((NOME_SITUACAO[t.situacao] ?? t.situacao).toLowerCase())}${nota}</span>`,
+    };
   }
   if (it.erros.length) {
     const cadastrar =
       !it.pessoa_id && it.documento_tomador && it.empresa_id
-        ? `<div style="margin-top:4px"><button class="botao pequeno" data-cadastrar-tomador="${planilhaLida.indexOf(it)}">Cadastrar tomador</button></div>`
+        ? `<p><button type="button" class="botao pequeno" data-cadastrar-tomador="${planilhaLida.indexOf(it)}">Cadastrar tomador</button></p>`
         : "";
-    return `<span class="selo rejeitada">Não pode emitir</span>
-      <div class="ajuda" style="color:var(--vermelho)">${it.erros.map(esc).join("<br>")}</div>${cadastrar}`;
+    return {
+      selo: `<span class="selo rejeitada">Não pode emitir</span>`,
+      motivo: `<p>${it.erros.map(esc).join("<br>")}</p>${cadastrar}`,
+      erro: true,
+    };
   }
-  const aviso = it.vincular_tomador ? `<div class="ajuda">O tomador será vinculado a esta empresa.</div>` : "";
-  const antes = t
-    ? `<div class="ajuda">Antes: ${esc(NOME_SITUACAO[t.situacao] ?? t.situacao)} — ${esc(t.erro ?? "")}</div>`
-    : "";
-  return `<span class="selo pendente">Pronta</span>${aviso}${antes}`;
+  const aviso = it.vincular_tomador ? `<p>O tomador será vinculado a esta empresa.</p>` : "";
+  const antes = t ? `<p>Antes: ${esc(NOME_SITUACAO[t.situacao] ?? t.situacao)} — ${esc(t.erro ?? "")}</p>` : "";
+  return { selo: `<span class="selo pendente">Pronta</span>`, motivo: aviso + antes };
 }
 
 function desenharPlanilha() {
   const corpo = $("#lista-planilha");
   $("#planilha-todos").checked = false;
   if (!planilhaLida.length) {
-    corpo.innerHTML = `<tr><td colspan="7" class="vazio">${
+    corpo.innerHTML = `<tr><td colspan="8" class="vazio">${
       planilhaArquivo ? "Nenhuma linha com dados na planilha." : "Escolha a planilha (.xlsx, .xls, .ods ou .csv)."
     }</td></tr>`;
     $("#planilha-resumo").textContent = "";
@@ -1071,17 +1258,34 @@ function desenharPlanilha() {
     return;
   }
   corpo.innerHTML = planilhaLida
-    .map(
-      (it, i) => `<tr data-i="${i}">
-        <td><input type="checkbox" data-i="${i}" ${podeEmitirDaPlanilha(it) ? "" : "disabled"}></td>
+    .map((it, i) => {
+      const s = situacaoPlanilha(it);
+      const tomador = it.tomador ?? it.documento_tomador;
+      const alvo = `linha ${it.linha}`;
+      const det = detalheLinha({
+        id: `det-planilha-${i}`,
+        colunas: 8,
+        alvo,
+        itens: [
+          ["Empresa", esc(it.empresa ?? "—")],
+          ["Tomador", esc(tomador)],
+          ["Descrição", esc(it.descricao)],
+        ],
+        motivo: s.motivo ?? "",
+        erro: !!s.erro,
+        aberta: !!s.erro,
+      });
+      return `<tr data-i="${i}">
+        <td><input type="checkbox" data-i="${i}" ${podeEmitirDaPlanilha(it) ? "" : "disabled"} aria-label="${esc(`Marcar ${alvo}`)}"></td>
+        <td>${det.botao}</td>
         <td class="num">${it.linha}</td>
-        <td>${esc(it.empresa ?? "—")}</td>
-        <td>${esc(it.tomador ?? it.documento_tomador)}</td>
-        <td class="truncar" title="${esc(it.descricao)}">${esc(it.descricao)}</td>
+        <td class="sec-2">${celulaEmpresa(it.empresa, it.empresa_id)}</td>
+        <td title="${esc(tomador)}">${esc(tomador)}</td>
+        <td class="sec-1" title="${esc(it.descricao)}">${esc(it.descricao)}</td>
         <td class="num">${it.valor ? "R$ " + moeda(it.valor) : ""}</td>
-        <td data-situacao>${situacaoPlanilha(it)}</td>
-      </tr>`,
-    )
+        <td data-situacao>${s.selo}</td>
+      </tr>${det.linha}`;
+    })
     .join("");
   const prontas = planilhaLida.filter(podeEmitirDaPlanilha);
   const total = prontas.reduce((soma, it) => soma + Number(it.valor ?? 0), 0);
@@ -1157,11 +1361,11 @@ async function carregarTomadores() {
     ? tomadoresCarregados
         .map(
           (t, i) => `<tr>
-          <td class="dado" style="white-space:nowrap">${esc(formatarDocumento(t.tomador.documento))}</td>
-          <td>${esc(t.tomador.nome)}</td>
-          <td>${esc(t.tomador.endereco?.municipio ?? "")}</td>
-          <td class="truncar">${esc(t.emails ?? "")}</td>
-          <td><button class="botao pequeno" data-i="${i}">Editar</button></td>
+          <td class="dado">${esc(formatarDocumento(t.tomador.documento))}</td>
+          <td title="${esc(t.tomador.nome)}">${esc(t.tomador.nome)}</td>
+          <td class="dado sec-1">${esc(t.tomador.endereco?.municipio ?? "")}</td>
+          <td class="sec-2" title="${esc(t.emails)}">${esc(t.emails ?? "")}</td>
+          <td>${acoesLinha([{ acao: "editar", texto: "Editar" }], i, t.tomador.nome)}</td>
         </tr>`,
         )
         .join("")
@@ -1175,7 +1379,7 @@ $("#busca-tomadores").addEventListener("input", () => {
 });
 
 $("#lista-tomadores").addEventListener("click", (ev) => {
-  const b = ev.target.closest("button[data-i]");
+  const b = ev.target.closest("button[data-acao]");
   if (b) editarTomador(tomadoresCarregados[Number(b.dataset.i)], () => carregarTomadores());
 });
 
@@ -1358,15 +1562,19 @@ async function carregarServicos() {
             .map(([k, v]) => `${NOME_RETENCAO[k]} ${percentualTela(v)}%`)
             .join(", ");
           return `<tr>
-            <td>${esc(s.nome)}</td>
-            <td>${esc(s.codigo_trib_nac)}</td>
-            <td>${esc(s.nbs ?? "")}</td>
+            <td title="${esc(s.nome)}">${esc(s.nome)}</td>
+            <td class="dado">${esc(s.codigo_trib_nac)}</td>
+            <td class="dado sec-2">${esc(s.nbs ?? "")}</td>
             <td class="num">${s.valor_sugerido ? "R$ " + moeda(s.valor_sugerido) : ""}</td>
-            <td>${esc(ret || "—")}</td>
-            <td><div class="acoes">
-              <button class="botao pequeno" data-acao="editar" data-i="${i}">Editar</button>
-              <button class="botao pequeno perigo" data-acao="desativar" data-i="${i}">Remover</button>
-            </div></td>
+            <td class="sec-1" title="${esc(ret)}">${esc(ret || "—")}</td>
+            <td>${acoesLinha(
+              [
+                { acao: "editar", texto: "Editar" },
+                { acao: "desativar", texto: "Remover", perigo: true },
+              ],
+              i,
+              `serviço ${s.nome}`,
+            )}</td>
           </tr>`;
         })
         .join("")
@@ -1492,22 +1700,34 @@ async function renderizarEmpresas() {
     ? estado.empresas
         .map((e, i) => {
           const c = e.certificado;
-          const cert = c
-            ? `<span style="${c.dias_para_vencer <= 30 ? "color:var(--vermelho)" : ""}">até ${esc(c.valido_ate)}</span>
-               <div class="ajuda">${esc(c.titular)}</div>`
-            : `<span style="color:var(--vermelho)">não importado</span>`;
+          // validade em uma linha; titular no title; carimbo só quando vence em até 30 dias
+          let cert = `<span class="selo rejeitada">Sem certificado</span>`;
+          if (c) {
+            const d = c.dias_para_vencer;
+            const carimbo =
+              d < 0
+                ? `<span class="selo rejeitada">Vencido</span>`
+                : d <= 30
+                  ? `<span class="selo incerta">${d} ${d === 1 ? "dia" : "dias"}</span>`
+                  : "";
+            cert = `<span class="dado">${esc(c.valido_ate)}</span> ${carimbo}`;
+          }
           return `<tr>
-            <td class="dado" style="white-space:nowrap">${esc(e.cnpj_formatado)}</td>
-            <td>${esc(e.nome)}</td>
+            <td class="dado sec-2">${esc(e.cnpj_formatado)}</td>
+            <td title="${esc(`${e.nome} — ${e.cnpj_formatado}`)}">${esc(e.nome)}</td>
             <td><span class="selo ${e.ambiente}">${NOME_AMBIENTE[e.ambiente]}</span></td>
-            <td class="dado">${esc(e.serie)}</td>
-            <td>${cert}</td>
-            <td><div class="acoes">
-              <button class="botao pequeno" data-acao="editar" data-i="${i}">Editar</button>
-              <button class="botao pequeno" data-acao="certificado" data-i="${i}">Certificado</button>
-              <button class="botao pequeno" data-acao="numeracao" data-i="${i}">Numeração / IM</button>
-              <button class="botao pequeno perigo" data-acao="excluir" data-i="${i}">Excluir</button>
-            </div></td>
+            <td class="dado sec-1">${esc(e.serie)}</td>
+            <td title="${esc(c ? `Titular: ${c.titular}` : "Importe o certificado A1 da empresa")}">${cert}</td>
+            <td>${acoesLinha(
+              [
+                { acao: "editar", texto: "Editar" },
+                { acao: "certificado", texto: "Certificado" },
+                { acao: "numeracao", texto: "Numeração / IM" },
+                { acao: "excluir", texto: "Excluir", perigo: true },
+              ],
+              i,
+              e.nome,
+            )}</td>
           </tr>`;
         })
         .join("")

@@ -202,6 +202,102 @@ tbody tr.marcada { background: var(--caneta-claro); }
 td.num { text-align: right; white-space: nowrap; }
 td .acoes { margin: 0; padding: 0; border: 0; justify-content: flex-start; flex-wrap: wrap; gap: var(--espaco-1); }
 .truncar { max-width: 20rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- tabelas de listagem: uma linha por registro ----------
+   Larguras fixas pelo tipo de dado; nome e descrição dividem o resto e cortam com reticências (texto
+   inteiro no title e no detalhe da linha). O cartão é o container: em larguras menores somem primeiro as
+   colunas .sec-1 e depois as .sec-2 (o conteúdo continua no detalhe); abaixo disso a tabela rola na horizontal. */
+.cartao.tabela { padding: 0; container: tabela / inline-size; }
+.tabela table { table-layout: fixed; }
+.tabela th.num { text-align: right; }
+.tabela td { vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tabela td:has(.menu, .acoes-linha) { overflow: visible; }
+.tabela thead th { position: sticky; top: 0; z-index: 2; }
+.tabela tfoot td {
+  position: sticky; bottom: 0; z-index: 2; background: var(--papel-escuro); border-top: 1px solid var(--fio-forte);
+  border-bottom: 0; font-size: 0.7812rem; color: var(--tinta-suave); white-space: normal;
+}
+.tabela tfoot .dado { color: var(--tinta); }
+.tabela td.vazio { white-space: normal; }
+
+.w-detalhe, .w-check { width: 2.5rem; }
+.tabela th.w-detalhe, .tabela th.w-check,
+.tabela td:has(> .ver-detalhe), .tabela td:has(> input[type="checkbox"]) { padding-inline: 0.5rem; text-overflow: clip; }
+.w-nfse { width: 5.5rem; }
+.w-dps, .w-linha { width: 5.5rem; }
+.w-valor { width: 8.5rem; }
+.w-situacao { width: 9.5rem; }
+.w-situacao.larga { width: 12rem; }
+.w-acoes { width: 9.5rem; }
+.w-acoes.larga { width: 10.5rem; }
+.w-acoes.estreita { width: 5.5rem; }
+.w-documento { width: 11.5rem; }
+.w-municipio { width: 7rem; }
+.w-codigo { width: 8rem; }
+.w-ambiente { width: 9rem; }
+.w-serie { width: 4.5rem; }
+.w-certificado { width: 12rem; }
+
+@container tabela (max-width: 64rem) { .sec-1 { display: none; } }
+@container tabela (max-width: 50rem) { .sec-2 { display: none; } }
+/* último recurso: abaixo de 36rem a tabela rola na horizontal (aí o cabeçalho deixa de ficar fixo) */
+@container tabela (max-width: 36rem) { .rolagem { overflow-x: auto; } }
+
+.celula-flex { display: flex; align-items: center; gap: var(--espaco-2); min-width: 0; }
+.celula-flex .corta { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.celula-flex .selo { flex: none; }
+@container tabela (max-width: 50rem) { .celula-flex .selo { display: none; } }
+
+/* ações da linha: até duas visíveis, o resto no menu "Mais" */
+.acoes-linha { display: flex; gap: var(--espaco-1); flex-wrap: nowrap; align-items: center; }
+.menu {
+  position: fixed; inset: auto; margin: 0; padding: var(--espaco-1); min-width: 11rem;
+  background: var(--folha); color: var(--tinta); border: 1px solid var(--fio-forte);
+  border-radius: var(--raio-fino); box-shadow: var(--sombra-flutuante);
+}
+.menu button {
+  all: unset; box-sizing: border-box; display: block; width: 100%; cursor: pointer;
+  padding: calc(0.4375rem * var(--densidade)) var(--espaco-3); border-radius: var(--raio-fino); font-size: 0.875rem;
+}
+.menu button:hover { background: var(--papel-escuro); }
+.menu button:focus-visible { background: var(--caneta-claro); outline: 2px solid var(--caneta); outline-offset: -2px; }
+.menu button.perigo { color: var(--vermelho); }
+.menu button.perigo:not(:first-child) { margin-top: var(--espaco-1); border-top: 1px dashed var(--fio-forte); }
+
+/* botão que abre o detalhe da linha (seta); só aparece quando há motivo, ou quando colunas somem */
+.ver-detalhe {
+  all: unset; box-sizing: border-box; cursor: pointer; display: inline-grid; place-items: center;
+  width: 1.5rem; height: 1.5rem; border-radius: var(--raio-fino); color: var(--tinta-suave);
+}
+.ver-detalhe::before {
+  content: ""; width: 0.375rem; height: 0.375rem; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: translateX(-1px) rotate(-45deg);
+}
+.ver-detalhe[aria-expanded="true"]::before { transform: translateY(-1px) rotate(45deg); }
+.ver-detalhe:hover { background: var(--papel-escuro); color: var(--tinta); }
+.ver-detalhe:focus-visible { outline: 2px solid var(--caneta); outline-offset: 1px; }
+.ver-detalhe.tem-motivo { color: var(--caneta); }
+.ver-detalhe:not(.tem-motivo) { visibility: hidden; }
+@container tabela (max-width: 64rem) { .ver-detalhe:not(.tem-motivo) { visibility: visible; } }
+
+tr.detalhe > td {
+  white-space: normal; overflow: visible; background: var(--papel);
+  padding: var(--espaco-3) var(--espaco-4) var(--espaco-3) 3.25rem;
+}
+tbody tr.detalhe:hover { background: var(--papel); }
+.detalhe-lista { display: grid; grid-template-columns: max-content 1fr; gap: var(--espaco-1) var(--espaco-4); margin: 0; }
+.detalhe-lista dt {
+  font-family: var(--font-condensed); font-size: 0.6875rem; line-height: 1.25rem; font-weight: 500;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--tinta-suave);
+}
+.detalhe-lista dd { margin: 0; overflow-wrap: anywhere; }
+.detalhe-motivo { margin-top: var(--espaco-2); padding-top: var(--espaco-2); border-top: 1px dashed var(--fio-forte); }
+.detalhe-motivo.erro { color: var(--vermelho); }
+.detalhe-motivo p { margin: 0 0 var(--espaco-1); }
+.detalhe-motivo p:last-child { margin-bottom: 0; }
+
+/* texto só para leitor de tela */
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .vazio { color: var(--tinta-suave); text-align: center; padding: calc(1.75rem * var(--densidade)); }
 
 /* ---------- carimbos (selos) ---------- */

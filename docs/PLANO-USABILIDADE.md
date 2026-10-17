@@ -76,7 +76,7 @@ Cada etapa é um commit separado, testado no app real por você antes do próxim
 - Nova classe `.barra` para as barras de ferramentas (filtros à esquerda, ações à direita, `flex-wrap` com a ação primária sempre junto das secundárias), substituindo os `style=` de Notas, Lote, Planilha, Recorrentes, Tomadores, Serviços, Empresas e Configurações.
 - Container queries (`container-type: inline-size` no `.conteudo` e nos cartões) em vez de media queries: o mesmo componente se ajusta dentro de um diálogo ou da tela cheia.
 
-### Etapa 3 — Tabelas sem quebras
+### Etapa 3 — Tabelas sem quebras · feita em 17/10/2026
 - **Ações da linha**: a ação principal visível (PDF para autorizada, "Corrigir e emitir" para rejeitada, "Verificar" para incerta) e as demais num botão "Mais ▾" com menu (popover nativo + teclado). A linha volta a ter ~44px.
 - `<colgroup>` com larguras por tipo: número/série/valor em `ch` e mono, situação com largura do maior carimbo, nome e descrição flexíveis com reticências e texto completo no `title`.
 - Prioridade de colunas por container query: abaixo de 900px somem DPS e Descrição em Notas, Descrição no Lote e na Planilha, Município em Tomadores; o conteúdo vai para uma linha de detalhe expansível.
