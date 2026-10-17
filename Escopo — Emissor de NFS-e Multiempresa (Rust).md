@@ -103,7 +103,8 @@ Cada empresa tem um e-CNPJ A1 (.pfx), que assina a DPS/eventos e autentica a con
 - **Feito** — Cadastro, edição e exclusão (sem notas: apaga; com notas: arquiva e o recadastro do CNPJ traz de volta com o histórico). Consulta pública de CNPJ preenche razão social, município (IBGE), telefone, e-mail e opção Simples/MEI.
 - **Feito** — Inscrição municipal (e se vai na DPS, por ambiente), município emissor, regime (Simples ME/EPP, MEI, não optante; apuração; regime especial), ambiente, série. Troca de Homologação para Produção pela edição.
 - **Feito** — Próximo número por ambiente e série, ajuste manual e "Consultar na Sefin".
-- **Pendente** — Logotipo da empresa no DANFSe; incentivos fiscais.
+- **Fora do escopo** — Logotipo da empresa no DANFSe (decidido: sem relevância).
+- **Pendente** — Incentivos fiscais.
 
 **2. Tomadores (clientes das empresas)**
 
@@ -118,7 +119,8 @@ Cada empresa tem um e-CNPJ A1 (.pfx), que assina a DPS/eventos e autentica a con
 
 - **Feito** — Descrição padrão com `{mes_ref}`, `cTribNac`, NBS, código municipal, ISSQN (tributação, retenção, alíquota), PIS/COFINS (CST, tipo de retenção), retenções em percentual (IRRF, CSLL, INSS, PIS, COFINS — valores calculados sobre cada nota), total aproximado de tributos e valor sugerido.
 - **Feito** — Importação e exportação do catálogo de serviços por planilha (Excel, ODS ou CSV), com modelo para download.
-- **Pendente** — Tabela nacional de códigos (Anexo B) e validação contra a parametrização do município; classificação IBS/CBS na tela.
+- **Feito** — Grupo IBS/CBS no cadastro de serviço (CST, cClassTrib, cIndOp) e na planilha.
+- **Pendente** — Tabela nacional de códigos (Anexo B) e validação contra a parametrização do município.
 
 **4. Emissão**
 
@@ -338,7 +340,7 @@ O banco concentra os certificados de todos os clientes: quem copia o arquivo e d
 - Distribuição DF-e pelo ADN: baixar notas emitidas fora do sistema e notas recebidas como tomador; manifestação do tomador.
 - Parâmetros municipais (alíquotas, serviços habilitados, prazos) para validar antes de enviar.
 - Relatórios (faturamento, ISS devido/retido, IBS/CBS), ZIP mensal de XMLs para o Prosoft e painel do dia.
-- Tomador estrangeiro, intermediário e classificação IBS/CBS na tela.
+- Tomador estrangeiro e intermediário.
 
 **Fora do escopo** (por decisão do escritório)
 
