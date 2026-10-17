@@ -981,6 +981,13 @@ $("#trocar-tomador").addEventListener("click", () => {
   $("#termo-tomador").focus();
 });
 
+/** Vincula à empresa escolhida um tomador cadastrado por outra; e-mails e retenção começam vazios. */
+async function vincularTomador(t) {
+  const vinculado = await invoke("vincular_tomador", { empresaId: estado.empresa.id, pessoaId: t.pessoa_id });
+  toast("Tomador vinculado a esta empresa. Confira e-mails e retenções em Tomadores.");
+  return vinculado;
+}
+
 /**
  * Busca de tomador no padrão combobox (ARIA 1.2): o foco fica no campo e a opção ativa é indicada
  * por aria-activedescendant; setas, Home/End, Enter, Esc e clique. Usada na emissão e no diálogo de
@@ -1004,6 +1011,18 @@ function ligarBuscaTomador(input, caixa, aoEscolher) {
     if (caixa.hidden) input.removeAttribute("aria-activedescendant");
   }).observe(caixa, { attributes: true, attributeFilter: ["hidden"] });
 
+  /** Tomador de outra empresa: vincula a esta (sem cadastrar de novo) e só então escolhe. */
+  async function escolher(t) {
+    if (t.de_outra_empresa) {
+      try {
+        t = await vincularTomador(t);
+      } catch (e) {
+        return toast(String(e), true);
+      }
+    }
+    aoEscolher(t);
+  }
+
   function desenhar() {
     caixa.hidden = false;
     caixa.innerHTML = resultados.length
@@ -1011,7 +1030,7 @@ function ligarBuscaTomador(input, caixa, aoEscolher) {
           .map(
             (t, i) => `<div role="option" id="${caixa.id}-${i}" data-i="${i}" aria-selected="${i === foco}"
               class="${i === foco ? "foco" : ""}">${esc(t.tomador.nome)}
-              <small>${esc(formatarDocumento(t.tomador.documento))}</small></div>`,
+              <small>${esc(formatarDocumento(t.tomador.documento))}${t.de_outra_empresa ? " · de outra empresa: vincular" : ""}</small></div>`,
           )
           .join("")
       : `<div class="vazio" role="option" aria-disabled="true" aria-selected="false">Nenhum tomador encontrado.</div>`;
@@ -1033,6 +1052,8 @@ function ligarBuscaTomador(input, caixa, aoEscolher) {
     pendente = setTimeout(async () => {
       try {
         resultados = await invoke("buscar_tomadores", { empresaId: estado.empresa.id, termo });
+        const outros = await invoke("buscar_tomadores_de_outras_empresas", { empresaId: estado.empresa.id, termo });
+        resultados.push(...outros.map((t) => ({ ...t, de_outra_empresa: true })));
       } catch (e) {
         return toast(String(e), true);
       }
@@ -1059,7 +1080,7 @@ function ligarBuscaTomador(input, caixa, aoEscolher) {
       desenhar();
     } else if (ev.key === "Enter") {
       ev.preventDefault();
-      if (foco >= 0) aoEscolher(resultados[foco]);
+      if (foco >= 0) escolher(resultados[foco]);
     } else if (ev.key === "Escape") {
       ev.preventDefault();
       caixa.hidden = true;
@@ -1070,7 +1091,7 @@ function ligarBuscaTomador(input, caixa, aoEscolher) {
   caixa.addEventListener("mousedown", (ev) => {
     ev.preventDefault();
     const item = ev.target.closest("[data-i]");
-    if (item) aoEscolher(resultados[Number(item.dataset.i)]);
+    if (item) escolher(resultados[Number(item.dataset.i)]);
   });
 
   input.addEventListener("blur", () => {
@@ -1147,6 +1168,7 @@ async function revisar() {
     partes.push(`<div class="aviso erro"><strong>Corrija antes de emitir:</strong>
       <ul>${previa.erros.map((e) => `<li>${esc(e)}</li>`).join("")}</ul></div>`);
   }
+  for (const texto of previa.avisos) partes.push(`<div class="aviso atencao">${esc(texto)}</div>`);
   aviso.innerHTML = partes.join("");
   const linhas = [
     ["Prestador", previa.prestador],
@@ -1168,7 +1190,6 @@ async function revisar() {
   reter.hidden = !previa.retencao_condicional;
   $("#reter-federais").checked = previa.reter_federais;
   $("#reter-iss").checked = previa.reter_iss;
-  for (const texto of previa.avisos) partes.push(`<div class="aviso atencao">${esc(texto)}</div>`);
   $("#confirmar-emissao").disabled = previa.erros.length > 0;
   $("#revisao").hidden = false;
   $("#revisao").scrollIntoView({ behavior: "smooth" });
@@ -2016,15 +2037,20 @@ async function carregarTomadores() {
     empresaId: estado.empresa.id,
     termo: $("#busca-tomadores").value,
   });
+  const termo = $("#busca-tomadores").value.trim();
+  if (termo) {
+    const outros = await invoke("buscar_tomadores_de_outras_empresas", { empresaId: estado.empresa.id, termo });
+    tomadoresCarregados.push(...outros.map((t) => ({ ...t, de_outra_empresa: true })));
+  }
   corpo.innerHTML = tomadoresCarregados.length
     ? tomadoresCarregados
         .map(
           (t, i) => `<tr>
           <td class="dado">${esc(formatarDocumento(t.tomador.documento))}</td>
-          <td title="${esc(t.tomador.nome)}">${esc(t.tomador.nome)}</td>
+          <td title="${esc(t.tomador.nome)}">${esc(t.tomador.nome)}${t.de_outra_empresa ? " (de outra empresa)" : ""}</td>
           <td class="dado sec-1">${esc(t.tomador.endereco?.municipio ?? "")}</td>
           <td class="sec-2" title="${esc(t.emails)}">${esc(t.emails ?? "")}</td>
-          <td>${acoesLinha([{ acao: "editar", texto: "Editar" }], i, t.tomador.nome)}</td>
+          <td>${acoesLinha([t.de_outra_empresa ? { acao: "vincular", texto: "Vincular" } : { acao: "editar", texto: "Editar" }], i, t.tomador.nome)}</td>
         </tr>`,
         )
         .join("")
@@ -2042,7 +2068,15 @@ $("#busca-tomadores").addEventListener("input", () => {
 
 $("#lista-tomadores").addEventListener("click", (ev) => {
   const b = ev.target.closest("button[data-acao]");
-  if (b) editarTomador(tomadoresCarregados[Number(b.dataset.i)], () => carregarTomadores());
+  if (!b) return;
+  const t = tomadoresCarregados[Number(b.dataset.i)];
+  if (b.dataset.acao === "vincular") {
+    vincularTomador(t)
+      .then(() => carregarTomadores())
+      .catch((e) => toast(String(e), true));
+  } else {
+    editarTomador(t, () => carregarTomadores());
+  }
 });
 
 $("#novo-tomador").addEventListener("click", () => editarTomador(null, () => carregarTomadores()));

@@ -43,6 +43,38 @@ pub async fn buscar_tomadores(estado: State<'_, Estado>, empresa_id: i64, termo:
         .collect())
 }
 
+/// Tomadores de outras empresas que esta ainda não vinculou (para vincular em vez de cadastrar de novo).
+#[tauri::command]
+pub async fn buscar_tomadores_de_outras_empresas(
+    estado: State<'_, Estado>,
+    empresa_id: i64,
+    termo: String,
+) -> R<Vec<TomadorDto>> {
+    exigir_cofre(&estado).await?;
+    if termo.trim().is_empty() {
+        return Ok(vec![]);
+    }
+    Ok(estado
+        .banco
+        .buscar_tomadores_de_outras_empresas(empresa_id, &termo)
+        .await
+        .map_err(texto)?
+        .into_iter()
+        .map(Into::into)
+        .collect())
+}
+
+#[tauri::command]
+pub async fn vincular_tomador(estado: State<'_, Estado>, empresa_id: i64, pessoa_id: i64) -> R<TomadorDto> {
+    exigir_cofre(&estado).await?;
+    Ok(estado
+        .banco
+        .vincular_tomador_cadastrado(empresa_id, pessoa_id)
+        .await
+        .map_err(texto)?
+        .into())
+}
+
 #[tauri::command]
 pub async fn salvar_tomador(
     estado: State<'_, Estado>,

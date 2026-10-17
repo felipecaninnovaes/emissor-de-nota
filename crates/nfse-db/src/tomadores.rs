@@ -194,6 +194,51 @@ impl Banco {
         linhas.iter().map(tomador_de).collect()
     }
 
+    /// Tomadores cadastrados por outras empresas e ainda não vinculados a esta (mesma busca de
+    /// `buscar_tomadores`), para vincular sem cadastrar de novo. E-mails e retenção vêm zerados: são do vínculo.
+    pub async fn buscar_tomadores_de_outras_empresas(
+        &self,
+        empresa_id: i64,
+        termo: &str,
+    ) -> Resultado<Vec<TomadorVinculado>> {
+        let termo = termo.trim();
+        let so_documento: String = termo.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
+        let linhas = sqlx::query(
+            "SELECT p.id, p.tipo, p.documento, p.inscricao_municipal, p.nome, p.municipio, p.cep,
+                 p.logradouro, p.numero, p.complemento, p.bairro, p.telefone, p.email, NULL, NULL, 0, 0
+             FROM pessoa p
+             WHERE p.id IN (SELECT pessoa_id FROM empresa_tomador)
+               AND p.id NOT IN (SELECT pessoa_id FROM empresa_tomador WHERE empresa_id = ?)
+               AND (p.nome LIKE '%' || ? || '%' COLLATE NOCASE OR (? <> '' AND p.documento LIKE ? || '%'))
+             ORDER BY p.nome LIMIT 20",
+        )
+        .bind(empresa_id)
+        .bind(termo)
+        .bind(&so_documento)
+        .bind(so_documento.to_uppercase())
+        .fetch_all(self.pool())
+        .await?;
+        linhas.iter().map(tomador_de).collect()
+    }
+
+    /// Vincula a empresa a um tomador já cadastrado por outra (sem e-mails, observação nem retenção).
+    pub async fn vincular_tomador_cadastrado(&self, empresa_id: i64, pessoa_id: i64) -> Resultado<TomadorVinculado> {
+        let existe = sqlx::query("SELECT 1 FROM empresa_tomador WHERE pessoa_id = ?")
+            .bind(pessoa_id)
+            .fetch_optional(self.pool())
+            .await?
+            .is_some();
+        if !existe {
+            return Err(ErroBanco::NaoEncontrado("tomador"));
+        }
+        sqlx::query("INSERT INTO empresa_tomador (empresa_id, pessoa_id) VALUES (?, ?) ON CONFLICT DO NOTHING")
+            .bind(empresa_id)
+            .bind(pessoa_id)
+            .execute(self.pool())
+            .await?;
+        self.tomador(empresa_id, pessoa_id).await
+    }
+
     /// Pessoa já cadastrada (por qualquer empresa), para reaproveitar sem nova consulta de CNPJ.
     pub async fn pessoa_por_documento(&self, documento: &str) -> Resultado<Option<i64>> {
         Ok(sqlx::query("SELECT id FROM pessoa WHERE documento = ?")
@@ -281,5 +326,44 @@ mod testes {
         let outra = banco.cadastrar_empresa(&outra).await.unwrap();
         assert!(banco.buscar_tomadores(outra.id, "saude").await.unwrap().is_empty());
         assert!(banco.pessoa_por_documento("12ABC34501DE35").await.unwrap().is_some());
+    }
+
+    #[tokio::test]
+    async fn vincula_tomador_de_outra_empresa() {
+        let (banco, _, clinica1) = banco_com_empresa().await;
+        let mut outra = nova_empresa();
+        outra.cnpj = Cnpj::parse("11222333000262").unwrap();
+        let clinica2 = banco.cadastrar_empresa(&outra).await.unwrap();
+        let id = banco.salvar_tomador(clinica1.id, &convenio(), "manual").await.unwrap();
+        banco
+            .definir_retencao_tomador(clinica1.id, id, true, true)
+            .await
+            .unwrap();
+
+        assert!(
+            banco
+                .buscar_tomadores_de_outras_empresas(clinica1.id, "convenio")
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        let outros = banco
+            .buscar_tomadores_de_outras_empresas(clinica2.id, "convenio")
+            .await
+            .unwrap();
+        assert_eq!(outros.len(), 1);
+        assert!(!outros[0].retem_federais && outros[0].emails.is_none());
+
+        let v = banco.vincular_tomador_cadastrado(clinica2.id, id).await.unwrap();
+        assert_eq!(v.pessoa_id, id);
+        assert!(!v.retem_federais, "a retenção não é herdada da outra empresa");
+        assert!(
+            banco
+                .buscar_tomadores_de_outras_empresas(clinica2.id, "convenio")
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert!(banco.vincular_tomador_cadastrado(clinica2.id, 9_999).await.is_err());
     }
 }

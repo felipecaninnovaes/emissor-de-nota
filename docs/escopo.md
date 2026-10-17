@@ -47,7 +47,7 @@ Desde 1º/01/2026 todo município precisa operar no padrão nacional, mas pode e
 - **Em aberto** — procuração eletrônica (usar o e-CNPJ do escritório): não há indicação de que a API Sefin aceite.
 
 **Tomadores**
-- **Feito** — cadastro global reutilizável (`pessoa`) com vínculo por empresa (e-mails, observação, retém impostos federais, retém ISS); PJ com consulta de CNPJ (BrasilAPI), PF com CPF validado; nota sem tomador identificado; busca de CEP no endereço do tomador e da obra.
+- **Feito** — cadastro global reutilizável (`pessoa`) com vínculo por empresa (e-mails, observação, retém impostos federais, retém ISS); busca que sugere tomadores de outras empresas e vincula com um clique; PJ com consulta de CNPJ (BrasilAPI), PF com CPF validado; nota sem tomador identificado; busca de CEP no endereço do tomador e da obra.
 - **Pendente** — cache e alternativa à consulta de CNPJ; nome do município pela tabela IBGE (hoje só vem da consulta de CNPJ).
 - **Pendente** — tomador estrangeiro (NIF, país) e intermediário do serviço.
 

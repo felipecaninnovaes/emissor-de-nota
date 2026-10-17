@@ -82,6 +82,8 @@ fn main() {
             comandos::empresas::ajustar_numeracao,
             comandos::empresas::certificados_vencendo,
             comandos::tomadores::buscar_tomadores,
+            comandos::tomadores::buscar_tomadores_de_outras_empresas,
+            comandos::tomadores::vincular_tomador,
             comandos::tomadores::salvar_tomador,
             comandos::servicos::listar_servicos,
             comandos::servicos::salvar_servico,
