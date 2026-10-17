@@ -426,6 +426,35 @@ async fn refazer_so_vale_para_rejeitada() {
 }
 
 #[tokio::test]
+async fn copiar_vale_para_autorizada_e_nao_para_rejeitada() {
+    let c = cenario(vec![
+        Resposta::Emitir(Ok(nfse_autorizada())),
+        Resposta::Emitir(Err(rejeicao("E0120"))),
+    ])
+    .await;
+    let ResultadoEmissao::Autorizada { nfse, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+        panic!()
+    };
+    let r = c.emissor.dados_para_copiar(nfse.dps_id).await.unwrap();
+    assert_eq!(r.empresa_id, c.pedido.empresa_id);
+    assert_eq!(r.tomador.map(|t| t.pessoa_id), c.pedido.tomador);
+    assert_eq!(r.servico_id, Some(c.pedido.servico_id));
+    assert_eq!(r.valor, c.pedido.valor);
+
+    let ErroEmissao::Rejeitada {
+        dps_id: Some(rejeitada),
+        ..
+    } = c.emissor.emitir(&c.pedido).await.unwrap_err()
+    else {
+        panic!()
+    };
+    assert!(matches!(
+        c.emissor.dados_para_copiar(rejeitada).await,
+        Err(ErroEmissao::Regra(_))
+    ));
+}
+
+#[tokio::test]
 async fn dps_invalida_nao_gasta_numero_nem_chama_a_sefin() {
     let c = cenario(vec![Resposta::Emitir(Ok(nfse_autorizada()))]).await;
     let mut invalido = c.pedido.clone();

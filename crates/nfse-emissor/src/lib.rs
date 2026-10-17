@@ -824,6 +824,24 @@ impl<C: Conector> Emissor<C> {
                 registro.situacao.texto()
             )));
         }
+        self.ler_dados_da_dps(dps_id).await
+    }
+
+    /// Lê uma nota autorizada ou cancelada para emitir outra igual. A descrição devolvida é a da nota
+    /// antiga (com o mês dela): quem copia deve refazê-la a partir do modelo do serviço.
+    pub async fn dados_para_copiar(&self, dps_id: i64) -> Result<Refazer, ErroEmissao> {
+        let registro = self.banco.dps(dps_id).await?;
+        if !matches!(registro.situacao, SituacaoDps::Autorizada | SituacaoDps::Cancelada) {
+            return Err(ErroEmissao::Regra(format!(
+                "só nota autorizada ou cancelada pode ser copiada (esta está \"{}\")",
+                registro.situacao.texto()
+            )));
+        }
+        self.ler_dados_da_dps(dps_id).await
+    }
+
+    async fn ler_dados_da_dps(&self, dps_id: i64) -> Result<Refazer, ErroEmissao> {
+        let registro = self.banco.dps(dps_id).await?;
         let modelo = self
             .banco
             .modelo_dps(dps_id)

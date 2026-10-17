@@ -1210,7 +1210,9 @@ async function carregarNotas() {
       if (n.situacao === "incerta" || n.situacao === "enviando") acoes.push({ acao: "verificar", texto: "Verificar" });
       if (n.nfse_id) {
         acoes.push({ acao: "pdf", texto: "PDF" }, { acao: "pasta", texto: "Pasta" });
-        if (n.situacao === "autorizada" || n.situacao === "cancelada") acoes.push({ acao: "email", texto: "E-mail" });
+        if (n.situacao === "autorizada" || n.situacao === "cancelada") {
+          acoes.push({ acao: "email", texto: "E-mail" }, { acao: "copiar", texto: "Copiar" });
+        }
         if (n.situacao === "autorizada") acoes.push({ acao: "cancelar", texto: "Cancelar nota", perigo: true });
       }
       const alvo = n.numero_nfse ? `nota ${n.numero_nfse}` : `DPS ${n.serie}/${n.numero_dps}`;
@@ -1281,6 +1283,8 @@ $("#lista-notas").addEventListener("click", async (ev) => {
       return enviarEmailNota(n);
     case "refazer":
       return refazerNota(n);
+    case "copiar":
+      return copiarNota(n);
     case "verificar":
       b.disabled = true;
       try {
@@ -1318,6 +1322,36 @@ async function refazerNota(n) {
   const res = $("#resultado");
   res.innerHTML = `<div class="aviso atencao">${avisos.map(esc).join("<br>")}
     <br>Corrija o que causou a rejeição e clique em Revisar. A nota sai com o próximo número da série.</div>`;
+  res.hidden = false;
+}
+
+/**
+ * Leva os dados de uma nota autorizada ou cancelada para a tela de emissão. A descrição vem do
+ * modelo do serviço (com o mês de referência da tela): copiar o texto antigo repetiria o mês velho.
+ */
+async function copiarNota(n) {
+  let r;
+  try {
+    r = await chamar("dados_para_copiar", { dpsId: n.dps_id });
+  } catch (e) {
+    return toast(String(e), true);
+  }
+  irPara("emitir");
+  limparEmissao();
+  escolherTomador(r.tomador);
+  const servicoAchado = r.servico_id && estado.servicos.some((s) => s.id === r.servico_id);
+  if (servicoAchado) $("#servico").value = String(r.servico_id);
+  aplicarServico(); // descrição do modelo do serviço e dados da obra
+  $("#valor").value = moeda(r.valor);
+  if (!servicoAchado) $("#descricao").value = r.descricao; // sem serviço no cadastro: fica o texto da nota
+  $("#info-compl").value = r.informacoes_complementares ?? "";
+  preencherObra(r.obra);
+  const avisos = [`Copiando a nota ${n.numero_nfse ?? `DPS ${n.serie}/${n.numero_dps}`}.`];
+  if (!servicoAchado) avisos.push("Nenhum serviço do cadastro tem o mesmo código: escolha o serviço.");
+  if (n.tomador && !r.tomador) avisos.push(`O tomador "${n.tomador}" não foi encontrado no cadastro desta empresa.`);
+  const res = $("#resultado");
+  res.innerHTML = `<div class="aviso atencao">${avisos.map(esc).join("<br>")}
+    <br>Confira o mês de referência e o valor e clique em Revisar. A nota sai com o próximo número da série.</div>`;
   res.hidden = false;
 }
 

@@ -96,6 +96,7 @@ fn main() {
             comandos::notas::cancelar,
             comandos::notas::reconciliar,
             comandos::notas::dados_para_refazer,
+            comandos::notas::dados_para_copiar,
             comandos::notas::pendentes,
             comandos::notas::abrir_arquivo,
             comandos::notas::abrir_nota,
