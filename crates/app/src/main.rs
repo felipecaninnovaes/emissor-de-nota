@@ -67,6 +67,7 @@ fn main() {
             comandos::situacao_cofre,
             comandos::criar_cofre,
             comandos::abrir_cofre,
+            comandos::bloquear_cofre,
             comandos::obter_pasta,
             comandos::definir_pasta,
             comandos::obter_aparencia,

@@ -590,6 +590,16 @@ for (const el of $$("[required]")) {
 
 let cofreExiste = true;
 
+// Descarta a chave da memória e recarrega a interface: volta à tela de senha, sem dados na tela.
+$("#bloquear").addEventListener("click", async () => {
+  try {
+    await invoke("bloquear_cofre");
+    location.reload();
+  } catch (e) {
+    toast(String(e), true);
+  }
+});
+
 async function iniciarTrava() {
   const s = await invoke("situacao_cofre");
   if (s.aberto) return entrar([]);

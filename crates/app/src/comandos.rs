@@ -126,6 +126,14 @@ pub async fn abrir_cofre(estado: State<'_, Estado>, senha: String) -> R<Abertura
     iniciar(&estado, cofre).await
 }
 
+/// Descarta o emissor (e com ele a chave do cofre); a senha mestra volta a ser exigida.
+/// Espera as operações em andamento terminarem, porque elas seguram o emissor em leitura.
+#[tauri::command]
+pub async fn bloquear_cofre(estado: State<'_, Estado>) -> R<()> {
+    *estado.emissor.write().await = None;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn obter_pasta(estado: State<'_, Estado>) -> R<String> {
     Ok(pasta_configurada(&estado).await?.display().to_string())
