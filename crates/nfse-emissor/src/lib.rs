@@ -299,6 +299,8 @@ pub struct Emissor<C: Conector> {
     /// Fontes do DANFSe (carregadas junto com a pasta; falha vira aviso na hora de gerar o PDF).
     fontes: Option<Result<nfse_pdf::Fontes, String>>,
     logo: Option<Vec<u8>>,
+    /// Identifica o aplicativo nos XML (`verAplic`); o app informa a própria versão.
+    versao_aplicativo: String,
 }
 
 impl<C: Conector> Emissor<C> {
@@ -310,7 +312,14 @@ impl<C: Conector> Emissor<C> {
             pasta: None,
             fontes: None,
             logo: None,
+            versao_aplicativo: VERSAO_APLICATIVO.into(),
         }
+    }
+
+    /// Versão do aplicativo que vai nos XML, no formato `emissor-nfse/0.2.1`.
+    pub fn com_versao(mut self, versao: impl Into<String>) -> Self {
+        self.versao_aplicativo = versao.into();
+        self
     }
 
     /// Pasta raiz onde cada nota é gravada em `<empresa>/<AAAA-MM>/`.
@@ -435,6 +444,7 @@ impl<C: Conector> Emissor<C> {
 
         // Valida antes de reservar número: DPS inválida não gasta numeração.
         let mut modelo = montar_dps(&empresa, tomador.as_ref(), &servico, pedido, agora_brasilia());
+        modelo.versao_aplicativo = self.versao_aplicativo.clone();
         nfse_xml::gerar_dps(&modelo)?;
         let (cert, sefin) = self.conectar(&empresa, empresa.ambiente).await?;
 
@@ -858,7 +868,7 @@ impl<C: Conector> Emissor<C> {
         let (cert, sefin) = self.conectar(&empresa, dps.ambiente).await?;
         let pedido = PedidoCancelamento {
             ambiente: dps.ambiente,
-            versao_aplicativo: VERSAO_APLICATIVO.into(),
+            versao_aplicativo: self.versao_aplicativo.clone(),
             quando: agora_brasilia(),
             autor: Documento::Cnpj(empresa.cnpj.clone()),
             chave: nfse.chave.clone(),

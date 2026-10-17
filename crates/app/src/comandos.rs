@@ -96,7 +96,9 @@ pub struct Abertura {
 
 async fn iniciar(estado: &Estado, cofre: nfse_db::Cofre) -> R<Abertura> {
     let pasta = pasta_configurada(estado).await?;
-    let emissor = Emissor::novo(estado.banco.clone(), cofre, ConectorSefin).com_pasta(pasta);
+    let emissor = Emissor::novo(estado.banco.clone(), cofre, ConectorSefin)
+        .com_versao(concat!("emissor-nfse/", env!("CARGO_PKG_VERSION")))
+        .com_pasta(pasta);
     let mut pendencias = Vec::new();
     for (dps_id, resultado) in emissor.reconciliar_pendentes().await.map_err(texto)? {
         pendencias.push(match resultado {
