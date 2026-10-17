@@ -1,7 +1,8 @@
 //! Fontes do DANFSe (NT 008/2026, item 2.4): Arial nos títulos e Microsoft Sans Serif nos conteúdos.
 //!
 //! As fontes da Microsoft não podem ir para o repositório: são lidas da pasta de fontes do
-//! Windows. Fora do Windows (CI), usa a Liberation Sans, que tem as mesmas métricas da Arial.
+//! Windows. No Linux usa a Liberation Sans, que tem as mesmas métricas da Arial; no macOS, as
+//! fontes Arial que vêm com o sistema.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -77,16 +78,32 @@ impl Fontes {
             "/usr/share/fonts/truetype/liberation2",
             "/usr/share/fonts/liberation",
         ];
-        let opcoes = |arquivo_windows: &str, arquivo_liberation: &str| -> Vec<PathBuf> {
+        let macos = ["/System/Library/Fonts/Supplemental", "/Library/Fonts"];
+        let opcoes = |arquivo_windows: &str, arquivo_liberation: &str, arquivos_macos: &[&str]| -> Vec<PathBuf> {
             std::iter::once(windows.join(arquivo_windows))
                 .chain(liberation.iter().map(|d| Path::new(d).join(arquivo_liberation)))
+                .chain(
+                    macos
+                        .iter()
+                        .flat_map(|d| arquivos_macos.iter().map(move |a| Path::new(d).join(a))),
+                )
                 .collect()
         };
-        let titulo = primeira_existente("Arial", &opcoes("arial.ttf", "LiberationSans-Regular.ttf"))?;
-        let titulo_negrito = primeira_existente("Arial Negrito", &opcoes("arialbd.ttf", "LiberationSans-Bold.ttf"))?;
+        let titulo = primeira_existente(
+            "Arial",
+            &opcoes("arial.ttf", "LiberationSans-Regular.ttf", &["Arial.ttf"]),
+        )?;
+        let titulo_negrito = primeira_existente(
+            "Arial Negrito",
+            &opcoes("arialbd.ttf", "LiberationSans-Bold.ttf", &["Arial Bold.ttf"]),
+        )?;
         let conteudo = primeira_existente(
             "Microsoft Sans Serif",
-            &opcoes("micross.ttf", "LiberationSans-Regular.ttf"),
+            &opcoes(
+                "micross.ttf",
+                "LiberationSans-Regular.ttf",
+                &["Microsoft Sans Serif.ttf", "Arial.ttf"],
+            ),
         )?;
         Ok(Self {
             titulo,
