@@ -1,6 +1,8 @@
 [workspace]
 resolver = "3"
 members = ["crates/*"]
+# Pasta de cache criada por ferramentas de desenvolvimento; não é um crate.
+exclude = ["crates/graft"]
 
 [workspace.package]
 edition = "2024"
