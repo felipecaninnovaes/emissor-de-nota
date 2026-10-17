@@ -517,6 +517,44 @@
   </form>
 </dialog>
 
+<dialog id="dlg-importar-servicos" class="largo" aria-labelledby="titulo-dlg-importar-servicos">
+  <form method="dialog" id="form-importar-servicos" novalidate>
+    <header class="dialogo-topo">
+      <h2 id="titulo-dlg-importar-servicos">Importar serviços</h2>
+      <p class="ajuda">Serviço com o mesmo nome já cadastrado na empresa de destino é atualizado; os demais são criados.</p>
+    </header>
+    <div class="dialogo-corpo">
+      <div class="grade">
+        <div class="c4"><label for="importar-origem">De onde</label><select id="importar-origem" name="origem">
+          <option value="empresa">Outra empresa</option><option value="planilha">Planilha (.xlsx, .xls, .ods ou .csv)</option></select></div>
+        <div class="c8" data-origem="empresa"><label for="importar-empresa">Empresa de origem</label><select id="importar-empresa" name="empresa_origem"></select></div>
+        <div class="c5" data-origem="planilha" hidden><label for="importar-arquivo">Planilha</label>
+          <input id="importar-arquivo" type="file" accept=".xlsx,.xlsm,.xls,.ods,.csv"></div>
+        <div class="c3 celula-botoes" data-origem="planilha" hidden><button type="button" class="botao" id="modelo-servicos">Baixar modelo</button></div>
+        <p class="c12 ajuda" data-origem="planilha" hidden>Uma linha por serviço. Obrigatórias: <b>Nome</b>, <b>Descricao</b> e
+          <b>Codigo tributacao nacional</b>. As demais colunas (NBS, valor, ISS, total de tributos, retenções) seguem o modelo;
+          percentuais como número (ex.: <code>11,48</code>). "Exportar planilha" na tela de serviços gera o mesmo formato.</p>
+      </div>
+      <div class="cartao tabela">
+        <div class="rolagem">
+        <table>
+          <caption class="sr">Serviços a importar</caption>
+          <thead><tr><th scope="col" class="w-check"><input type="checkbox" id="importar-todos" title="Marcar todos" aria-label="Marcar todos"></th>
+            <th scope="col">Nome</th><th scope="col" class="w-codigo">Cód. nacional</th><th scope="col" class="w-valor num">Valor sugerido</th><th scope="col" class="sec-1">Situação</th></tr></thead>
+          <tbody id="lista-importar-servicos"></tbody>
+        </table>
+        </div>
+      </div>
+      <fieldset class="bloco">
+        <legend>Importar para</legend>
+        <div id="importar-destinos" class="grade"></div>
+      </fieldset>
+      <div id="erro-importar-servicos" class="aviso erro" role="alert" hidden></div>
+    </div>
+    <div class="acoes"><button class="botao" value="cancelar" formnovalidate>Cancelar</button><button class="botao primario" value="salvar" id="importar-servicos-ok">Importar</button></div>
+  </form>
+</dialog>
+
 <dialog id="dlg-empresa" aria-labelledby="titulo-empresa">
   <form method="dialog" id="form-empresa" novalidate>
     <header class="dialogo-topo">
@@ -574,44 +612,6 @@
     <div class="dialogo-corpo">
       <div class="grade">
         <div class="c12"><label for="certificado-arquivo">Arquivo .pfx / .p12</label><input id="certificado-arquivo" name="arquivo" type="file" accept=".pfx,.p12" required></div>
-<dialog id="dlg-importar-servicos" class="largo" aria-labelledby="titulo-dlg-importar-servicos">
-  <form method="dialog" id="form-importar-servicos" novalidate>
-    <header class="dialogo-topo">
-      <h2 id="titulo-dlg-importar-servicos">Importar serviços</h2>
-      <p class="ajuda">Serviço com o mesmo nome já cadastrado na empresa de destino é atualizado; os demais são criados.</p>
-    </header>
-    <div class="dialogo-corpo">
-      <div class="grade">
-        <div class="c4"><label for="importar-origem">De onde</label><select id="importar-origem" name="origem">
-          <option value="empresa">Outra empresa</option><option value="planilha">Planilha (.xlsx, .xls, .ods ou .csv)</option></select></div>
-        <div class="c8" data-origem="empresa"><label for="importar-empresa">Empresa de origem</label><select id="importar-empresa" name="empresa_origem"></select></div>
-        <div class="c5" data-origem="planilha" hidden><label for="importar-arquivo">Planilha</label>
-          <input id="importar-arquivo" type="file" accept=".xlsx,.xlsm,.xls,.ods,.csv"></div>
-        <div class="c3 celula-botoes" data-origem="planilha" hidden><button type="button" class="botao" id="modelo-servicos">Baixar modelo</button></div>
-        <p class="c12 ajuda" data-origem="planilha" hidden>Uma linha por serviço. Obrigatórias: <b>Nome</b>, <b>Descricao</b> e
-          <b>Codigo tributacao nacional</b>. As demais colunas (NBS, valor, ISS, total de tributos, retenções) seguem o modelo;
-          percentuais como número (ex.: <code>11,48</code>). "Exportar planilha" na tela de serviços gera o mesmo formato.</p>
-      </div>
-      <div class="cartao tabela">
-        <div class="rolagem">
-        <table>
-          <caption class="sr">Serviços a importar</caption>
-          <thead><tr><th scope="col" class="w-check"><input type="checkbox" id="importar-todos" title="Marcar todos" aria-label="Marcar todos"></th>
-            <th scope="col">Nome</th><th scope="col" class="w-codigo">Cód. nacional</th><th scope="col" class="w-valor num">Valor sugerido</th><th scope="col" class="sec-1">Situação</th></tr></thead>
-          <tbody id="lista-importar-servicos"></tbody>
-        </table>
-        </div>
-      </div>
-      <fieldset class="bloco">
-        <legend>Importar para</legend>
-        <div id="importar-destinos" class="grade"></div>
-      </fieldset>
-      <div id="erro-importar-servicos" class="aviso erro" role="alert" hidden></div>
-    </div>
-    <div class="acoes"><button class="botao" value="cancelar" formnovalidate>Cancelar</button><button class="botao primario" value="salvar" id="importar-servicos-ok">Importar</button></div>
-  </form>
-</dialog>
-
         <div class="c12"><label for="certificado-senha">Senha do certificado</label><input id="certificado-senha" name="senha" type="password" required></div>
       </div>
       <p class="ajuda">O certificado é guardado criptografado com a senha mestra. O arquivo original pode ser removido depois.</p>

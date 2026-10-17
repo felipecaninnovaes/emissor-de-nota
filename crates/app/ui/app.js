@@ -2140,6 +2140,137 @@ function editarServico(s) {
   });
 }
 
+// ---------------------------------------------------------------- importar / exportar serviços
+
+/** Serviços mostrados no diálogo de importação: [{ servico, erros, linha? }]. */
+let servicosAImportar = [];
+
+$("#exportar-servicos").addEventListener("click", async () => {
+  if (!estado.empresa) return toast("Escolha a empresa.", true);
+  try {
+    toast(`Planilha salva em ${await chamar("exportar_servicos", { empresaId: estado.empresa.id })}`);
+  } catch (e) {
+    toast(String(e), true);
+  }
+});
+
+$("#modelo-servicos").addEventListener("click", async () => {
+  try {
+    toast(`Modelo salvo em ${await chamar("salvar_modelo_servicos")}`);
+  } catch (e) {
+    toast(String(e), true);
+  }
+});
+
+function desenharServicosAImportar(vazioTexto) {
+  const corpo = $("#lista-importar-servicos");
+  $("#importar-todos").checked = false;
+  corpo.innerHTML = servicosAImportar.length
+    ? servicosAImportar
+        .map((it, i) => {
+          const s = it.servico;
+          const ok = !it.erros.length;
+          const situacao = ok
+            ? `<span class="selo autorizada">Pronto</span>`
+            : `<span class="selo rejeitada" title="${esc(it.erros.join("\n"))}">${esc(it.erros.join("; "))}</span>`;
+          const alvo = it.linha ? `linha ${it.linha}: ${s.nome}` : s.nome;
+          return `<tr>
+            <td><input type="checkbox" data-i="${i}" ${ok ? "checked" : "disabled"} aria-label="${esc(`Marcar ${alvo}`)}"></td>
+            <td title="${esc(alvo)}">${esc(s.nome || "(sem nome)")}</td>
+            <td class="dado">${esc(s.codigo_trib_nac)}</td>
+            <td class="num">${s.valor_sugerido ? "R$ " + moeda(s.valor_sugerido) : ""}</td>
+            <td class="sec-1">${situacao}</td>
+          </tr>`;
+        })
+        .join("")
+    : `<tr><td colspan="5" class="vazio">${esc(vazioTexto)}</td></tr>`;
+  atualizarBotaoImportar();
+}
+
+const marcadosImportar = () =>
+  $$("#lista-importar-servicos input[type=checkbox]:checked").map((c) => servicosAImportar[Number(c.dataset.i)]);
+
+function atualizarBotaoImportar() {
+  const n = marcadosImportar().length;
+  $("#importar-servicos-ok").textContent = n ? `Importar (${n})` : "Importar";
+}
+
+async function carregarOrigemImportacao() {
+  const form = $("#form-importar-servicos");
+  const origem = form.elements.origem.value;
+  for (const el of $$("[data-origem]", form)) el.hidden = el.dataset.origem !== origem;
+  const origemId = origem === "empresa" ? Number(form.elements.empresa_origem.value) : null;
+  // A empresa de origem não aparece como destino.
+  for (const c of $$("#importar-destinos input")) {
+    const mesma = Number(c.value) === origemId;
+    c.closest("label").hidden = mesma;
+    if (mesma) c.checked = false;
+  }
+  servicosAImportar = [];
+  if (origem === "empresa") {
+    if (!origemId) return desenharServicosAImportar("Cadastre outra empresa para copiar os serviços dela.");
+    try {
+      const lista = await invoke("listar_servicos", { empresaId: origemId });
+      servicosAImportar = lista.map((servico) => ({ servico, erros: [] }));
+    } catch (e) {
+      return desenharServicosAImportar(String(e));
+    }
+    return desenharServicosAImportar("Esta empresa não tem serviços cadastrados.");
+  }
+  const arquivo = $("#importar-arquivo").files[0];
+  if (!arquivo) return desenharServicosAImportar("Escolha a planilha (.xlsx, .xls, .ods ou .csv).");
+  try {
+    const bytes = Array.from(new Uint8Array(await arquivo.arrayBuffer()));
+    servicosAImportar = await chamar("ler_planilha_servicos", { nome: arquivo.name, bytes });
+  } catch (e) {
+    return desenharServicosAImportar(String(e));
+  }
+  desenharServicosAImportar("Nenhuma linha com dados na planilha.");
+}
+
+$("#importar-origem").addEventListener("change", carregarOrigemImportacao);
+$("#importar-empresa").addEventListener("change", carregarOrigemImportacao);
+$("#importar-arquivo").addEventListener("change", carregarOrigemImportacao);
+$("#lista-importar-servicos").addEventListener("change", atualizarBotaoImportar);
+$("#importar-todos").addEventListener("change", (ev) => {
+  for (const c of $$("#lista-importar-servicos input[type=checkbox]")) if (!c.disabled) c.checked = ev.target.checked;
+  atualizarBotaoImportar();
+});
+
+$("#importar-servicos").addEventListener("click", () => {
+  if (!estado.empresa) return toast("Escolha a empresa.", true);
+  const dlg = $("#dlg-importar-servicos");
+  const form = $("form", dlg);
+  form.reset();
+  const outras = estado.empresas.filter((e) => e.id !== estado.empresa.id);
+  form.elements.empresa_origem.innerHTML = outras.length
+    ? outras.map((e) => `<option value="${e.id}">${esc(e.nome)} — ${esc(e.cnpj_formatado)}</option>`).join("")
+    : `<option value="">Nenhuma outra empresa cadastrada</option>`;
+  form.elements.origem.value = outras.length ? "empresa" : "planilha";
+  $("#importar-destinos").innerHTML = estado.empresas
+    .map(
+      (e) => `<label class="linha-check c6"><input type="checkbox" value="${e.id}" ${e.id === estado.empresa.id ? "checked" : ""}>
+        ${esc(e.nome)} — ${esc(e.cnpj_formatado)}</label>`,
+    )
+    .join("");
+  carregarOrigemImportacao();
+
+  abrirDialogo(dlg, $("#erro-importar-servicos"), async () => {
+    const servicos = marcadosImportar().map((it) => it.servico);
+    if (!servicos.length) throw "Marque os serviços a importar.";
+    const empresaIds = $$("#importar-destinos input:checked").map((c) => Number(c.value));
+    if (!empresaIds.length) throw "Marque ao menos uma empresa em \"Importar para\".";
+    const resultado = await chamar("importar_servicos", { servicos, empresaIds });
+    const linhas = resultado.map((r) => `${r.empresa}: ${r.novos} novo(s), ${r.atualizados} atualizado(s)`);
+    toast(linhas.join(" · "));
+    const avisos = resultado.flatMap((r) => r.avisos.map((a) => `${r.empresa} — ${a}`));
+    if (avisos.length) {
+      alert(`Importado, mas estes serviços precisam de ajuste antes de emitir:\n\n${avisos.join("\n")}`);
+    }
+    if (empresaIds.includes(estado.empresa.id)) await carregarServicos();
+  });
+});
+
 // ---------------------------------------------------------------- empresas
 
 async function renderizarEmpresas() {
@@ -2312,137 +2443,6 @@ function editarNumeracao(empresa) {
       const msg = await chamar("ajustar_numeracao", { empresaId: empresa.id });
       toast(msg);
       $("#num-empresa").textContent = msg;
-// ---------------------------------------------------------------- importar / exportar serviços
-
-/** Serviços mostrados no diálogo de importação: [{ servico, erros, linha? }]. */
-let servicosAImportar = [];
-
-$("#exportar-servicos").addEventListener("click", async () => {
-  if (!estado.empresa) return toast("Escolha a empresa.", true);
-  try {
-    toast(`Planilha salva em ${await chamar("exportar_servicos", { empresaId: estado.empresa.id })}`);
-  } catch (e) {
-    toast(String(e), true);
-  }
-});
-
-$("#modelo-servicos").addEventListener("click", async () => {
-  try {
-    toast(`Modelo salvo em ${await chamar("salvar_modelo_servicos")}`);
-  } catch (e) {
-    toast(String(e), true);
-  }
-});
-
-function desenharServicosAImportar(vazioTexto) {
-  const corpo = $("#lista-importar-servicos");
-  $("#importar-todos").checked = false;
-  corpo.innerHTML = servicosAImportar.length
-    ? servicosAImportar
-        .map((it, i) => {
-          const s = it.servico;
-          const ok = !it.erros.length;
-          const situacao = ok
-            ? `<span class="selo autorizada">Pronto</span>`
-            : `<span class="selo rejeitada" title="${esc(it.erros.join("\n"))}">${esc(it.erros.join("; "))}</span>`;
-          const alvo = it.linha ? `linha ${it.linha}: ${s.nome}` : s.nome;
-          return `<tr>
-            <td><input type="checkbox" data-i="${i}" ${ok ? "checked" : "disabled"} aria-label="${esc(`Marcar ${alvo}`)}"></td>
-            <td title="${esc(alvo)}">${esc(s.nome || "(sem nome)")}</td>
-            <td class="dado">${esc(s.codigo_trib_nac)}</td>
-            <td class="num">${s.valor_sugerido ? "R$ " + moeda(s.valor_sugerido) : ""}</td>
-            <td class="sec-1">${situacao}</td>
-          </tr>`;
-        })
-        .join("")
-    : `<tr><td colspan="5" class="vazio">${esc(vazioTexto)}</td></tr>`;
-  atualizarBotaoImportar();
-}
-
-const marcadosImportar = () =>
-  $$("#lista-importar-servicos input[type=checkbox]:checked").map((c) => servicosAImportar[Number(c.dataset.i)]);
-
-function atualizarBotaoImportar() {
-  const n = marcadosImportar().length;
-  $("#importar-servicos-ok").textContent = n ? `Importar (${n})` : "Importar";
-}
-
-async function carregarOrigemImportacao() {
-  const form = $("#form-importar-servicos");
-  const origem = form.elements.origem.value;
-  for (const el of $$("[data-origem]", form)) el.hidden = el.dataset.origem !== origem;
-  const origemId = origem === "empresa" ? Number(form.elements.empresa_origem.value) : null;
-  // A empresa de origem não aparece como destino.
-  for (const c of $$("#importar-destinos input")) {
-    const mesma = Number(c.value) === origemId;
-    c.closest("label").hidden = mesma;
-    if (mesma) c.checked = false;
-  }
-  servicosAImportar = [];
-  if (origem === "empresa") {
-    if (!origemId) return desenharServicosAImportar("Cadastre outra empresa para copiar os serviços dela.");
-    try {
-      const lista = await invoke("listar_servicos", { empresaId: origemId });
-      servicosAImportar = lista.map((servico) => ({ servico, erros: [] }));
-    } catch (e) {
-      return desenharServicosAImportar(String(e));
-    }
-    return desenharServicosAImportar("Esta empresa não tem serviços cadastrados.");
-  }
-  const arquivo = $("#importar-arquivo").files[0];
-  if (!arquivo) return desenharServicosAImportar("Escolha a planilha (.xlsx, .xls, .ods ou .csv).");
-  try {
-    const bytes = Array.from(new Uint8Array(await arquivo.arrayBuffer()));
-    servicosAImportar = await chamar("ler_planilha_servicos", { nome: arquivo.name, bytes });
-  } catch (e) {
-    return desenharServicosAImportar(String(e));
-  }
-  desenharServicosAImportar("Nenhuma linha com dados na planilha.");
-}
-
-$("#importar-origem").addEventListener("change", carregarOrigemImportacao);
-$("#importar-empresa").addEventListener("change", carregarOrigemImportacao);
-$("#importar-arquivo").addEventListener("change", carregarOrigemImportacao);
-$("#lista-importar-servicos").addEventListener("change", atualizarBotaoImportar);
-$("#importar-todos").addEventListener("change", (ev) => {
-  for (const c of $$("#lista-importar-servicos input[type=checkbox]")) if (!c.disabled) c.checked = ev.target.checked;
-  atualizarBotaoImportar();
-});
-
-$("#importar-servicos").addEventListener("click", () => {
-  if (!estado.empresa) return toast("Escolha a empresa.", true);
-  const dlg = $("#dlg-importar-servicos");
-  const form = $("form", dlg);
-  form.reset();
-  const outras = estado.empresas.filter((e) => e.id !== estado.empresa.id);
-  form.elements.empresa_origem.innerHTML = outras.length
-    ? outras.map((e) => `<option value="${e.id}">${esc(e.nome)} — ${esc(e.cnpj_formatado)}</option>`).join("")
-    : `<option value="">Nenhuma outra empresa cadastrada</option>`;
-  form.elements.origem.value = outras.length ? "empresa" : "planilha";
-  $("#importar-destinos").innerHTML = estado.empresas
-    .map(
-      (e) => `<label class="linha-check c6"><input type="checkbox" value="${e.id}" ${e.id === estado.empresa.id ? "checked" : ""}>
-        ${esc(e.nome)} — ${esc(e.cnpj_formatado)}</label>`,
-    )
-    .join("");
-  carregarOrigemImportacao();
-
-  abrirDialogo(dlg, $("#erro-importar-servicos"), async () => {
-    const servicos = marcadosImportar().map((it) => it.servico);
-    if (!servicos.length) throw "Marque os serviços a importar.";
-    const empresaIds = $$("#importar-destinos input:checked").map((c) => Number(c.value));
-    if (!empresaIds.length) throw "Marque ao menos uma empresa em \"Importar para\".";
-    const resultado = await chamar("importar_servicos", { servicos, empresaIds });
-    const linhas = resultado.map((r) => `${r.empresa}: ${r.novos} novo(s), ${r.atualizados} atualizado(s)`);
-    toast(linhas.join(" · "));
-    const avisos = resultado.flatMap((r) => r.avisos.map((a) => `${r.empresa} — ${a}`));
-    if (avisos.length) {
-      alert(`Importado, mas estes serviços precisam de ajuste antes de emitir:\n\n${avisos.join("\n")}`);
-    }
-    if (empresaIds.includes(estado.empresa.id)) await carregarServicos();
-  });
-});
-
     } catch (e) {
       mostrarErro($("#erro-numeracao"), e);
     } finally {

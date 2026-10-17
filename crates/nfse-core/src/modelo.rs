@@ -284,6 +284,23 @@ pub enum TotalTributos {
     },
 }
 
+/// Anexo I, regras E0710/E0712/E0713: a forma do total de tributos depende do Simples.
+/// Devolve o motivo da rejeição, se a combinação não for aceita.
+pub fn conferir_total_tributos(simples: SituacaoSimples, total: &TotalTributos) -> Option<&'static str> {
+    match (simples, total) {
+        (SituacaoSimples::MeEpp, TotalTributos::NaoInformado) => {
+            Some("ME/EPP do Simples deve informar o % do Simples Nacional (E0712); ajuste o serviço")
+        }
+        (SituacaoSimples::NaoOptante, TotalTributos::NaoInformado | TotalTributos::PercentualSimples(_)) => Some(
+            "não optante do Simples deve informar os percentuais federal, estadual e municipal (E0713); ajuste o serviço",
+        ),
+        (SituacaoSimples::Mei, TotalTributos::PercentualSimples(_)) => {
+            Some("MEI não pode informar o % do Simples Nacional (E0710); ajuste o serviço")
+        }
+        _ => None,
+    }
+}
+
 /// `valores`
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Valores {
@@ -327,23 +344,6 @@ pub struct Substituicao {
     pub motivo: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub descricao_motivo: Option<String>,
-}
-
-/// Anexo I, regras E0710/E0712/E0713: a forma do total de tributos depende do Simples.
-/// Devolve o motivo da rejeição, se a combinação não for aceita.
-pub fn conferir_total_tributos(simples: SituacaoSimples, total: &TotalTributos) -> Option<&'static str> {
-    match (simples, total) {
-        (SituacaoSimples::MeEpp, TotalTributos::NaoInformado) => {
-            Some("ME/EPP do Simples deve informar o % do Simples Nacional (E0712); ajuste o serviço")
-        }
-        (SituacaoSimples::NaoOptante, TotalTributos::NaoInformado | TotalTributos::PercentualSimples(_)) => Some(
-            "não optante do Simples deve informar os percentuais federal, estadual e municipal (E0713); ajuste o serviço",
-        ),
-        (SituacaoSimples::Mei, TotalTributos::PercentualSimples(_)) => {
-            Some("MEI não pode informar o % do Simples Nacional (E0710); ajuste o serviço")
-        }
-        _ => None,
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
