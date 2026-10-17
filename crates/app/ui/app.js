@@ -574,8 +574,8 @@ async function carregarNotas() {
       }
       const erro = n.erro && n.situacao !== "autorizada" ? `<div class="ajuda">${esc(n.erro)}</div>` : "";
       return `<tr>
-        <td>${esc(n.numero_nfse ?? "—")}</td>
-        <td>${esc(n.serie)}/${n.numero_dps}</td>
+        <td class="dado">${esc(n.numero_nfse ?? "—")}</td>
+        <td class="dado">${esc(n.serie)}/${n.numero_dps}</td>
         <td class="truncar" title="${esc(n.tomador)}">${esc(n.tomador ?? "—")}</td>
         <td class="truncar" title="${esc(n.descricao)}">${esc(n.descricao ?? "")}${erro}</td>
         <td class="num">${n.valor ? "R$ " + moeda(n.valor) : ""}</td>
@@ -1137,7 +1137,7 @@ async function carregarTomadores() {
     ? tomadoresCarregados
         .map(
           (t, i) => `<tr>
-          <td style="white-space:nowrap">${esc(formatarDocumento(t.tomador.documento))}</td>
+          <td class="dado" style="white-space:nowrap">${esc(formatarDocumento(t.tomador.documento))}</td>
           <td>${esc(t.tomador.nome)}</td>
           <td>${esc(t.tomador.endereco?.municipio ?? "")}</td>
           <td class="truncar">${esc(t.emails ?? "")}</td>
@@ -1477,10 +1477,10 @@ async function renderizarEmpresas() {
                <div class="ajuda">${esc(c.titular)}</div>`
             : `<span style="color:var(--vermelho)">não importado</span>`;
           return `<tr>
-            <td style="white-space:nowrap">${esc(e.cnpj_formatado)}</td>
+            <td class="dado" style="white-space:nowrap">${esc(e.cnpj_formatado)}</td>
             <td>${esc(e.nome)}</td>
             <td><span class="selo ${e.ambiente}">${NOME_AMBIENTE[e.ambiente]}</span></td>
-            <td>${esc(e.serie)}</td>
+            <td class="dado">${esc(e.serie)}</td>
             <td>${cert}</td>
             <td><div class="acoes">
               <button class="botao pequeno" data-acao="editar" data-i="${i}">Editar</button>
