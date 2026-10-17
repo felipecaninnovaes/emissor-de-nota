@@ -1,6 +1,6 @@
 # Guia do operador
 
-Como usar o Emissor de NFS-e no dia a dia, tela por tela. Para quem opera o sistema no escritório. A instalação está no [README](../README.md); as regras fiscais, em [fiscal.md](fiscal.md).
+Como usar o Emissor de NFS-e no dia a dia, tela por tela. Para quem opera o sistema no escritório. A instalação está no [README](../README.md); as regras fiscais, em [fiscal.md](fiscal.md). O sistema não substitui a validação contábil e fiscal: alíquotas, códigos, retenções e regime são responsabilidade de quem configura (ver o [aviso no README](../README.md#aviso)).
 
 ## Primeira abertura
 

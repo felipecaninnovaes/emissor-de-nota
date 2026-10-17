@@ -47,6 +47,10 @@ Setup completo, testes, CLI de diagnóstico e problemas conhecidos: [docs/desenv
 
 O repositório é público: **nunca** versione certificados reais, senhas, bancos de dados nem XMLs de clientes. O `.gitignore` bloqueia `*.pfx`, `*.p12`, `*.db`, `.env` e afins; os únicos certificados versionados são os autoassinados de teste (senha `1234`) em `crates/nfse-cert/tests/fixtures/`.
 
+## Aviso
+
+Este software não substitui a validação contábil e fiscal. Alíquotas, códigos de serviço, retenções e regime tributário são responsabilidade de quem configura o sistema. Antes de emitir em Produção, confirme com a contabilidade e com a prefeitura se o município aceita o emissor e o padrão utilizado. O sistema avisa de retenções que parecem indevidas, mas não valida se uma retenção é cabível ao serviço ([docs/fiscal.md](docs/fiscal.md)). O software é fornecido "como está", sem garantia de qualquer tipo (ver [LICENSE](LICENSE)).
+
 ## Licença
 
 MIT. Ver [LICENSE](LICENSE).
