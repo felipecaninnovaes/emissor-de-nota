@@ -70,3 +70,15 @@ pub(crate) fn mes_de(mes: &str) -> R<NaiveDate> {
     NaiveDate::parse_from_str(&format!("{}-01", mes.trim()), "%Y-%m-%d")
         .map_err(|_| "mês de referência inválido".into())
 }
+
+/// Grava o CSV na pasta das notas e abre no programa padrão (Excel). Devolve o caminho.
+pub(crate) async fn gravar_e_abrir_csv(estado: &Estado, nome: &str, conteudo: &str) -> R<String> {
+    let pasta = pasta_configurada(estado).await?;
+    std::fs::create_dir_all(&pasta).map_err(texto)?;
+    let caminho = pasta.join(nome);
+    // BOM: o Excel abre o CSV em UTF-8 com os acentos certos.
+    std::fs::write(&caminho, format!("\u{feff}{conteudo}"))
+        .map_err(|e| format!("não foi possível gravar {nome}: {e}"))?;
+    abrir_no_sistema(&caminho)?;
+    Ok(caminho.display().to_string())
+}

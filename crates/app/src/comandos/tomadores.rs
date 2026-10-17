@@ -1,0 +1,61 @@
+//! Cadastro de tomadores.
+
+use serde::Serialize;
+use tauri::State;
+
+use nfse_core::modelo::Tomador;
+use nfse_db::tomadores::TomadorVinculado;
+
+use super::comum::{R, exigir_cofre, texto, vazio_para_none};
+use crate::Estado;
+
+#[derive(Serialize)]
+pub struct TomadorDto {
+    pessoa_id: i64,
+    tomador: Tomador,
+    emails: Option<String>,
+}
+
+impl From<TomadorVinculado> for TomadorDto {
+    fn from(t: TomadorVinculado) -> Self {
+        Self {
+            pessoa_id: t.pessoa_id,
+            tomador: t.tomador,
+            emails: t.emails,
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn buscar_tomadores(estado: State<'_, Estado>, empresa_id: i64, termo: String) -> R<Vec<TomadorDto>> {
+    exigir_cofre(&estado).await?;
+    Ok(estado
+        .banco
+        .buscar_tomadores(empresa_id, &termo)
+        .await
+        .map_err(texto)?
+        .into_iter()
+        .map(Into::into)
+        .collect())
+}
+
+#[tauri::command]
+pub async fn salvar_tomador(
+    estado: State<'_, Estado>,
+    empresa_id: i64,
+    tomador: Tomador,
+    emails: Option<String>,
+) -> R<i64> {
+    exigir_cofre(&estado).await?;
+    let id = estado
+        .banco
+        .salvar_tomador(empresa_id, &tomador, "manual")
+        .await
+        .map_err(texto)?;
+    estado
+        .banco
+        .definir_emails_tomador(empresa_id, id, vazio_para_none(emails).as_deref(), None)
+        .await
+        .map_err(texto)?;
+    Ok(id)
+}
