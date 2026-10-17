@@ -465,6 +465,17 @@ impl Dps {
             v.texto("tomador.nome", &t.nome, 1, 300);
             v.opcional_telefone("tomador.telefone", &t.telefone);
             v.opcional_texto("tomador.email", &t.email, 1, 80);
+            let f = &self.valores.federais;
+            let retem_federal = [f.retencao_irrf, f.retencao_cp, f.retencao_csll]
+                .into_iter()
+                .flatten()
+                .any(|r| r.centesimos() > 0);
+            if matches!(t.documento, Documento::Cpf(_)) && retem_federal {
+                v.erro(
+                    "valores.federais",
+                    "tomador pessoa física não retém tributos federais; desmarque a retenção da nota",
+                );
+            }
             if let Some(e) = &t.endereco {
                 v.digitos("tomador.endereco.municipio", &e.municipio, 7, 7);
                 v.digitos("tomador.endereco.cep", &e.cep, 8, 8);
@@ -686,6 +697,17 @@ pub(crate) mod testes {
             dps.id().unwrap().as_str(),
             "DPS351110221122233300018100001000000000000001"
         );
+    }
+
+    #[test]
+    fn tomador_pessoa_fisica_nao_retem_tributos_federais() {
+        let mut dps = dps_exemplo();
+        dps.valores.federais.retencao_irrf = Some(Valor::de_centesimos(1_000));
+        let erro = |dps: &Dps| dps.validar().iter().any(|e| e.starts_with("valores.federais:"));
+        dps.tomador.as_mut().unwrap().documento = Documento::Cnpj(Cnpj::parse("11222333000181").unwrap());
+        assert!(!erro(&dps), "{:?}", dps.validar());
+        dps.tomador.as_mut().unwrap().documento = Documento::Cpf(Cpf::parse("52998224725").unwrap());
+        assert!(erro(&dps));
     }
 
     #[test]
