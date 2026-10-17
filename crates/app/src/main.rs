@@ -50,6 +50,7 @@ fn main() {
                 .with_state_flags(StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED)
                 .build(),
         )
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             dimensionar_primeira_abertura(app)?;
             let dados: PathBuf = app.path().app_data_dir()?;
@@ -105,6 +106,9 @@ fn main() {
             comandos::destinatarios_email,
             comandos::enviar_email,
             comandos::consultar_cnpj,
+            comandos::versao_app,
+            comandos::procurar_atualizacao,
+            comandos::instalar_atualizacao,
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o aplicativo");

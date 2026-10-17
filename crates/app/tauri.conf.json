@@ -45,5 +45,16 @@
     },
     "copyright": "Copyright (c) 2026 Felipe Canin Novaes — Licença MIT",
     "category": "Business"
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEYyNEQ5RTRBMkE5OTcwNzEKUldSeGNKa3FTcDVOOG83dnN2RStzMk5VdGNpczc3ZjArOTY4RU1XV28xdWthNFlKbXI0VTh3ZUsK",
+      "endpoints": [
+        "https://github.com/felipecaninnovaes/emissor-de-nota/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

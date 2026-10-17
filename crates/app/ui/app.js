@@ -642,6 +642,7 @@ async function entrar(pendencias) {
   $("#mes-planilha").value = mesAnterior();
   await carregarEmpresas();
   await avisarVencimentos();
+  procurarAtualizacao(true);
   if (!estado.empresas.length) {
     irPara("empresas");
     toast("Cadastre a primeira empresa para começar.");
@@ -2637,7 +2638,79 @@ $("#ap-densidade").addEventListener("change", (ev) => {
   salvarAparencia();
 });
 
+// ---------------------------------------------------------------- atualização do sistema
+
+let atualizacao = null; // { versao, notas } da Release mais nova, se houver
+
+function mostrarSituacaoAtualizacao(texto) {
+  $("#situacao-atualizacao").textContent = texto;
+  $("#instalar-atualizacao").hidden = !atualizacao;
+}
+
+/** Consulta a Release mais nova. `silencioso`: na abertura, sem internet não é erro. */
+async function procurarAtualizacao(silencioso) {
+  try {
+    atualizacao = await invoke("procurar_atualizacao");
+  } catch (e) {
+    if (!silencioso) mostrarSituacaoAtualizacao(`Não foi possível procurar: ${e}`);
+    return;
+  }
+  mostrarSituacaoAtualizacao(atualizacao ? `Versão ${atualizacao.versao} disponível.` : "O sistema está na versão mais nova.");
+  if (atualizacao && !$("#aviso-atualizacao")) {
+    $("#alertas").insertAdjacentHTML(
+      "beforeend",
+      `<div class="aviso ok" id="aviso-atualizacao"><span><strong>Versão ${esc(atualizacao.versao)} disponível.</strong>
+        O sistema fecha, instala e abre de novo.</span>
+        <button type="button" class="botao pequeno" data-instalar-atualizacao>Atualizar agora</button></div>`,
+    );
+  }
+}
+
+async function instalarAtualizacao() {
+  if (!atualizacao) return;
+  if (loteEmAndamento || planilhaEmAndamento) {
+    return toast("Espere terminar a emissão em andamento antes de atualizar.", true);
+  }
+  if (!confirm(`Atualizar para a versão ${atualizacao.versao}? O sistema fecha, instala e abre de novo.`)) return;
+  const botoes = $$("#instalar-atualizacao, [data-instalar-atualizacao]");
+  for (const b of botoes) b.disabled = true;
+  mostrarSituacaoAtualizacao("Baixando a atualização...");
+  const parar = await window.__TAURI__.event.listen("progresso-atualizacao", ({ payload }) => {
+    const mb = (n) => (n / 1048576).toFixed(1).replace(".", ",");
+    mostrarSituacaoAtualizacao(
+      payload.total
+        ? `Baixando a atualização... ${Math.floor((payload.baixado * 100) / payload.total)}% (${mb(payload.total)} MB)`
+        : `Baixando a atualização... ${mb(payload.baixado)} MB`,
+    );
+  });
+  try {
+    await invoke("instalar_atualizacao");
+    mostrarSituacaoAtualizacao("Instalando...");
+  } catch (e) {
+    mostrarSituacaoAtualizacao(String(e));
+    toast(String(e), true);
+    for (const b of botoes) b.disabled = false;
+  } finally {
+    parar();
+  }
+}
+
+$("#procurar-atualizacao").addEventListener("click", async (ev) => {
+  ev.target.disabled = true;
+  mostrarSituacaoAtualizacao("Procurando...");
+  await procurarAtualizacao(false);
+  ev.target.disabled = false;
+});
+$("#instalar-atualizacao").addEventListener("click", instalarAtualizacao);
+$("#alertas").addEventListener("click", (ev) => {
+  if (ev.target.closest("[data-instalar-atualizacao]")) instalarAtualizacao();
+});
+
 // ---------------------------------------------------------------- início
+
+invoke("versao_app")
+  .then((v) => ($("#versao-app").textContent = v))
+  .catch(() => {});
 
 invoke("obter_aparencia")
   .then((a) => {

@@ -41,6 +41,8 @@ escritório: o contribuinte não está no CNC desse ambiente (rejeição E0084).
   - configurações: pasta de saída, certificados vencendo (60 dias), pendentes.
 - Rodar com `cargo run -p emissor-nfse` e conferir cada tela.
 - Instalador: `cargo tauri build` em `crates/app` gera o MSI (pt-BR, ~7 MB); workflow `Instalador` no GitHub (manual ou tag `vX.Y.Z`).
+- Atualização automática (`tauri-plugin-updater`): a tag gera MSI assinado + `latest.json` na Release;
+  o app consulta `releases/latest/download/latest.json` na abertura e em Configurações → Atualizações.
 
 ## Decisões já tomadas
 

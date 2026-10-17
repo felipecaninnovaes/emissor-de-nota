@@ -2,7 +2,10 @@ name: Instalador
 
 # Gera o instalador MSI do Windows.
 # - Manual (Actions → Instalador → Run workflow): o MSI fica como artefato da execução.
-# - Tag `vX.Y.Z` (igual à versão de crates/app/Cargo.toml): cria a Release no GitHub com o MSI.
+# - Tag `vX.Y.Z` (igual à versão de crates/app/Cargo.toml): cria a Release no GitHub com o MSI,
+#   a assinatura (.sig) e o `latest.json` que o atualizador do sistema consulta.
+# Segredos do repositório: TAURI_SIGNING_PRIVATE_KEY (conteúdo de ~/.tauri/emissor-nfse.key) e
+# TAURI_SIGNING_PRIVATE_KEY_PASSWORD. Sem eles o MSI não é assinado e o build falha.
 on:
   push:
     tags: ["v*"]
@@ -40,19 +43,46 @@ jobs:
       - name: Testes
         run: cargo test --workspace
 
-      - name: Gerar o MSI
+      - name: Gerar o MSI (assinado para o atualizador)
         working-directory: crates/app
-        run: cargo tauri build
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: cargo tauri build --config tauri.release.conf.json
+
+      # Nome sem espaços (o GitHub troca espaço por ponto nos anexos) e o latest.json apontando
+      # para o MSI desta Release.
+      - name: Preparar os arquivos da Release
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem target/release/bundle/msi/*.msi | Select-Object -First 1
+          $versao = (Select-String -Path crates/app/Cargo.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
+          $nome = "Emissor-NFS-e_${versao}_x64_pt-BR.msi"
+          New-Item -ItemType Directory -Force publicar | Out-Null
+          Copy-Item $msi.FullName "publicar/$nome"
+          Copy-Item "$($msi.FullName).sig" "publicar/$nome.sig"
+          $latest = [ordered]@{
+            version  = $versao
+            notes    = "Versão $versao"
+            pub_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            platforms = @{
+              "windows-x86_64" = [ordered]@{
+                signature = (Get-Content "$($msi.FullName).sig" -Raw).Trim()
+                url       = "https://github.com/${{ github.repository }}/releases/download/v$versao/$nome"
+              }
+            }
+          }
+          $latest | ConvertTo-Json -Depth 5 | Set-Content publicar/latest.json -Encoding utf8NoBOM
 
       - uses: actions/upload-artifact@v4
         with:
           name: instalador-msi
-          path: target/release/bundle/msi/*.msi
+          path: publicar/*
           if-no-files-found: error
 
       - name: Publicar a Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: target/release/bundle/msi/*.msi
+          files: publicar/*
           generate_release_notes: true

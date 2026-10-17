@@ -15,11 +15,14 @@ Escopo completo: [Escopo — Emissor de NFS-e Multiempresa (Rust).md](<Escopo �
 
 ## Instalação (Windows)
 
-Baixe o `Emissor NFS-e_<versão>_x64_pt-BR.msi` da página de
+Baixe o `Emissor-NFS-e_<versão>_x64_pt-BR.msi` da página de
 [Releases](https://github.com/felipecaninnovaes/emissor-de-nota/releases) e execute. O banco fica em
 `%APPDATA%\br.emissor-nfse.app\emissor.db` (um por usuário da máquina) e as notas em `Documentos\NFS-e`
 (configurável). Na primeira abertura o sistema pede para criar a senha mestra, que protege os certificados
 e não pode ser recuperada.
+
+Depois de instalado, o sistema procura uma versão nova a cada abertura (e em Configurações → Atualizações)
+e se atualiza sozinho: baixa o MSI da última Release, confere a assinatura, fecha, instala e abre de novo.
 
 ## Estrutura
 
@@ -93,7 +96,19 @@ cd crates/app && cargo tauri build
 ```
 
 No GitHub, o workflow **Instalador** gera o MSI manualmente (Actions → Instalador → Run workflow) ou ao
-publicar uma tag `vX.Y.Z` igual à versão de `crates/app/Cargo.toml`, que vira uma Release com o MSI anexado.
+publicar uma tag `vX.Y.Z` igual à versão de `crates/app/Cargo.toml`, que vira uma Release com o MSI, a
+assinatura (`.sig`) e o `latest.json` lido pelo atualizador.
+
+Publicar uma versão:
+
+1. subir `version` em `crates/app/Cargo.toml` e fazer o commit;
+2. `git tag vX.Y.Z` e `git push origin vX.Y.Z`.
+
+O atualizador só aceita MSI assinado com a chave cuja parte pública está em `plugins.updater.pubkey` do
+`tauri.conf.json`. A chave privada (`~/.tauri/emissor-nfse.key`, gerada com `cargo tauri signer generate`)
+e a senha dela ficam nos segredos `TAURI_SIGNING_PRIVATE_KEY` e `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` do
+repositório. Perder a chave obriga a reinstalar manualmente a versão com a chave nova. O `cargo tauri build`
+local continua sem assinatura; para assinar, defina as duas variáveis e use `--config tauri.release.conf.json`.
 
 ## Licença
 
