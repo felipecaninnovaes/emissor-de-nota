@@ -313,6 +313,28 @@ fn retencao_so_vale_para_tomador_que_retem() {
 }
 
 #[test]
+fn valor_liquido_da_descricao() {
+    use nfse_core::modelo::RetencaoIssqn;
+    let p = |v: &str| Percentual::parse(v).unwrap();
+    let mut t = Tributacao {
+        retencoes: nfse_db::servicos::RetencoesPercentuais {
+            irrf: Some(p("1.5")),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let valor = Valor::parse("1000").unwrap();
+    let f = federais_da_nota(&t, valor);
+    assert_eq!(valor_liquido(valor, &f, &t).unwrap().to_string(), "985.00");
+    // ISS retido sem alíquota: não dá para saber.
+    t.issqn.retencao = RetencaoIssqn::RetidoPeloTomador;
+    assert_eq!(valor_liquido(valor, &f, &t), None);
+    t.issqn.aliquota = Some(p("2"));
+    assert_eq!(valor_liquido(valor, &f, &t).unwrap().to_string(), "965.00");
+    assert!(texto_variaveis_desconhecidas(&["valor_liquido".into()]).contains("alíquota"));
+}
+
+#[test]
 fn retencoes_percentuais_viram_valores() {
     let p = |v: &str| Some(Percentual::parse(v).unwrap());
     let t = Tributacao {

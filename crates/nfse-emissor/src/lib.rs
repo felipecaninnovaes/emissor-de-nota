@@ -208,7 +208,7 @@ const MESES: [&str; 12] = [
 ];
 
 /// Variáveis aceitas nas descrições, na ordem em que a tela as oferece.
-pub const VARIAVEIS_DESCRICAO: [&str; 8] = [
+pub const VARIAVEIS_DESCRICAO: [&str; 9] = [
     "mes_ref",
     "mes_ref_extenso",
     "ano_ref",
@@ -217,6 +217,7 @@ pub const VARIAVEIS_DESCRICAO: [&str; 8] = [
     "tomador",
     "empresa",
     "valor",
+    "valor_liquido",
 ];
 
 /// Troca as variáveis do mês de referência: `{mes_ref}` (09/2026), `{mes_ref_extenso}` (setembro de
@@ -231,8 +232,31 @@ pub fn aplicar_mes_ref(texto: &str, mes: NaiveDate) -> String {
         .replace("{ano_ref}", &mes.year().to_string())
 }
 
+/// Valor menos as retenções federais e o ISS retido. O ISS só é conhecido quando o serviço traz a
+/// alíquota (valor × alíquota); sem ela quem calcula é a Sefin e aqui não há como saber.
+fn valor_liquido(
+    valor: Valor,
+    federais: &nfse_core::modelo::TributosFederais,
+    t: &nfse_db::servicos::Tributacao,
+) -> Option<Valor> {
+    let mut retido: i64 = [federais.retencao_irrf, federais.retencao_cp, federais.retencao_csll]
+        .into_iter()
+        .flatten()
+        .map(|v| v.centesimos())
+        .sum();
+    if t.issqn.retencao != nfse_core::modelo::RetencaoIssqn::NaoRetido {
+        retido += valor.aplicar(t.issqn.aliquota?).centesimos();
+    }
+    Some(Valor::de_centesimos(valor.centesimos() - retido))
+}
+
 /// Mensagem para a descrição com variáveis que não existem.
 pub fn texto_variaveis_desconhecidas(nomes: &[String]) -> String {
+    if nomes == ["valor_liquido"] {
+        return "{valor_liquido} não pode ser calculado: o ISS é retido e o serviço não tem a alíquota do ISS \
+                (a Sefin é quem calcula). Informe a alíquota no serviço ou tire a variável."
+            .into();
+    }
     let lista: Vec<String> = nomes.iter().map(|n| format!("{{{n}}}")).collect();
     format!(
         "a descrição tem variável desconhecida: {} (use {})",
@@ -354,13 +378,18 @@ pub fn montar_dps(
     let mes = pedido
         .mes_referencia
         .unwrap_or_else(|| mes_anterior(emissao.date_naive()));
-    let descricao = aplicar_mes_ref(pedido.descricao.as_deref().unwrap_or(&servico.descricao), mes)
+    let t = &tributacao_da_nota(servico, tomador, pedido.reter);
+    let federais = federais_da_nota(t, pedido.valor);
+    let mut descricao = aplicar_mes_ref(pedido.descricao.as_deref().unwrap_or(&servico.descricao), mes)
         .replace("{competencia}", &emissao.format("%m/%Y").to_string())
         .replace("{data_emissao}", &emissao.format("%d/%m/%Y").to_string())
         .replace("{tomador}", tomador.map_or("", |t| t.tomador.nome.as_str()))
         .replace("{empresa}", &empresa.nome)
         .replace("{valor}", &valor_br(pedido.valor));
-    let t = &tributacao_da_nota(servico, tomador, pedido.reter);
+    // Sem como calcular (ISS retido sem alíquota no serviço), a variável fica e a emissão é barrada.
+    if let Some(liquido) = valor_liquido(pedido.valor, &federais, t) {
+        descricao = descricao.replace("{valor_liquido}", &valor_br(liquido));
+    }
     Dps {
         ambiente: empresa.ambiente,
         emissao,
@@ -393,7 +422,7 @@ pub fn montar_dps(
             desconto_incondicionado: None,
             desconto_condicionado: None,
             issqn: t.issqn.clone(),
-            federais: federais_da_nota(t, pedido.valor),
+            federais,
             total_tributos: t.total_tributos.clone(),
         },
         ibs_cbs: t.ibs_cbs.clone(),
