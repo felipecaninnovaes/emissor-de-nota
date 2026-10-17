@@ -180,7 +180,7 @@ pub async fn resolver(
             }
         } else {
             erros.push(format!(
-                "tomador {texto_tomador} não cadastrado: cadastre em Tomadores (o botão Consultar preenche pelo CNPJ)"
+                "tomador {texto_tomador} não cadastrado"
             ));
         }
 

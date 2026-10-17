@@ -986,8 +986,12 @@ function situacaoPlanilha(it) {
     return `<span class="selo ${esc(t.situacao)}">Já ${esc((NOME_SITUACAO[t.situacao] ?? t.situacao).toLowerCase())}${nota}</span>`;
   }
   if (it.erros.length) {
+    const cadastrar =
+      !it.pessoa_id && it.documento_tomador && it.empresa_id
+        ? `<div style="margin-top:4px"><button class="botao pequeno" data-cadastrar-tomador="${planilhaLida.indexOf(it)}">Cadastrar tomador</button></div>`
+        : "";
     return `<span class="selo rejeitada">Não pode emitir</span>
-      <div class="ajuda" style="color:var(--vermelho)">${it.erros.map(esc).join("<br>")}</div>`;
+      <div class="ajuda" style="color:var(--vermelho)">${it.erros.map(esc).join("<br>")}</div>${cadastrar}`;
   }
   const aviso = it.vincular_tomador ? `<div class="ajuda">O tomador será vinculado a esta empresa.</div>` : "";
   const antes = t
@@ -1045,6 +1049,12 @@ function marcarProntas(marcar) {
 }
 
 $("#lista-planilha").addEventListener("change", atualizarBotaoPlanilha);
+$("#lista-planilha").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-cadastrar-tomador]");
+  if (!b) return;
+  const it = planilhaLida[Number(b.dataset.cadastrarTomador)];
+  editarTomador(null, () => lerPlanilha(), { empresaId: it.empresa_id, documento: it.documento_tomador });
+});
 $("#planilha-todos").addEventListener("change", (ev) => marcarProntas(ev.target.checked));
 $("#planilha-marcar").addEventListener("click", () => marcarProntas(true));
 
@@ -1113,8 +1123,8 @@ $("#lista-tomadores").addEventListener("click", (ev) => {
 $("#novo-tomador").addEventListener("click", () => editarTomador(null, () => carregarTomadores()));
 
 /** Abre o diálogo de tomador; `depois(tomadorDto)` recebe o tomador gravado. */
-function editarTomador(dto, depois) {
-  if (!estado.empresa) return toast("Escolha a empresa.", true);
+function editarTomador(dto, depois, { empresaId = estado.empresa?.id, documento = null } = {}) {
+  if (!empresaId) return toast("Escolha a empresa.", true);
   const dlg = $("#dlg-tomador");
   const form = $("form", dlg);
   form.reset();
@@ -1170,10 +1180,17 @@ function editarTomador(dto, depois) {
       if (vazio(d.complemento)) tomador.endereco.complemento = vazio(d.complemento);
     }
     const emails = vazio(d.emails);
-    const pessoaId = await chamar("salvar_tomador", { empresaId: estado.empresa.id, tomador, emails });
+    const pessoaId = await chamar("salvar_tomador", { empresaId, tomador, emails });
     toast("Tomador salvo.");
     depois?.({ pessoa_id: pessoaId, tomador, emails });
   });
+  if (!dto && documento) {
+    // Vindo da planilha: já preenche o documento e, se for CNPJ, consulta os dados.
+    const cpf = documento.length === 11;
+    form.elements.tipo.value = cpf ? "cpf" : "cnpj";
+    form.elements.documento.value = formatarDocumento(cpf ? { cpf: documento } : { cnpj: documento });
+    form.elements.documento.dispatchEvent(new Event("change"));
+  }
 }
 
 // ---------------------------------------------------------------- consulta de CNPJ
