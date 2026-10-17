@@ -43,6 +43,14 @@ async fn pasta_configurada(estado: &Estado) -> R<PathBuf> {
         .unwrap_or_else(pasta_padrao))
 }
 
+/// Os dados fiscais só são acessíveis com o cofre aberto pela senha mestra.
+async fn exigir_cofre(estado: &Estado) -> R<()> {
+    if estado.emissor.read().await.is_none() {
+        return Err("abra o sistema com a senha mestra".into());
+    }
+    Ok(())
+}
+
 macro_rules! emissor {
     ($estado:expr) => {{
         let guarda = $estado.emissor.read().await;
@@ -112,6 +120,7 @@ pub async fn obter_pasta(estado: State<'_, Estado>) -> R<String> {
 
 #[tauri::command]
 pub async fn definir_pasta(estado: State<'_, Estado>, pasta: String) -> R<()> {
+    exigir_cofre(&estado).await?;
     let caminho = PathBuf::from(pasta.trim());
     std::fs::create_dir_all(&caminho).map_err(|e| format!("não foi possível usar a pasta: {e}"))?;
     estado
@@ -203,6 +212,7 @@ pub struct CertificadoDto {
 
 #[tauri::command]
 pub async fn listar_empresas(estado: State<'_, Estado>) -> R<Vec<EmpresaDto>> {
+    exigir_cofre(&estado).await?;
     let mut lista = Vec::new();
     for e in estado.banco.empresas().await.map_err(texto)? {
         let certificado = estado
@@ -270,12 +280,14 @@ impl NovaEmpresaDto {
 
 #[tauri::command]
 pub async fn cadastrar_empresa(estado: State<'_, Estado>, empresa: NovaEmpresaDto) -> R<i64> {
+    exigir_cofre(&estado).await?;
     let nova = empresa.empresa()?;
     Ok(estado.banco.cadastrar_empresa(&nova).await.map_err(texto)?.id)
 }
 
 #[tauri::command]
 pub async fn atualizar_empresa(estado: State<'_, Estado>, empresa_id: i64, empresa: NovaEmpresaDto) -> R<()> {
+    exigir_cofre(&estado).await?;
     let dados = empresa.empresa()?;
     estado
         .banco
@@ -309,6 +321,7 @@ pub async fn importar_certificado(
 /// Exclui a empresa (sem notas) ou arquiva (com notas); devolve a mensagem para o operador.
 #[tauri::command]
 pub async fn excluir_empresa(estado: State<'_, Estado>, empresa_id: i64) -> R<String> {
+    exigir_cofre(&estado).await?;
     Ok(match estado.banco.excluir_empresa(empresa_id).await.map_err(texto)? {
         Exclusao::Excluida => "Empresa excluída.".into(),
         Exclusao::Arquivada { notas } => format!(
@@ -324,6 +337,7 @@ pub async fn definir_im_na_dps(
     ambiente: Ambiente,
     informar: bool,
 ) -> R<()> {
+    exigir_cofre(&estado).await?;
     estado
         .banco
         .definir_im_na_dps(empresa_id, ambiente, informar)
@@ -339,6 +353,7 @@ pub async fn definir_proximo_numero(
     serie: String,
     proximo: u64,
 ) -> R<()> {
+    exigir_cofre(&estado).await?;
     estado
         .banco
         .definir_proximo_numero(empresa_id, ambiente, &serie, proximo)
@@ -372,6 +387,7 @@ pub struct VencimentoDto {
 
 #[tauri::command]
 pub async fn certificados_vencendo(estado: State<'_, Estado>, dias: i64) -> R<Vec<VencimentoDto>> {
+    exigir_cofre(&estado).await?;
     Ok(estado
         .banco
         .certificados_vencendo(dias)
@@ -408,6 +424,7 @@ impl From<TomadorVinculado> for TomadorDto {
 
 #[tauri::command]
 pub async fn buscar_tomadores(estado: State<'_, Estado>, empresa_id: i64, termo: String) -> R<Vec<TomadorDto>> {
+    exigir_cofre(&estado).await?;
     Ok(estado
         .banco
         .buscar_tomadores(empresa_id, &termo)
@@ -425,6 +442,7 @@ pub async fn salvar_tomador(
     tomador: Tomador,
     emails: Option<String>,
 ) -> R<i64> {
+    exigir_cofre(&estado).await?;
     let id = estado
         .banco
         .salvar_tomador(empresa_id, &tomador, "manual")
@@ -471,6 +489,7 @@ impl From<Servico> for ServicoDto {
 
 #[tauri::command]
 pub async fn listar_servicos(estado: State<'_, Estado>, empresa_id: i64) -> R<Vec<ServicoDto>> {
+    exigir_cofre(&estado).await?;
     Ok(estado
         .banco
         .servicos(empresa_id)
@@ -499,6 +518,7 @@ impl From<ServicoDto> for Servico {
 
 #[tauri::command]
 pub async fn salvar_servico(estado: State<'_, Estado>, servico: ServicoDto) -> R<i64> {
+    exigir_cofre(&estado).await?;
     estado.banco.salvar_servico(&servico.into()).await.map_err(texto)
 }
 
@@ -539,6 +559,7 @@ pub async fn importar_servicos(
     servicos: Vec<ServicoDto>,
     empresa_ids: Vec<i64>,
 ) -> R<Vec<ImportacaoServicosDto>> {
+    exigir_cofre(&estado).await?;
     if servicos.is_empty() {
         return Err("Nenhum serviço escolhido.".into());
     }
@@ -584,6 +605,7 @@ pub async fn salvar_modelo_servicos(estado: State<'_, Estado>) -> R<String> {
 /// Exporta os serviços da empresa no formato da importação (para levar a outras empresas).
 #[tauri::command]
 pub async fn exportar_servicos(estado: State<'_, Estado>, empresa_id: i64) -> R<String> {
+    exigir_cofre(&estado).await?;
     let b = &estado.banco;
     let empresa = b.empresa(empresa_id).await.map_err(texto)?;
     let servicos = b.servicos(empresa_id).await.map_err(texto)?;
@@ -596,6 +618,7 @@ pub async fn exportar_servicos(estado: State<'_, Estado>, empresa_id: i64) -> R<
 
 #[tauri::command]
 pub async fn desativar_servico(estado: State<'_, Estado>, id: i64) -> R<()> {
+    exigir_cofre(&estado).await?;
     estado.banco.desativar_servico(id).await.map_err(texto)
 }
 
@@ -677,6 +700,7 @@ pub(crate) async fn validar_pedido(
 /// Mostra como a DPS vai sair (descrição com o mês já aplicado) e os erros de validação, sem emitir.
 #[tauri::command]
 pub async fn previa_dps(estado: State<'_, Estado>, pedido: PedidoDto) -> R<PreviaDto> {
+    exigir_cofre(&estado).await?;
     let pedido = pedido.pedido()?;
     let (dps, empresa, erros) = validar_pedido(&estado.banco, &pedido).await?;
     Ok(PreviaDto {
@@ -774,6 +798,7 @@ pub struct NotaDto {
 
 #[tauri::command]
 pub async fn listar_notas(estado: State<'_, Estado>, empresa_id: i64, mes: Option<String>) -> R<Vec<NotaDto>> {
+    exigir_cofre(&estado).await?;
     let mes = vazio_para_none(mes);
     Ok(estado
         .banco
@@ -878,6 +903,7 @@ pub struct PendenteDto {
 
 #[tauri::command]
 pub async fn pendentes(estado: State<'_, Estado>) -> R<Vec<PendenteDto>> {
+    exigir_cofre(&estado).await?;
     Ok(estado
         .banco
         .dps_pendentes()
@@ -894,11 +920,28 @@ pub async fn pendentes(estado: State<'_, Estado>) -> R<Vec<PendenteDto>> {
         .collect())
 }
 
-/// Abre um arquivo ou pasta com o programa padrão do Windows.
+/// Abre um arquivo ou pasta da pasta de saída com o programa padrão do Windows.
 #[tauri::command]
-pub async fn abrir_arquivo(caminho: String) -> R<()> {
+pub async fn abrir_arquivo(estado: State<'_, Estado>, caminho: String) -> R<()> {
+    exigir_cofre(&estado).await?;
+    let base = std::fs::canonicalize(pasta_configurada(&estado).await?)
+        .map_err(|e| format!("pasta de saída indisponível: {e}"))?;
+    let alvo = std::fs::canonicalize(caminho.trim()).map_err(|e| format!("caminho inválido: {e}"))?;
+    if !alvo.starts_with(&base) {
+        return Err("só é possível abrir arquivos da pasta de saída".into());
+    }
+    if alvo.is_file() {
+        let ext = alvo
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(str::to_ascii_lowercase)
+            .unwrap_or_default();
+        if !["pdf", "xml", "csv"].contains(&ext.as_str()) {
+            return Err("tipo de arquivo não permitido".into());
+        }
+    }
     std::process::Command::new("explorer")
-        .arg(&caminho)
+        .arg(&alvo)
         .spawn()
         .map_err(texto)?;
     Ok(())
@@ -993,6 +1036,7 @@ pub async fn listar_recorrencias(
     empresa_id: Option<i64>,
     mes: String,
 ) -> R<Vec<RecorrenciaDto>> {
+    exigir_cofre(&estado).await?;
     let data = mes_de(&mes)?;
     let b = &estado.banco;
     let mut lista = Vec::new();
@@ -1066,6 +1110,7 @@ pub struct RecorrenciaEntrada {
 
 #[tauri::command]
 pub async fn salvar_recorrencia(estado: State<'_, Estado>, recorrencia: RecorrenciaEntrada) -> R<i64> {
+    exigir_cofre(&estado).await?;
     estado
         .banco
         .salvar_recorrencia(&nfse_db::recorrencias::Recorrencia {
@@ -1083,6 +1128,7 @@ pub async fn salvar_recorrencia(estado: State<'_, Estado>, recorrencia: Recorren
 
 #[tauri::command]
 pub async fn desativar_recorrencia(estado: State<'_, Estado>, id: i64) -> R<()> {
+    exigir_cofre(&estado).await?;
     estado.banco.desativar_recorrencia(id).await.map_err(texto)
 }
 
@@ -1256,6 +1302,7 @@ pub struct ConfigEmailDto {
 
 #[tauri::command]
 pub async fn obter_email(estado: State<'_, Estado>) -> R<ConfigEmailDto> {
+    exigir_cofre(&estado).await?;
     let b = &estado.banco;
     let gravada = b.smtp().await.map_err(texto)?;
     Ok(ConfigEmailDto {
@@ -1305,6 +1352,7 @@ pub async fn testar_email(estado: State<'_, Estado>, para: String) -> R<()> {
 /// Destinatários padrão da nota (e-mails de envio do tomador ou o e-mail do cadastro).
 #[tauri::command]
 pub async fn destinatarios_email(estado: State<'_, Estado>, nfse_id: i64) -> R<Vec<String>> {
+    exigir_cofre(&estado).await?;
     Ok(estado
         .banco
         .dados_email_nfse(nfse_id)

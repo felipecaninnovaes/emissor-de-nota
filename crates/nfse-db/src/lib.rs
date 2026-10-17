@@ -124,7 +124,10 @@ impl Banco {
                 "o cofre já foi criado; use a senha mestra existente".into(),
             ));
         }
-        let (cofre, cabecalho) = Cofre::criar(senha)?;
+        let senha = senha.to_owned();
+        let (cofre, cabecalho) = tokio::task::spawn_blocking(move || Cofre::criar(&senha))
+            .await
+            .map_err(|e| ErroBanco::Regra(format!("falha ao criar o cofre: {e}")))??;
         self.gravar_cabecalho(&cabecalho).await?;
         Ok(cofre)
     }
@@ -150,7 +153,12 @@ impl Banco {
             .configuracao("cofre")
             .await?
             .ok_or(ErroBanco::NaoEncontrado("cofre"))?;
-        Ok(Cofre::abrir(senha, &de_json(&cabecalho, "cofre")?)?)
+        let cabecalho: CabecalhoCofre = de_json(&cabecalho, "cofre")?;
+        let senha = senha.to_owned();
+        tokio::task::spawn_blocking(move || Cofre::abrir(&senha, &cabecalho))
+            .await
+            .map_err(|e| ErroBanco::Regra(format!("falha ao abrir o cofre: {e}")))?
+            .map_err(Into::into)
     }
 
     pub async fn auditar(&self, acao: &str, empresa_id: Option<i64>, detalhe: Option<&str>) -> Resultado<()> {
