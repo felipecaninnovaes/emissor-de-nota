@@ -6,3 +6,16 @@ members = ["crates/*"]
 edition = "2024"
 license = "MIT"
 rust-version = "1.88"
+
+# Sem debug info completo: o target/ de desenvolvimento chegava a 30 GB e lotava o disco.
+# Os backtraces continuam com arquivo e linha do nosso código.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

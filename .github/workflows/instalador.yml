@@ -1,0 +1,58 @@
+name: Instalador
+
+# Gera o instalador MSI do Windows.
+# - Manual (Actions → Instalador → Run workflow): o MSI fica como artefato da execução.
+# - Tag `vX.Y.Z` (igual à versão de crates/app/Cargo.toml): cria a Release no GitHub com o MSI.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  msi:
+    name: MSI (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-binstall
+      - name: Instalar tauri-cli
+        run: cargo binstall tauri-cli@^2 --no-confirm
+
+      - name: Conferir a versão da tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $versao = (Select-String -Path crates/app/Cargo.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
+          if ("v$versao" -ne "${{ github.ref_name }}") {
+            throw "A tag ${{ github.ref_name }} não confere com a versão $versao de crates/app/Cargo.toml"
+          }
+
+      - name: Testes
+        run: cargo test --workspace
+
+      - name: Gerar o MSI
+        working-directory: crates/app
+        run: cargo tauri build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: instalador-msi
+          path: target/release/bundle/msi/*.msi
+          if-no-files-found: error
+
+      - name: Publicar a Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/release/bundle/msi/*.msi
+          generate_release_notes: true

@@ -16,7 +16,7 @@ escritório: o contribuinte não está no CNC desse ambiente (rejeição E0084).
 | 2. Emissão confiável, reconciliação, cancelamento (`nfse-emissor`) | feito |
 | 3. Conferir assinatura da Sefin e arquivar em `<empresa>/<AAAA-MM>/` | feito |
 | 4. DANFSe v2.0 em PDF (`nfse-pdf`, NT 008/2026) | feito |
-| 5. Interface desktop Tauri 2 (`crates/app`) | feito (falta instalador MSI e CI) |
+| 5. Interface desktop Tauri 2 (`crates/app`) | feito |
 | 6a. Notas recorrentes (`{mes_ref}`) e lote do mês | feito |
 | 6b. Importação de planilha para convênios (valores variáveis) | feito |
 | 7. Envio por e-mail ao tomador (SMTP do escritório, PDF + XML) | feito |
@@ -40,7 +40,7 @@ escritório: o contribuinte não está no CNC desse ambiente (rejeição E0084).
     com `retencoes` em percentuais e `total_tributos` = `"nao_informado"` | `{"percentual_simples": "11.48"}` | `{"percentuais": {...}}`);
   - configurações: pasta de saída, certificados vencendo (60 dias), pendentes.
 - Rodar com `cargo run -p emissor-nfse` e conferir cada tela.
-- Depois: `cargo install tauri-cli` e `cargo tauri build` para o instalador MSI; CI que gera o instalador.
+- Instalador: `cargo tauri build` em `crates/app` gera o MSI (pt-BR, ~7 MB); workflow `Instalador` no GitHub (manual ou tag `vX.Y.Z`).
 
 ## Decisões já tomadas
 

@@ -7,29 +7,33 @@ Escopo completo: [Escopo — Emissor de NFS-e Multiempresa (Rust).md](<Escopo �
 
 ## Situação
 
-**Fase 0 — prova de conceito: concluída em 16/10/2026.** A primeira NFS-e emitida por este código foi autorizada
-em Produção (e cancelada em seguida). Produção Restrita não serviu de teste, porque o contribuinte não está
-cadastrado nesse ambiente (rejeição E0084).
+- **Fase 0 (prova de conceito) e Fase 1 (uso diário no escritório): concluídas em 16/10/2026.** O aplicativo
+  emite, cancela e envia por e-mail NFS-e reais em Produção; tem recorrentes com lote do mês e importação de
+  planilha para convênios. Produção Restrita não serve de teste para o escritório (rejeição E0084).
+- **Fase 2 (instalação e operação): em andamento** — instalador MSI e CI prontos.
+- Andamento, decisões e pendências: [docs/ESTADO.md](docs/ESTADO.md).
 
-| Item | Situação |
-| --- | --- |
-| Leitura de .pfx A1 (formato legado 3DES/RC2 e AES) | feito, testado |
-| Diagnóstico do certificado (CNPJ ICP-Brasil, validade, AC, EKU Client Auth) | feito, testado |
-| C14N inclusivo + XMLDSIG RSA-SHA1 sem prefixo `ds:` | feito; aceito pela Sefin |
-| Cliente mTLS da Sefin (emitir, consultar DPS, consultar NFS-e) | feito; nota autorizada em Produção com certificado real |
-| Geração da DPS (leiaute 1.01) a partir de JSON | feito; idêntica à DPS de uma nota real do Emissor Web e válida no XSD |
+## Instalação (Windows)
+
+Baixe o `Emissor NFS-e_<versão>_x64_pt-BR.msi` da página de
+[Releases](https://github.com/felipecaninnovaes/emissor-de-nota/releases) e execute. O banco fica em
+`%APPDATA%\br.emissor-nfse.app\emissor.db` (um por usuário da máquina) e as notas em `Documentos\NFS-e`
+(configurável). Na primeira abertura o sistema pede para criar a senha mestra, que protege os certificados
+e não pode ser recuperada.
 
 ## Estrutura
 
 | Crate | Papel |
 | --- | --- |
-| `nfse-core` | Domínio sem I/O: CNPJ (inclusive alfanumérico), CPF, Id da DPS |
-| `nfse-cert` | Certificado A1: leitura do .pfx, diagnóstico, assinatura RSA |
+| `nfse-core` | Domínio sem I/O: CNPJ (inclusive alfanumérico), CPF, Id da DPS, modelo e validações do leiaute |
+| `nfse-cert` | Certificado A1: leitura do .pfx (inclusive BER), diagnóstico, assinatura RSA |
 | `nfse-xml` | DPS e eventos, C14N (inclusivo e exclusivo), assinatura e verificação XMLDSIG (RSA-SHA1/SHA-256) |
-| `nfse-nacional` | Cliente mTLS da Sefin Nacional, GZip+Base64, reconciliação |
-| `nfse-db` | SQLite: cofre de certificados (Argon2id + AES-256-GCM), empresas, tomadores, serviços, numeração e ciclo da DPS |
-| `nfse-emissor` | Emissão confiável: valida antes de numerar, grava antes de enviar, reconcilia timeout pelo Id da DPS, cancela |
-| `nfse-poc` | CLI da prova de conceito |
+| `nfse-nacional` | Cliente mTLS da Sefin Nacional, GZip+Base64, orientações por código de rejeição |
+| `nfse-db` | SQLite: cofre (Argon2id + AES-256-GCM), cadastros, numeração, DPS/NFS-e, recorrências, importações, e-mail |
+| `nfse-emissor` | Emissão confiável, reconciliação, cancelamento, arquivamento, planilhas e envio por e-mail |
+| `nfse-pdf` | DANFSe v2.0 (NT 008/2026) |
+| `nfse-poc` | CLI de diagnóstico (certificado, DPS, emissão e consulta direto na Sefin) |
+| `app` | Aplicativo desktop Tauri 2 (`emissor-nfse`), interface em HTML/CSS/JS sem bundler |
 
 ## Testando com um certificado real
 
@@ -73,6 +77,23 @@ versionados são os autoassinados de teste em `crates/nfse-cert/tests/fixtures/`
 ```bash
 cargo test --workspace
 ```
+
+```bash
+cargo run -p emissor-nfse
+```
+
+Gerar o instalador MSI (o Tauri baixa o WiX na primeira vez; o arquivo sai em `target/release/bundle/msi/`):
+
+```bash
+cargo install tauri-cli --version "^2" --locked
+```
+
+```bash
+cd crates/app && cargo tauri build
+```
+
+No GitHub, o workflow **Instalador** gera o MSI manualmente (Actions → Instalador → Run workflow) ou ao
+publicar uma tag `vX.Y.Z` igual à versão de `crates/app/Cargo.toml`, que vira uma Release com o MSI anexado.
 
 ## Licença
 

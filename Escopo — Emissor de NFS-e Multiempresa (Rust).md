@@ -212,7 +212,7 @@ Workspace Cargo com o **núcleo fiscal isolado da interface**; a Sefin fica atr�
 
 **Banco**: um SQLite por máquina (decisão do escritório: cada máquina é de um operador e algumas empresas não podem ser vistas por outros usuários). PostgreSQL e uso em rede ficaram **fora do escopo**. Não usar o arquivo em pasta de rede compartilhada.
 
-**Distribuição** (**Pendente**, Fase 2): instalador MSI (`cargo tauri build`), CI que gera o instalador, assinatura de código (evita o alerta do SmartScreen) e atualização automática.
+**Distribuição**: instalador MSI em pt-BR (`cargo tauri build`) e workflow `Instalador` no GitHub (**feito**); assinatura de código, que evita o alerta do SmartScreen, e atualização automática (**pendente**).
 
 ## Segurança, LGPD, backup e guarda
 
@@ -324,7 +324,7 @@ O banco concentra os certificados de todos os clientes: quem copia o arquivo e d
 
 **Fase 2 — Instalação e operação** · próxima
 
-- Instalador MSI e CI que gera o instalador a cada versão; assinatura de código; atualização automática.
+- **Feito** — Instalador MSI (pt-BR) e CI que gera o instalador (manual ou por tag). **Pendente** — assinatura de código; atualização automática.
 - Backup automático diário do banco, com teste de restauração.
 - Log de erros exportável para suporte.
 - Logomarca oficial da NFS-e no DANFSe; tabela de municípios IBGE (nome do município do tomador).
