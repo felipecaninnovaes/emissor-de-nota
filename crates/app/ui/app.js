@@ -685,6 +685,35 @@ function irPara(tela, focar = false) {
 
 for (const b of $$("nav button[data-tela]")) b.addEventListener("click", () => irPara(b.dataset.tela, true));
 
+// ---------------------------------------------------------------- menu lateral recolhível
+
+/** Abaixo desta largura (em rem, então já conta o tamanho do texto escolhido) o menu recolhe sozinho. */
+const LARGURA_RECOLHE_MENU = 74;
+
+const menuRecolheSozinho = () =>
+  innerWidth / parseFloat(getComputedStyle(document.documentElement).fontSize) < LARGURA_RECOLHE_MENU;
+
+/** Preferência "auto" (pela largura), "expandida" ou "recolhida"; guardada na máquina. */
+function atualizarMenu() {
+  const pref = lerPreferencia("menu") ?? "auto";
+  const recolhido = pref === "recolhida" || (pref === "auto" && menuRecolheSozinho());
+  $("#app").classList.toggle("menu-recolhido", recolhido);
+  const b = $("#alternar-nav");
+  b.setAttribute("aria-expanded", String(!recolhido));
+  b.textContent = recolhido ? "»" : "« Recolher menu";
+  b.setAttribute("aria-label", recolhido ? "Expandir menu" : "Recolher menu");
+  b.title = recolhido ? "Expandir menu" : "Recolher menu";
+}
+
+$("#alternar-nav").addEventListener("click", () => {
+  const recolher = !$("#app").classList.contains("menu-recolhido");
+  // se o operador escolhe o mesmo que a largura escolheria, volta ao automático
+  gravarPreferencia("menu", recolher === menuRecolheSozinho() ? "auto" : recolher ? "recolhida" : "expandida");
+  atualizarMenu();
+});
+addEventListener("resize", atualizarMenu);
+atualizarMenu();
+
 async function carregarEmpresas() {
   estado.empresas = await invoke("listar_empresas");
   const sel = $("#empresa-atual");
@@ -733,11 +762,26 @@ async function trocarEmpresa(empresa) {
   selo.hidden = false;
   selo.className = "selo " + empresa.ambiente;
   selo.textContent = NOME_AMBIENTE[empresa.ambiente];
+  // validade curta no cabeçalho; carimbo quando pede atenção; o texto completo fica no title
   const c = empresa.certificado;
-  info.textContent = c
-    ? `Certificado válido até ${c.valido_ate}${c.dias_para_vencer <= 30 ? ` (${c.dias_para_vencer} dias)` : ""}`
-    : "Sem certificado digital";
-  info.style.color = !c || c.dias_para_vencer <= 30 ? "var(--vermelho)" : "";
+  const d = c?.dias_para_vencer;
+  if (!c) {
+    info.className = "selo rejeitada";
+    info.textContent = "Sem certificado";
+    info.title = "Importe o certificado A1 da empresa em Empresas.";
+  } else if (d < 0) {
+    info.className = "selo rejeitada";
+    info.textContent = "Cert. vencido";
+    info.title = `O certificado venceu em ${c.valido_ate}.`;
+  } else if (d <= 30) {
+    info.className = "selo incerta";
+    info.textContent = `Cert. ${d} ${d === 1 ? "dia" : "dias"}`;
+    info.title = `Certificado válido até ${c.valido_ate} — faltam ${d} ${d === 1 ? "dia" : "dias"}.`;
+  } else {
+    info.className = "cert-ok dado";
+    info.textContent = `cert. até ${c.valido_ate}`;
+    info.title = `Certificado válido até ${c.valido_ate}.`;
+  }
   limparEmissao();
   estado.servicos = await invoke("listar_servicos", { empresaId: empresa.id });
   renderizarServicosEmitir();
@@ -2329,6 +2373,7 @@ let aparencia = { zoom: "1", densidade: "auto" };
 function aplicarAparencia() {
   document.documentElement.style.setProperty("--zoom", aparencia.zoom);
   document.documentElement.dataset.densidade = aparencia.densidade;
+  atualizarMenu(); // o limite do menu é em rem: muda com o tamanho do texto
 }
 
 async function salvarAparencia() {

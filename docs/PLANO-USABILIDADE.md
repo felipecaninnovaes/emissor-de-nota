@@ -70,7 +70,7 @@ Cada etapa é um commit separado, testado no app real por você antes do próxim
 - Embutir IBM Plex Sans, Sans Condensed e Mono (woff2, licença OFL) em `ui/fonts/` com `@font-face` — métricas iguais em todas as máquinas, sem depender da rede (a CSP continua `'self'`).
 - Conteúdo fluido: `max-width` passa de 1100px para `min(100%, 1440px)`; tabelas ocupam a largura toda.
 
-### Etapa 2 — Layout adaptável (casca, cabeçalho e barras)
+### Etapa 2 — Layout adaptável (casca, cabeçalho e barras) · feita em 17/10/2026
 - Navegação lateral recolhível: em < 1180px vira faixa de 64px com as iniciais/abreviações das telas e o nome em `title`/`aria-label`; botão para expandir/recolher, estado guardado.
 - Cabeçalho: seletor de empresa `flex: 1` com `min-width: 16rem` e busca por digitação; validade do certificado vira um carimbo curto ("CERT 23 DIAS") com o detalhe no `title`.
 - Nova classe `.barra` para as barras de ferramentas (filtros à esquerda, ações à direita, `flex-wrap` com a ação primária sempre junto das secundárias), substituindo os `style=` de Notas, Lote, Planilha, Recorrentes, Tomadores, Serviços, Empresas e Configurações.

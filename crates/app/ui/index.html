@@ -15,16 +15,16 @@
     <img src="icone.png" alt="">
     <h1>Emissor de NFS-e</h1>
     <p class="ajuda" id="trava-ajuda">Informe a senha mestra para abrir o sistema.</p>
-    <div style="margin-top:18px">
+    <div class="trava-campo">
       <label for="senha">Senha mestra</label>
       <input id="senha" type="password" autocomplete="current-password" required>
     </div>
-    <div id="bloco-confirmacao" style="margin-top:12px" hidden>
+    <div id="bloco-confirmacao" class="trava-campo" hidden>
       <label for="senha2">Confirme a senha</label>
       <input id="senha2" type="password" autocomplete="new-password">
       <p class="ajuda">Mínimo 8 caracteres. Ela protege os certificados de todas as empresas e não pode ser recuperada.</p>
     </div>
-    <div id="erro-trava" class="aviso erro" role="alert" style="margin-top:14px" hidden></div>
+    <div id="erro-trava" class="aviso erro trava-campo" role="alert" hidden></div>
     <div class="acoes"><button class="botao primario" id="botao-trava">Abrir</button></div>
   </form>
 </div>
@@ -32,16 +32,17 @@
 <!-- ======================= aplicativo ======================= -->
 <div id="app" hidden>
   <nav aria-label="Telas">
-    <div class="marca"><img src="icone.png" alt=""> Emissor NFS-e</div>
-    <button data-tela="emitir" class="ativo" aria-current="page">Emitir nota</button>
-    <button data-tela="notas">Notas emitidas</button>
-    <button data-tela="lote">Lote do mês</button>
-    <button data-tela="planilha">Importar planilha</button>
-    <button data-tela="recorrentes">Recorrentes</button>
-    <button data-tela="tomadores">Tomadores</button>
-    <button data-tela="servicos">Serviços</button>
-    <button data-tela="empresas">Empresas</button>
-    <button data-tela="configuracoes">Configurações</button>
+    <div class="marca"><img src="icone.png" alt=""> <span class="marca-nome">Emissor NFS-e</span></div>
+    <button data-tela="emitir" class="ativo" aria-current="page" title="Emitir nota"><span class="nav-sigla" aria-hidden="true">EMITIR</span><span class="nav-rotulo">Emitir nota</span></button>
+    <button data-tela="notas" title="Notas emitidas"><span class="nav-sigla" aria-hidden="true">NOTAS</span><span class="nav-rotulo">Notas emitidas</span></button>
+    <button data-tela="lote" title="Lote do mês"><span class="nav-sigla" aria-hidden="true">LOTE</span><span class="nav-rotulo">Lote do mês</span></button>
+    <button data-tela="planilha" title="Importar planilha"><span class="nav-sigla" aria-hidden="true">PLANILHA</span><span class="nav-rotulo">Importar planilha</span></button>
+    <button data-tela="recorrentes" title="Recorrentes"><span class="nav-sigla" aria-hidden="true">RECORR.</span><span class="nav-rotulo">Recorrentes</span></button>
+    <button data-tela="tomadores" title="Tomadores"><span class="nav-sigla" aria-hidden="true">TOMAD.</span><span class="nav-rotulo">Tomadores</span></button>
+    <button data-tela="servicos" title="Serviços"><span class="nav-sigla" aria-hidden="true">SERVIÇOS</span><span class="nav-rotulo">Serviços</span></button>
+    <button data-tela="empresas" title="Empresas"><span class="nav-sigla" aria-hidden="true">EMPRESAS</span><span class="nav-rotulo">Empresas</span></button>
+    <button data-tela="configuracoes" title="Configurações"><span class="nav-sigla" aria-hidden="true">CONFIG.</span><span class="nav-rotulo">Configurações</span></button>
+    <button type="button" id="alternar-nav" class="nav-alternar" aria-expanded="true">Recolher menu</button>
     <div class="rodape">NFS-e Padrão Nacional</div>
   </nav>
 
@@ -114,11 +115,12 @@
       <!-- ---------- notas ---------- -->
       <section data-tela="notas" hidden>
         <h1 tabindex="-1">Notas emitidas</h1>
-        <div class="cartao" style="display:flex;gap:12px;align-items:end">
-          <div style="width:200px"><label for="mes-notas">Mês</label><input id="mes-notas" type="month"></div>
-          <button class="botao" id="todas-notas">Todos os meses</button>
-          <span class="espaco" style="flex:1"></span>
-          <button class="botao" id="abrir-pasta-mes">Abrir pasta</button>
+        <div class="cartao barra">
+          <div class="barra-filtros">
+            <div class="campo-barra"><label for="mes-notas">Mês</label><input id="mes-notas" type="month"></div>
+            <button class="botao" id="todas-notas">Todos os meses</button>
+          </div>
+          <div class="barra-acoes"><button class="botao" id="abrir-pasta-mes">Abrir pasta</button></div>
         </div>
         <div class="cartao tabela">
           <div class="rolagem">
@@ -136,12 +138,15 @@
       <!-- ---------- lote do mês ---------- -->
       <section data-tela="lote" hidden>
         <h1 tabindex="-1">Lote do mês</h1>
-        <div class="cartao" style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
-          <div style="width:200px"><label for="mes-lote">Mês de referência</label><input id="mes-lote" type="month"></div>
-          <label class="linha-check" style="margin-bottom:9px"><input type="checkbox" id="lote-so-empresa"> Só a empresa selecionada</label>
-          <span class="espaco" style="flex:1"></span>
-          <button class="botao" id="lote-marcar">Marcar pendentes</button>
-          <button class="botao primario" id="lote-emitir">Emitir selecionadas</button>
+        <div class="cartao barra">
+          <div class="barra-filtros">
+            <div class="campo-barra"><label for="mes-lote">Mês de referência</label><input id="mes-lote" type="month"></div>
+            <label class="linha-check"><input type="checkbox" id="lote-so-empresa"> Só a empresa selecionada</label>
+          </div>
+          <div class="barra-acoes">
+            <button class="botao" id="lote-marcar">Marcar pendentes</button>
+            <button class="botao primario" id="lote-emitir">Emitir selecionadas</button>
+          </div>
         </div>
         <div id="lote-andamento"></div>
         <div class="cartao tabela">
@@ -167,7 +172,7 @@
             <div class="c5"><label for="arquivo-planilha">Planilha (.xlsx, .xls, .ods ou .csv)</label>
               <input id="arquivo-planilha" type="file" accept=".xlsx,.xlsm,.xls,.ods,.csv"></div>
             <div class="c3"><label for="mes-planilha">Mês padrão</label><input id="mes-planilha" type="month"></div>
-            <div class="c4" style="align-self:end;display:flex;gap:8px;white-space:nowrap">
+            <div class="c4 celula-botoes">
               <button class="botao" id="reler-planilha" title="Ler de novo (depois de cadastrar um tomador, por exemplo)">Ler de novo</button>
               <button class="botao" id="modelo-planilha">Baixar modelo</button>
             </div>
@@ -177,10 +182,12 @@
             Sem a coluna da empresa, vale a empresa selecionada no topo; sem mês, o mês padrão.
             Reimportar a mesma planilha não emite de novo as linhas já autorizadas.</p>
         </div>
-        <div class="cartao" style="display:flex;gap:12px;align-items:center">
-          <span id="planilha-resumo" class="ajuda" style="flex:1;margin:0"></span>
-          <button class="botao" id="planilha-marcar">Marcar prontas</button>
-          <button class="botao primario" id="planilha-emitir" disabled>Emitir selecionadas</button>
+        <div class="cartao barra">
+          <span id="planilha-resumo" class="ajuda barra-texto" aria-live="polite"></span>
+          <div class="barra-acoes">
+            <button class="botao" id="planilha-marcar">Marcar prontas</button>
+            <button class="botao primario" id="planilha-emitir" disabled>Emitir selecionadas</button>
+          </div>
         </div>
         <div id="planilha-andamento"></div>
         <div class="cartao tabela">
@@ -198,9 +205,9 @@
       <!-- ---------- recorrentes ---------- -->
       <section data-tela="recorrentes" hidden>
         <h1 tabindex="-1">Notas recorrentes</h1>
-        <div class="cartao" style="display:flex;justify-content:space-between;align-items:center">
-          <p class="ajuda" style="margin:0">Mensalidades da empresa selecionada. <code>{mes_ref}</code> na descrição vira o mês do lote; valor com * vem do serviço.</p>
-          <button class="botao primario" id="nova-recorrencia">Nova recorrência</button>
+        <div class="cartao barra">
+          <p class="ajuda barra-texto">Mensalidades da empresa selecionada. <code>{mes_ref}</code> na descrição vira o mês do lote; valor com * vem do serviço.</p>
+          <div class="barra-acoes"><button class="botao primario" id="nova-recorrencia">Nova recorrência</button></div>
         </div>
         <div class="cartao tabela">
           <div class="rolagem">
@@ -216,9 +223,11 @@
       <!-- ---------- tomadores ---------- -->
       <section data-tela="tomadores" hidden>
         <h1 tabindex="-1">Tomadores</h1>
-        <div class="cartao" style="display:flex;gap:12px">
-          <input id="busca-tomadores" placeholder="Buscar por nome ou CNPJ/CPF...">
-          <button class="botao primario" id="novo-tomador" style="white-space:nowrap">Novo tomador</button>
+        <div class="cartao barra">
+          <div class="barra-filtros barra-busca">
+            <input id="busca-tomadores" type="search" placeholder="Buscar por nome ou CNPJ/CPF..." aria-label="Buscar tomador por nome ou CNPJ/CPF">
+          </div>
+          <div class="barra-acoes"><button class="botao primario" id="novo-tomador">Novo tomador</button></div>
         </div>
         <div class="cartao tabela">
           <div class="rolagem">
@@ -235,8 +244,8 @@
       <!-- ---------- serviços ---------- -->
       <section data-tela="servicos" hidden>
         <h1 tabindex="-1">Serviços</h1>
-        <div class="cartao" style="display:flex;justify-content:flex-end">
-          <button class="botao primario" id="novo-servico">Novo serviço</button>
+        <div class="cartao barra">
+          <div class="barra-acoes"><button class="botao primario" id="novo-servico">Novo serviço</button></div>
         </div>
         <div class="cartao tabela">
           <div class="rolagem">
@@ -252,8 +261,8 @@
       <!-- ---------- empresas ---------- -->
       <section data-tela="empresas" hidden>
         <h1 tabindex="-1">Empresas</h1>
-        <div class="cartao" style="display:flex;justify-content:flex-end">
-          <button class="botao primario" id="nova-empresa">Nova empresa</button>
+        <div class="cartao barra">
+          <div class="barra-acoes"><button class="botao primario" id="nova-empresa">Nova empresa</button></div>
         </div>
         <div class="cartao tabela">
           <div class="rolagem">
@@ -285,8 +294,8 @@
         <div class="cartao">
           <h2>Pasta das notas</h2>
           <p class="ajuda">Cada nota é gravada em XML e PDF em <code>&lt;pasta&gt;\&lt;EMPRESA - CNPJ&gt;\&lt;AAAA-MM&gt;\</code>.</p>
-          <div style="display:flex;gap:8px;margin-top:10px">
-            <input id="pasta-saida">
+          <div class="com-botao linha-campo">
+            <input id="pasta-saida" aria-label="Pasta das notas">
             <button class="botao" id="salvar-pasta">Salvar</button>
             <button class="botao" id="abrir-pasta">Abrir</button>
           </div>
@@ -295,7 +304,7 @@
           <h2>E-mail das notas</h2>
           <p class="ajuda">A nota (PDF e XML) sai pela conta do escritório, com o nome da empresa emissora como remetente e
             "responder para" o e-mail dela. Destinatários: os "E-mails de envio" do tomador ou, sem eles, o e-mail do cadastro.</p>
-          <form id="form-email" class="grade" style="margin-top:12px" novalidate>
+          <form id="form-email" class="grade linha-campo" novalidate>
             <div class="c5"><label for="email-servidor">Servidor SMTP</label><input id="email-servidor" name="servidor" placeholder="smtp.gmail.com"></div>
             <div class="c2"><label for="email-porta">Porta</label><input id="email-porta" name="porta" type="number" min="1" max="65535" data-formato="porta" class="campo-numero"></div>
             <div class="c5"><label for="email-seguranca">Segurança</label><select id="email-seguranca" name="seguranca">
@@ -315,8 +324,8 @@
             <div class="c12"><label class="linha-check"><input type="checkbox" name="enviar_ao_emitir">
               Enviar automaticamente depois de cada emissão autorizada (também no lote e na planilha)</label></div>
           </form>
-          <div class="acoes" style="justify-content:space-between">
-            <div style="display:flex;gap:8px"><input id="email-teste" type="email" placeholder="enviar teste para..." style="width:260px" required data-formato="email" aria-label="Enviar teste para">
+          <div class="acoes entre">
+            <div class="com-botao teste-email"><input id="email-teste" type="email" placeholder="enviar teste para..." required data-formato="email" aria-label="Enviar teste para">
               <button class="botao" id="testar-email">Enviar teste</button></div>
             <button class="botao primario" id="salvar-email">Salvar</button>
           </div>
