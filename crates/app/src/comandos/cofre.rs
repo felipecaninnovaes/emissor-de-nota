@@ -24,9 +24,10 @@ pub async fn situacao_cofre(estado: State<'_, Estado>) -> R<SituacaoCofre> {
     })
 }
 
-/// Logomarca da NFS-e no cabeçalho do DANFSe. O PNG vem do SVG oficial
-/// (`logo-nfse-assinatura-horizontal.svg`), renderizado com a área alargada para o texto caber:
-/// `rsvg-convert -w 1200 logo.svg -o logo-nfse.png`.
+/// Logomarca da NFS-e no cabeçalho do DANFSe. O PNG sai de `assets/logo-nfse.svg`, cópia do SVG
+/// oficial (`logo-nfse-assinatura-horizontal.svg`) com dois ajustes: fonte Liberation Sans no
+/// lugar da Segoe UI e largura de 231,5 para 240, para o texto não ser cortado fora do Windows.
+/// Para regerar: `rsvg-convert -w 1200 assets/logo-nfse.svg -o assets/logo-nfse.png`.
 const LOGO_NFSE: &[u8] = include_bytes!("../../assets/logo-nfse.png");
 
 #[derive(Serialize)]
