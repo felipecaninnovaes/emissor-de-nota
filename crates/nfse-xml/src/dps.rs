@@ -3,7 +3,7 @@
 //! O XML sai sem espaços entre elementos e sem a assinatura; assinar depois com
 //! [`crate::assinar`] usando o Id devolvido.
 
-use nfse_core::modelo::{Documento, EnderecoNacional, TotalTributos};
+use nfse_core::modelo::{Documento, EnderecoNacional, IdentificacaoObra, TotalTributos};
 use nfse_core::{Dps, DpsId};
 
 pub const NS_NFSE: &str = "http://www.sped.fazenda.gov.br/nfse";
@@ -146,6 +146,24 @@ pub fn gerar_dps(dps: &Dps) -> Result<(String, DpsId), DpsInvalida> {
     x.campo("xDescServ", &s.descricao);
     x.opcional("cNBS", s.nbs.as_ref());
     x.fechar("cServ");
+    if let Some(o) = &s.obra {
+        x.abrir("obra");
+        x.opcional("inscImobFisc", o.inscricao_imobiliaria.as_ref());
+        match &o.identificacao {
+            IdentificacaoObra::Cno(c) => x.campo("cObra", c),
+            IdentificacaoObra::Cib(c) => x.campo("cCIB", c),
+            IdentificacaoObra::Endereco(e) => {
+                x.abrir("end");
+                x.campo("CEP", &e.cep);
+                x.campo("xLgr", &e.logradouro);
+                x.campo("nro", &e.numero);
+                x.opcional("xCpl", e.complemento.as_ref());
+                x.campo("xBairro", &e.bairro);
+                x.fechar("end");
+            }
+        }
+        x.fechar("obra");
+    }
     if let Some(info) = &s.informacoes_complementares {
         x.abrir("infoCompl");
         x.campo("xInfComp", info);
@@ -300,7 +318,24 @@ mod testes {
         // Só o leiaute de Produção Restrita de 27/07/2026: o de Produção (09/02/2026) tem o padrão
         // da série com `^...$`, que em XSD são literais, e recusa qualquer série.
         let versao = "v1.01-prodrest-20260727";
-        let casos = [exemplo(), cnpj_numerico];
+        let mut obra_cno = exemplo();
+        obra_cno.servico.codigo_tributacao_nacional = "070201".into();
+        obra_cno.servico.obra = Some(nfse_core::modelo::Obra {
+            inscricao_imobiliaria: Some("01.02.003.0004".into()),
+            identificacao: IdentificacaoObra::Cno("900112345678".into()),
+        });
+        let mut obra_endereco = obra_cno.clone();
+        obra_endereco.servico.obra = Some(nfse_core::modelo::Obra {
+            inscricao_imobiliaria: None,
+            identificacao: IdentificacaoObra::Endereco(nfse_core::modelo::EnderecoObra {
+                cep: "15800000".into(),
+                logradouro: "RUA DA OBRA".into(),
+                numero: "10".into(),
+                complemento: None,
+                bairro: "CENTRO".into(),
+            }),
+        });
+        let casos = [exemplo(), cnpj_numerico, obra_cno, obra_endereco];
         for (i, dps) in casos.into_iter().enumerate() {
             let (xml, id) = gerar_dps(&dps).unwrap();
             for (sufixo, conteudo) in [

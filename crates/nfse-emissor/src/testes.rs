@@ -216,6 +216,7 @@ async fn cenario(respostas: Vec<Resposta>) -> Cenario {
             valor: Valor::parse("850").unwrap(),
             descricao: None,
             mes_referencia: Some(NaiveDate::from_ymd_opt(2026, 9, 1).unwrap()),
+            obra: None,
             informacoes_complementares: None,
             origem: Origem::Manual,
         },

@@ -91,6 +91,36 @@
               <textarea id="descricao" rows="3"></textarea>
               <p class="ajuda"><code>{mes_ref}</code> vira o mês de referência (ex.: 09/2026).</p>
             </div>
+            <fieldset class="c12 bloco" id="bloco-obra" hidden>
+              <legend>Dados da obra</legend>
+              <div class="grade">
+                <div class="c4">
+                  <label for="obra-tipo">Identificar a obra por</label>
+                  <select id="obra-tipo">
+                    <option value="cno">CNO / CEI</option>
+                    <option value="cib">CIB (Cadastro Imobiliário Brasileiro)</option>
+                    <option value="endereco">Endereço da obra</option>
+                  </select>
+                </div>
+                <div class="c4" id="obra-campo-codigo">
+                  <label for="obra-codigo" id="obra-codigo-rotulo">Número do CNO / CEI</label>
+                  <input id="obra-codigo" required maxlength="30" autocomplete="off">
+                </div>
+                <div class="c4">
+                  <label for="obra-inscricao">Inscrição imobiliária (opcional)</label>
+                  <input id="obra-inscricao" maxlength="30" autocomplete="off">
+                </div>
+              </div>
+              <div class="grade" id="obra-endereco" hidden>
+                <div class="c3"><label for="obra-cep">CEP</label><input id="obra-cep" required maxlength="9" data-formato="cep" inputmode="numeric">
+                  <p class="ajuda" id="obra-cep-cidade" aria-live="polite"></p></div>
+                <div class="c7"><label for="obra-logradouro">Logradouro</label><input id="obra-logradouro" required maxlength="255"></div>
+                <div class="c2"><label for="obra-numero">Número</label><input id="obra-numero" required maxlength="60"></div>
+                <div class="c6"><label for="obra-complemento">Complemento</label><input id="obra-complemento" maxlength="156"></div>
+                <div class="c6"><label for="obra-bairro">Bairro</label><input id="obra-bairro" required maxlength="60"></div>
+              </div>
+              <p class="ajuda">Este código de serviço (construção civil) exige a identificação da obra na nota (regra E0370 da Sefin).</p>
+            </fieldset>
             <div class="c12">
               <label for="info-compl">Informações complementares</label>
               <textarea id="info-compl" rows="2"></textarea>

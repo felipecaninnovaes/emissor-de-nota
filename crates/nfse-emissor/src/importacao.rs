@@ -52,6 +52,7 @@ impl ItemImportado {
             valor: self.valor?,
             descricao: Some(self.descricao.clone()),
             mes_referencia: Some(self.mes),
+            obra: None,
             informacoes_complementares: self.informacoes.clone(),
             origem: Origem::Planilha {
                 chave: self.chave.clone(),

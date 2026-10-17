@@ -18,7 +18,7 @@ use std::path::PathBuf;
 use chrono::{DateTime, Datelike, FixedOffset, NaiveDate, Utc};
 
 use nfse_cert::CertificadoA1;
-use nfse_core::modelo::{Ambiente, Documento, Prestador, Servico as ServicoDps, Valores};
+use nfse_core::modelo::{Ambiente, Documento, Obra, Prestador, Servico as ServicoDps, Valores};
 use nfse_core::{Dps, Valor};
 use nfse_db::dps::{NfseGravada, NfseRecebida, SituacaoDps};
 use nfse_db::empresas::Empresa;
@@ -93,6 +93,7 @@ pub struct Refazer {
     pub valor: Valor,
     /// Descrição como foi enviada (com o mês de referência já aplicado).
     pub descricao: String,
+    pub obra: Option<Obra>,
     pub informacoes_complementares: Option<String>,
 }
 
@@ -107,6 +108,8 @@ pub struct PedidoEmissao {
     pub descricao: Option<String>,
     /// Mês usado em `{mes_ref}`; padrão: mês anterior ao da emissão.
     pub mes_referencia: Option<NaiveDate>,
+    /// Grupo de obra (construção civil, E0370); vai só nesta nota.
+    pub obra: Option<Obra>,
     pub informacoes_complementares: Option<String>,
     pub origem: Origem,
 }
@@ -223,6 +226,7 @@ pub fn montar_dps(
             codigo_tributacao_municipal: servico.codigo_trib_mun.clone(),
             descricao,
             nbs: servico.nbs.clone(),
+            obra: pedido.obra.clone(),
             informacoes_complementares: pedido.informacoes_complementares.clone(),
         },
         valores: Valores {
@@ -643,6 +647,7 @@ impl<C: Conector> Emissor<C> {
             valor,
             descricao: r.descricao,
             mes_referencia: Some(mes.with_day(1).expect("dia 1 existe")),
+            obra: None,
             informacoes_complementares: r.informacoes_complementares,
             origem: Origem::Recorrencia(recorrencia_id),
         })
@@ -798,6 +803,7 @@ impl<C: Conector> Emissor<C> {
             servico_id,
             valor: modelo.valores.servico,
             descricao: modelo.servico.descricao,
+            obra: modelo.servico.obra,
             informacoes_complementares: modelo.servico.informacoes_complementares,
         })
     }

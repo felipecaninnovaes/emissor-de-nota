@@ -610,6 +610,8 @@ pub struct PedidoDto {
     descricao: Option<String>,
     /// `AAAA-MM`
     mes_referencia: Option<String>,
+    #[serde(default)]
+    obra: Option<nfse_core::modelo::Obra>,
     informacoes_complementares: Option<String>,
 }
 
@@ -628,6 +630,7 @@ impl PedidoDto {
             valor: self.valor,
             descricao: vazio_para_none(self.descricao),
             mes_referencia,
+            obra: self.obra,
             informacoes_complementares: vazio_para_none(self.informacoes_complementares),
             origem: Origem::Manual,
         })
@@ -840,6 +843,7 @@ pub struct RefazerDto {
     servico_id: Option<i64>,
     valor: String,
     descricao: String,
+    obra: Option<nfse_core::modelo::Obra>,
     informacoes_complementares: Option<String>,
 }
 
@@ -859,6 +863,7 @@ pub async fn dados_para_refazer(estado: State<'_, Estado>, dps_id: i64) -> R<Ref
         servico_id: r.servico_id,
         valor: r.valor.to_string(),
         descricao: r.descricao,
+        obra: r.obra,
         informacoes_complementares: r.informacoes_complementares,
     })
 }
@@ -999,6 +1004,7 @@ pub async fn listar_recorrencias(
                     valor,
                     descricao: r.descricao.clone(),
                     mes_referencia: Some(data),
+                    obra: None,
                     informacoes_complementares: r.informacoes_complementares.clone(),
                     origem: r.id.map(Origem::Recorrencia).unwrap_or_default(),
                 };

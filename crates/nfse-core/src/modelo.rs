@@ -2,7 +2,7 @@
 //! tomador nacional, um serviço, ISSQN (com retenção), retenções federais, total de
 //! tributos e o grupo IBS/CBS.
 //!
-//! Grupos ainda não modelados (comércio exterior, obra, evento, deduções, intermediário,
+//! Grupos ainda não modelados (comércio exterior, evento, deduções, intermediário,
 //! reembolso IBS/CBS) entram quando houver cliente que precise deles.
 //!
 //! Os nomes dos campos seguem o leiaute em português legível; a tag XML de cada um está
@@ -162,9 +162,54 @@ pub struct Servico {
     /// `cNBS`, 9 dígitos.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub nbs: Option<String>,
+    /// `obra`: obrigatório para os códigos de [`exige_obra`] (regra E0370).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub obra: Option<Obra>,
     /// `infoCompl/xInfComp`
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub informacoes_complementares: Option<String>,
+}
+
+/// Códigos de tributação nacional (subitens 07.02.01 a 14.14.04) que exigem o grupo de obra (E0370).
+pub const CODIGOS_COM_OBRA: [&str; 13] = [
+    "070201", "070202", "070401", "070501", "070502", "070601", "070602", "070701", "070801", "071701",
+    "071901", "141403", "141404",
+];
+
+pub fn exige_obra(codigo_tributacao_nacional: &str) -> bool {
+    CODIGOS_COM_OBRA.contains(&codigo_tributacao_nacional)
+}
+
+/// `obra`
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Obra {
+    /// `inscImobFisc`: inscrição imobiliária fiscal (prefeitura).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inscricao_imobiliaria: Option<String>,
+    pub identificacao: IdentificacaoObra,
+}
+
+/// Escolha `cObra | cCIB | end` do grupo de obra.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IdentificacaoObra {
+    /// `cObra`: Cadastro Nacional de Obras (CNO) ou CEI.
+    Cno(String),
+    /// `cCIB`: Cadastro Imobiliário Brasileiro, 8 caracteres.
+    Cib(String),
+    /// `end`: endereço da obra (nacional, com CEP).
+    Endereco(EnderecoObra),
+}
+
+/// `end` do grupo de obra (`TCEnderObraEvento`, só a forma nacional).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EnderecoObra {
+    pub cep: String,
+    pub logradouro: String,
+    pub numero: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub complemento: Option<String>,
+    pub bairro: String,
 }
 
 /// `tribISSQN`
@@ -445,6 +490,31 @@ impl Dps {
         if let Some(n) = &s.nbs {
             v.digitos("servico.nbs", n, 9, 9);
         }
+        match &s.obra {
+            None if exige_obra(&s.codigo_tributacao_nacional) => v.erro(
+                "servico.obra",
+                "este código de serviço exige os dados da obra (E0370): informe o CNO, o CIB ou o endereço da obra",
+            ),
+            None => {}
+            Some(o) => {
+                v.opcional_texto("servico.obra.inscricao_imobiliaria", &o.inscricao_imobiliaria, 1, 30);
+                match &o.identificacao {
+                    IdentificacaoObra::Cno(c) => v.texto("servico.obra.cno", c, 1, 30),
+                    IdentificacaoObra::Cib(c) => {
+                        if c.chars().count() != 8 {
+                            v.erro("servico.obra.cib", "deve ter 8 caracteres");
+                        }
+                    }
+                    IdentificacaoObra::Endereco(e) => {
+                        v.digitos("servico.obra.endereco.cep", &e.cep, 8, 8);
+                        v.texto("servico.obra.endereco.logradouro", &e.logradouro, 1, 255);
+                        v.texto("servico.obra.endereco.numero", &e.numero, 1, 60);
+                        v.opcional_texto("servico.obra.endereco.complemento", &e.complemento, 1, 156);
+                        v.texto("servico.obra.endereco.bairro", &e.bairro, 1, 60);
+                    }
+                }
+            }
+        }
         v.opcional_texto(
             "servico.informacoes_complementares",
             &s.informacoes_complementares,
@@ -654,6 +724,21 @@ pub(crate) mod testes {
             dps.valores.total_tributos = total.clone();
             assert_eq!(erro(&dps), recusa, "{situacao:?} {total:?}");
         }
+    }
+
+    #[test]
+    fn obra_obrigatoria_nos_codigos_de_construcao() {
+        let mut dps = dps_exemplo();
+        dps.servico.codigo_tributacao_nacional = "070201".into();
+        let erro = |dps: &Dps| dps.validar().iter().any(|e| e.starts_with("servico.obra"));
+        assert!(erro(&dps));
+        dps.servico.obra = Some(Obra {
+            inscricao_imobiliaria: None,
+            identificacao: IdentificacaoObra::Cno("900112345678".into()),
+        });
+        assert!(!erro(&dps), "{:?}", dps.validar());
+        dps.servico.obra.as_mut().unwrap().identificacao = IdentificacaoObra::Cib("123".into());
+        assert!(erro(&dps));
     }
 
     #[test]

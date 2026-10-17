@@ -812,14 +812,86 @@ function aplicarServico() {
   if (!s) return;
   $("#descricao").value = s.descricao;
   if (s.valor_sugerido) $("#valor").value = moeda(s.valor_sugerido);
+  $("#bloco-obra").hidden = !CODIGOS_COM_OBRA.includes(s.codigo_trib_nac);
 }
 
 $("#servico").addEventListener("change", aplicarServico);
+
+// ---- dados da obra (construção civil): mesma lista do nfse-core (regra E0370 da Sefin)
+
+const CODIGOS_COM_OBRA = [
+  "070201", "070202", "070401", "070501", "070502", "070601", "070602", "070701", "070801", "071701",
+  "071901", "141403", "141404",
+];
+
+function ajustarTipoObra() {
+  const tipo = $("#obra-tipo").value;
+  $("#obra-campo-codigo").hidden = tipo === "endereco";
+  $("#obra-endereco").hidden = tipo !== "endereco";
+  $("#obra-codigo-rotulo").textContent = tipo === "cib" ? "Código CIB (8 caracteres)" : "Número do CNO / CEI";
+  $("#obra-codigo").maxLength = tipo === "cib" ? 8 : 30;
+}
+
+$("#obra-tipo").addEventListener("change", ajustarTipoObra);
+
+function limparObra() {
+  for (const el of $$("#bloco-obra input")) el.value = "";
+  $("#obra-cep-cidade").textContent = "";
+  $("#obra-tipo").value = "cno";
+  ajustarTipoObra();
+}
+
+/** Grupo `obra` do pedido (`nfse_core::modelo::Obra` em JSON), ou null se o serviço não pede. */
+function obraDigitada() {
+  if ($("#bloco-obra").hidden) return null;
+  const tipo = $("#obra-tipo").value;
+  const identificacao =
+    tipo === "endereco"
+      ? {
+          endereco: {
+            cep: soDigitos($("#obra-cep").value),
+            logradouro: $("#obra-logradouro").value.trim(),
+            numero: $("#obra-numero").value.trim(),
+            complemento: vazio($("#obra-complemento").value),
+            bairro: $("#obra-bairro").value.trim(),
+          },
+        }
+      : { [tipo]: $("#obra-codigo").value.trim() };
+  return { inscricao_imobiliaria: vazio($("#obra-inscricao").value), identificacao };
+}
+
+function preencherObra(obra) {
+  limparObra();
+  if (!obra) return;
+  $("#obra-inscricao").value = obra.inscricao_imobiliaria ?? "";
+  const [tipo, dado] = Object.entries(obra.identificacao)[0];
+  $("#obra-tipo").value = tipo;
+  ajustarTipoObra();
+  if (tipo === "endereco") {
+    $("#obra-cep").value = FORMATOS.cep.mascara(dado.cep);
+    $("#obra-logradouro").value = dado.logradouro;
+    $("#obra-numero").value = dado.numero;
+    $("#obra-complemento").value = dado.complemento ?? "";
+    $("#obra-bairro").value = dado.bairro;
+  } else {
+    $("#obra-codigo").value = dado;
+  }
+}
+
+function descreverObra(obra) {
+  const [tipo, dado] = Object.entries(obra.identificacao)[0];
+  const id =
+    tipo === "endereco"
+      ? `${dado.logradouro}, ${dado.numero}${dado.complemento ? " " + dado.complemento : ""} — ${dado.bairro}, CEP ${FORMATOS.cep.mascara(dado.cep)}`
+      : `${tipo === "cib" ? "CIB" : "CNO/CEI"} ${dado}`;
+  return obra.inscricao_imobiliaria ? `${id} (inscr. imob. ${obra.inscricao_imobiliaria})` : id;
+}
 
 function limparEmissao() {
   escolherTomador(null);
   $("#valor").value = "";
   $("#info-compl").value = "";
+  limparObra();
   $("#mes-ref").value = mesAnterior();
   $("#revisao").hidden = true;
   $("#resultado").hidden = true;
@@ -963,6 +1035,7 @@ function montarPedido() {
     valor,
     descricao: vazio($("#descricao").value),
     mes_referencia: vazio($("#mes-ref").value),
+    obra: obraDigitada(),
     informacoes_complementares: vazio($("#info-compl").value),
   };
 }
@@ -1006,6 +1079,7 @@ $("#revisar").addEventListener("click", async () => {
     ["Série da DPS", previa.serie],
     ["Descrição", previa.descricao],
   ];
+  if (pedido.obra) linhas.push(["Obra", descreverObra(pedido.obra)]);
   if (pedido.informacoes_complementares) linhas.push(["Inf. complementares", pedido.informacoes_complementares]);
   $("#revisao-dados").innerHTML = linhas.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
   $("#confirmar-emissao").disabled = previa.erros.length > 0;
@@ -1076,6 +1150,7 @@ $("#confirmar-emissao").addEventListener("click", async () => {
       // Prepara a próxima nota (mesmo serviço e mês) sem permitir reenviar a anterior por engano.
       escolherTomador(null);
       $("#info-compl").value = "";
+      limparObra();
       aplicarServico();
       toast(`NFS-e ${r.numero ?? ""} autorizada.`);
     } else {
@@ -1220,9 +1295,11 @@ async function refazerNota(n) {
   if (r.servico_id && estado.servicos.some((s) => s.id === r.servico_id)) {
     $("#servico").value = String(r.servico_id);
   }
+  aplicarServico(); // mostra ou esconde os dados da obra; descrição e valor vêm da nota abaixo
   $("#valor").value = moeda(r.valor);
   $("#descricao").value = r.descricao; // já com o mês de referência aplicado
   $("#info-compl").value = r.informacoes_complementares ?? "";
+  preencherObra(r.obra);
   const avisos = [`Refazendo a DPS ${n.serie}/${n.numero_dps}, rejeitada: ${n.erro ?? ""}`];
   if (!r.servico_id) avisos.push("Nenhum serviço do cadastro tem o mesmo código: escolha o serviço.");
   if (n.tomador && !r.tomador) avisos.push(`O tomador "${n.tomador}" não foi encontrado no cadastro desta empresa.`);
