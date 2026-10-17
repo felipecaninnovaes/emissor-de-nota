@@ -6,8 +6,8 @@ use tauri::State;
 use nfse_core::Valor;
 
 use super::comum::{R, emissor, exigir_cofre, gravar_e_abrir_csv, mes_de, texto};
+use super::emissao::{ResultadoDto, concluir, validar_pedido};
 use super::recorrencias::{TentativaDto, tentativa_dto};
-use super::{ResultadoDto, concluir, validar_pedido};
 use crate::Estado;
 
 #[derive(Serialize, Deserialize)]

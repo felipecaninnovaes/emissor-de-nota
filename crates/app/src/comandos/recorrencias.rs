@@ -7,7 +7,7 @@ use nfse_core::Valor;
 use nfse_emissor::{Origem, PedidoEmissao};
 
 use super::comum::{R, emissor, exigir_cofre, mes_de, texto, vazio_para_none};
-use super::{ResultadoDto, concluir, validar_pedido};
+use super::emissao::{ResultadoDto, concluir, validar_pedido};
 use crate::Estado;
 
 #[derive(Serialize)]
