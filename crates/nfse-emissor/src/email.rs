@@ -2,11 +2,13 @@
 //! nome da empresa emissora como remetente e "responder para" o e-mail dela.
 
 use std::future::Future;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use lettre::message::header::ContentType;
 use lettre::message::{Attachment, Mailbox, MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::Credentials;
+use lettre::transport::smtp::extension::ClientId;
 use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 
 use nfse_db::emails::{ConfigSmtp, DadosEmailNfse, Seguranca};
@@ -35,7 +37,12 @@ impl Carteiro for CarteiroSmtp {
             Seguranca::Nenhuma => Ok(AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(servidor)),
         }
         .map_err(|e| format!("servidor de e-mail inválido: {e}"))?;
-        let mut construtor = construtor.port(cfg.porta).timeout(Some(Duration::from_secs(30)));
+        // EHLO com o domínio do remetente: o nome da máquina (ex.: EFISCAL03) não é um domínio
+        // completo e alguns servidores recusam.
+        let mut construtor = construtor
+            .port(cfg.porta)
+            .timeout(Some(Duration::from_secs(30)))
+            .hello_name(ClientId::Domain(dominio(&cfg.remetente)));
         if let Some(usuario) = cfg.usuario.as_deref().filter(|u| !u.trim().is_empty()) {
             construtor = construtor.credentials(Credentials::new(
                 usuario.trim().to_owned(),
@@ -49,6 +56,31 @@ impl Carteiro for CarteiroSmtp {
             .map(|_| ())
             .map_err(|e| format!("o servidor de e-mail recusou: {e}"))
     }
+}
+
+/// Domínio do e-mail do remetente (identifica a conexão e os Message-ID).
+fn dominio(remetente: &str) -> String {
+    remetente
+        .rsplit_once('@')
+        .map(|(_, d)| d.trim().to_ascii_lowercase())
+        .filter(|d| d.contains('.'))
+        .unwrap_or_else(|| "localhost.localdomain".into())
+}
+
+/// Message-ID único com o domínio do remetente. Sem ele (ou com o nome da máquina no lugar do
+/// domínio) filtros antispam recusam a mensagem "por política" (ex.: Terra, 550 5.7.1).
+fn novo_message_id(remetente: &str) -> String {
+    static CONTADOR: AtomicU64 = AtomicU64::new(0);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or_default();
+    format!(
+        "<{nanos:x}.{:x}.{}@{}>",
+        std::process::id(),
+        CONTADOR.fetch_add(1, Ordering::Relaxed),
+        dominio(remetente)
+    )
 }
 
 /// URL da consulta pública da nota no portal nacional (a mesma do QR Code do DANFSe).
@@ -119,7 +151,8 @@ pub fn montar(
         .unwrap_or(&dados.empresa);
     let mut construtor = Message::builder()
         .from(caixa(&cfg.remetente, Some(nome))?)
-        .subject(assunto.clone());
+        .subject(assunto.clone())
+        .message_id(Some(novo_message_id(&cfg.remetente)));
     if let Some(email) = dados.email_empresa.as_deref().filter(|e| !e.trim().is_empty()) {
         construtor = construtor.reply_to(caixa(email, Some(&dados.empresa))?);
     }
@@ -154,7 +187,10 @@ pub fn mensagem_teste(cfg: &ConfigSmtp, para: &str) -> Result<Message, String> {
         )?)
         .to(caixa(para, None)?)
         .subject("Teste do emissor de NFS-e")
-        .body("Se você recebeu esta mensagem, o envio de e-mail do emissor de NFS-e está funcionando.".to_owned())
+        .message_id(Some(novo_message_id(&cfg.remetente)))
+        .singlepart(SinglePart::plain(
+            "Se você recebeu esta mensagem, o envio de e-mail do emissor de NFS-e está funcionando.".to_owned(),
+        ))
         .map_err(|e| format!("não foi possível montar o e-mail: {e}"))
 }
 
@@ -233,6 +269,28 @@ mod testes {
             "{bruto}"
         );
         assert!(bruto.contains("Content-Type: application/pdf") && bruto.contains("Content-Type: application/xml"));
+    }
+
+    /// Cabeçalhos que filtros antispam exigem (a falta deles levou a 550 5.7.1 no Terra).
+    #[test]
+    fn cabecalhos_que_os_filtros_exigem() {
+        let teste = mensagem_teste(&cfg(), "destino@exemplo.com").unwrap();
+        let (nota, _) = montar(&cfg(), &dados(), &dados().destinatarios, None).unwrap();
+        for msg in [teste, nota] {
+            let bruto = String::from_utf8_lossy(&msg.formatted()).to_string();
+            let cabecalho = &bruto[..bruto.find("\r\n\r\n").unwrap()];
+            assert!(cabecalho.contains("MIME-Version: 1.0"), "{cabecalho}");
+            assert!(cabecalho.contains("Date: "), "{cabecalho}");
+            let id = cabecalho
+                .lines()
+                .find_map(|l| l.strip_prefix("Message-ID: "))
+                .unwrap_or_else(|| panic!("sem Message-ID: {cabecalho}"));
+            assert!(id.ends_with("@escritorio.com>"), "{id}");
+        }
+        let teste = mensagem_teste(&cfg(), "destino@exemplo.com").unwrap();
+        let bruto = String::from_utf8_lossy(&teste.formatted()).to_string();
+        assert!(bruto.contains("Content-Type: text/plain; charset=utf-8"), "{bruto}");
+        assert_ne!(novo_message_id("a@b.com"), novo_message_id("a@b.com"));
     }
 
     #[test]
