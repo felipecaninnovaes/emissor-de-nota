@@ -36,12 +36,16 @@ pub enum ColunaServico {
     Inss,
     Pis,
     Cofins,
+    IbsIndicador,
+    IbsCst,
+    IbsClassificacao,
+    IbsConsumoPessoal,
 }
 
 use ColunaServico as C;
 
 impl ColunaServico {
-    pub const TODAS: [ColunaServico; 20] = [
+    pub const TODAS: [ColunaServico; 24] = [
         C::Nome,
         C::Descricao,
         C::CodigoNacional,
@@ -62,6 +66,10 @@ impl ColunaServico {
         C::Inss,
         C::Pis,
         C::Cofins,
+        C::IbsIndicador,
+        C::IbsCst,
+        C::IbsClassificacao,
+        C::IbsConsumoPessoal,
     ];
 
     pub fn titulo(self) -> &'static str {
@@ -86,6 +94,10 @@ impl ColunaServico {
             C::Inss => "INSS %",
             C::Pis => "PIS %",
             C::Cofins => "COFINS %",
+            C::IbsIndicador => "IBS/CBS cIndOp",
+            C::IbsCst => "IBS/CBS CST",
+            C::IbsClassificacao => "IBS/CBS cClassTrib",
+            C::IbsConsumoPessoal => "IBS/CBS consumo pessoal",
         }
     }
 
@@ -118,6 +130,10 @@ impl ColunaServico {
             "cst" | "cstpis" => C::CstPisCofins,
             "retencaopiscofins" | "tiporetencaopiscofins" | "tpretpiscofins" => C::RetencaoPisCofins,
             "cp" | "contribuicaoprevidenciaria" => C::Inss,
+            "cindop" | "indicadoroperacao" | "ibscbsindicador" => C::IbsIndicador,
+            "cstibscbs" | "cstibs" => C::IbsCst,
+            "cclasstrib" | "classtrib" | "classificacaotributaria" => C::IbsClassificacao,
+            "indfinal" | "consumopessoal" => C::IbsConsumoPessoal,
             _ => return None,
         };
         Some(c)
@@ -262,6 +278,34 @@ fn linha(numero: usize, campos: &BTreeMap<ColunaServico, String>) -> LinhaServic
         },
     };
 
+    // IBS/CBS: o grupo existe se vier qualquer uma das colunas; CST e cClassTrib têm o padrão do formulário.
+    let ibs_cbs = if [C::IbsIndicador, C::IbsCst, C::IbsClassificacao, C::IbsConsumoPessoal]
+        .iter()
+        .any(|c| texto(*c).is_some())
+    {
+        let indicador = completar(texto(C::IbsIndicador), 6);
+        if indicador.is_none() {
+            erros.push(format!("{}: informe o código de 6 dígitos (ex.: 100301)", C::IbsIndicador.titulo()));
+        }
+        let consumo_pessoal = match texto(C::IbsConsumoPessoal).map(normalizar).as_deref() {
+            None | Some("nao" | "n" | "0" | "false") => None,
+            Some("sim" | "s" | "1" | "true") => Some(true),
+            Some(_) => {
+                erros.push(format!("{}: use Sim ou Não", C::IbsConsumoPessoal.titulo()));
+                None
+            }
+        };
+        Some(IbsCbs {
+            consumo_pessoal,
+            indicador_operacao: indicador.unwrap_or_default(),
+            destinatario_diferente_do_tomador: false,
+            cst: completar(texto(C::IbsCst), 3).unwrap_or_else(|| "000".into()),
+            classificacao_tributaria: completar(texto(C::IbsClassificacao), 6).unwrap_or_else(|| "000001".into()),
+        })
+    } else {
+        None
+    };
+
     let valor_sugerido = texto(C::ValorSugerido).and_then(|t| {
         let v = valor_da_planilha(t);
         if v.is_none() {
@@ -301,7 +345,7 @@ fn linha(numero: usize, campos: &BTreeMap<ColunaServico, String>) -> LinhaServic
                 ..Default::default()
             },
             total_tributos,
-            ibs_cbs: None::<IbsCbs>,
+            ibs_cbs,
             retencoes,
         },
         valor_sugerido,
@@ -351,6 +395,7 @@ pub fn para_csv(servicos: &[Servico]) -> String {
             TotalTributos::NaoInformado | TotalTributos::Valores { .. } => (None, None, None, None),
         };
         let pc = t.federais.pis_cofins.as_ref();
+        let ibs = t.ibs_cbs.as_ref();
         let linha: Vec<String> = ColunaServico::TODAS
             .iter()
             .map(|c| match c {
@@ -385,6 +430,14 @@ pub fn para_csv(servicos: &[Servico]) -> String {
                 C::Inss => p(t.retencoes.cp),
                 C::Pis => p(t.retencoes.pis),
                 C::Cofins => p(t.retencoes.cofins),
+                C::IbsIndicador => ibs.map(|i| i.indicador_operacao.clone()).unwrap_or_default(),
+                C::IbsCst => ibs.map(|i| i.cst.clone()).unwrap_or_default(),
+                C::IbsClassificacao => ibs.map(|i| i.classificacao_tributaria.clone()).unwrap_or_default(),
+                C::IbsConsumoPessoal => match ibs.map(|i| i.consumo_pessoal) {
+                    Some(Some(true)) => "Sim".into(),
+                    Some(_) => "Não".into(),
+                    None => String::new(),
+                },
             })
             .collect();
         escritor.write_record(&linha).expect("escrita em memória");
@@ -433,6 +486,13 @@ mod testes {
         assert!(s.erros.is_empty(), "{:?}", s.erros);
         s.servico.tributacao.issqn.aliquota = Some(Percentual::parse("2").unwrap());
         s.servico.tributacao.retencoes.pis = Some(Percentual::parse("0.65").unwrap());
+        s.servico.tributacao.ibs_cbs = Some(IbsCbs {
+            consumo_pessoal: Some(true),
+            indicador_operacao: "030101".into(),
+            destinatario_diferente_do_tomador: false,
+            cst: "000".into(),
+            classificacao_tributaria: "000001".into(),
+        });
         s.servico.tributacao.total_tributos = TotalTributos::Percentuais {
             federal: Percentual::parse("13.45").unwrap(),
             estadual: Percentual::ZERO,
@@ -469,6 +529,20 @@ mod testes {
         let c = &linhas[2];
         assert_eq!(c.numero, 4);
         assert_eq!(c.erros.len(), 3, "{:?}", c.erros);
+    }
+
+    #[test]
+    fn ibs_cbs_com_padroes() {
+        // Excel tira os zeros de 030101; CST e cClassTrib ficam no padrão.
+        let csv = "Nome;Descricao;Codigo;cIndOp;CST IBS\r\n\
+                   A;x;171901;30101;\r\n\
+                   B;y;171901;;\r\n\
+                   C;z;171901;;010\r\n";
+        let linhas = ler("s.csv", csv.as_bytes()).unwrap();
+        let a = linhas[0].servico.tributacao.ibs_cbs.as_ref().unwrap();
+        assert_eq!((a.indicador_operacao.as_str(), a.cst.as_str(), a.classificacao_tributaria.as_str()), ("030101", "000", "000001"));
+        assert_eq!(linhas[1].servico.tributacao.ibs_cbs, None);
+        assert!(linhas[2].erros.iter().any(|e| e.contains("cIndOp")), "{:?}", linhas[2].erros);
     }
 
     #[test]

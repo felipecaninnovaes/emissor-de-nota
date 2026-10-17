@@ -575,6 +575,13 @@ impl Dps {
             }
         }
 
+        // Reforma Tributária: grupo IBSCBS obrigatório para o regime regular desde 08/2026.
+        if self.ibs_cbs.is_none() && p.regime.simples == SituacaoSimples::NaoOptante {
+            v.erro(
+                "ibs_cbs",
+                "empresa fora do Simples Nacional deve informar IBS/CBS; preencha o grupo no cadastro do serviço",
+            );
+        }
         if let Some(i) = &self.ibs_cbs {
             v.digitos("ibs_cbs.indicador_operacao", &i.indicador_operacao, 6, 6);
             v.digitos("ibs_cbs.cst", &i.cst, 3, 3);
@@ -739,6 +746,25 @@ pub(crate) mod testes {
         assert!(!erro(&dps), "{:?}", dps.validar());
         dps.servico.obra.as_mut().unwrap().identificacao = IdentificacaoObra::Cib("123".into());
         assert!(erro(&dps));
+    }
+
+    #[test]
+    fn ibs_cbs_obrigatorio_fora_do_simples() {
+        let mut dps = dps_exemplo();
+        dps.ibs_cbs = None;
+        let erro = |dps: &Dps| dps.validar().iter().any(|e| e.starts_with("ibs_cbs:"));
+        assert!(!erro(&dps), "Simples pode omitir");
+        dps.prestador.regime.simples = SituacaoSimples::NaoOptante;
+        dps.prestador.regime.apuracao_simples = None;
+        assert!(erro(&dps));
+        dps.ibs_cbs = Some(IbsCbs {
+            consumo_pessoal: None,
+            indicador_operacao: "100301".into(),
+            destinatario_diferente_do_tomador: false,
+            cst: "000".into(),
+            classificacao_tributaria: "000001".into(),
+        });
+        assert!(!erro(&dps));
     }
 
     #[test]

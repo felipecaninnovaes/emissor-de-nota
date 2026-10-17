@@ -340,6 +340,8 @@ const FORMATOS = {
   nbs: exatoDigitos(9, "NBS com 9 dígitos."),
   ctm: exatoDigitos(3, "Código municipal com 3 dígitos."),
   cst: exatoDigitos(2, "CST com 2 dígitos (ex.: 00)."),
+  cst_ibs: exatoDigitos(3, "CST do IBS/CBS com 3 dígitos (ex.: 000)."),
+  class_trib: exatoDigitos(6, "cClassTrib com 6 dígitos (ex.: 000001)."),
   telefone: {
     mascara: (t) => {
       const c = soDigitos(t);
@@ -2185,13 +2187,23 @@ function percentualDigitado(t) {
   return v == null ? null : v.replace(",", ".");
 }
 
+function mostrarCamposIbs(form) {
+  const informar = form.elements.ibs_informar.value === "sim";
+  for (const el of $$("[data-ibs-campo]", form)) el.hidden = !informar;
+}
+
+$("#form-servico").elements.ibs_informar.addEventListener("change", () => mostrarCamposIbs($("#form-servico")));
+
 function editarServico(s) {
   if (!estado.empresa) return toast("Escolha a empresa.", true);
   const dlg = $("#dlg-servico");
   const form = $("form", dlg);
   form.reset();
+  // novo serviço: IBS/CBS ligado para o regime regular (obrigatório), desligado no Simples
+  form.elements.ibs_informar.value = estado.empresa.regime.simples === "nao_optante" ? "sim" : "nao";
   if (s) {
     const t = s.tributacao;
+    const ibs = t.ibs_cbs;
     const pc = t.federais?.pis_cofins ?? {};
     const r = t.retencoes ?? {};
     const tot = t.total_tributos;
@@ -2213,7 +2225,21 @@ function editarServico(s) {
       r_pis: percentualTela(r.pis),
       r_cofins: percentualTela(r.cofins),
       tot_tipo: "nao_informado",
+      ibs_informar: ibs ? "sim" : "nao",
     };
+    if (ibs) {
+      Object.assign(dados, {
+        ibs_ind_op: ibs.indicador_operacao,
+        ibs_cst: ibs.cst,
+        ibs_class: ibs.classificacao_tributaria,
+        ibs_final: ibs.consumo_pessoal ? "1" : "",
+      });
+      // código fora da lista: acrescenta para não perder o que está gravado
+      const sel = form.elements.ibs_ind_op;
+      if (![...sel.options].some((o) => o.value === ibs.indicador_operacao)) {
+        sel.add(new Option(ibs.indicador_operacao, ibs.indicador_operacao));
+      }
+    }
     if (tot && typeof tot === "object" && "percentual_simples" in tot) {
       dados.tot_tipo = "percentual_simples";
       dados.tot_sn = percentualTela(tot.percentual_simples);
@@ -2225,6 +2251,7 @@ function editarServico(s) {
     }
     preencherForm(form, dados);
   }
+  mostrarCamposIbs(form);
   abrirDialogo(dlg, $("#erro-servico"), async (d) => {
     const retencoes = {};
     for (const k of ["irrf", "csll", "cp", "pis", "cofins"]) {
@@ -2248,6 +2275,16 @@ function editarServico(s) {
     const issqn = { tributacao: d.trib_issqn, retencao: d.ret_issqn };
     const aliq = percentualDigitado(d.aliq_issqn);
     if (aliq != null) issqn.aliquota = aliq;
+    const ibs_cbs =
+      d.ibs_informar === "sim"
+        ? {
+            ...(s?.tributacao?.ibs_cbs ?? {}), // preserva o indicador de destinatário
+            indicador_operacao: d.ibs_ind_op,
+            cst: soDigitos(d.ibs_cst),
+            classificacao_tributaria: soDigitos(d.ibs_class),
+            consumo_pessoal: d.ibs_final === "1" ? true : null,
+          }
+        : null;
     const servico = {
       id: s?.id ?? null,
       empresa_id: estado.empresa.id,
@@ -2257,7 +2294,7 @@ function editarServico(s) {
       codigo_trib_mun: vazio(d.codigo_trib_mun),
       nbs: vazio(d.nbs),
       tributacao: {
-        ...(s?.tributacao ?? {}), // preserva grupos sem campo na tela (ex.: IBS/CBS)
+        ...(s?.tributacao ?? {}), // preserva grupos sem campo na tela
         issqn,
         federais: {
           ...(s?.tributacao?.federais ?? {}),
@@ -2265,6 +2302,7 @@ function editarServico(s) {
         },
         total_tributos,
         retencoes,
+        ibs_cbs,
       },
       valor_sugerido: valorDigitado(d.valor_sugerido),
     };
