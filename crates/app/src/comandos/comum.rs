@@ -35,7 +35,13 @@ pub(crate) async fn pasta_configurada(estado: &Estado) -> R<PathBuf> {
 
 /// Abre o arquivo ou pasta com o programa padrão do sistema.
 pub(crate) fn abrir_no_sistema(caminho: &std::path::Path) -> R<()> {
-    let programa = if cfg!(windows) { "explorer" } else { "xdg-open" };
+    let programa = if cfg!(windows) {
+        "explorer"
+    } else if cfg!(target_os = "macos") {
+        "open"
+    } else {
+        "xdg-open"
+    };
     std::process::Command::new(programa)
         .arg(caminho)
         .spawn()
