@@ -124,7 +124,7 @@ Cada empresa tem um e-CNPJ A1 (.pfx), que assina a DPS/eventos e autentica a con
 - **Feito** — **Notas recorrentes** (mensalidades) e **Lote do mês** de todas as empresas, uma nota por recorrência e mês, com andamento e sem parar o lote numa falha; "Tornar recorrente" depois de emitir.
 - **Feito** — **Importação de planilha** (XLSX, XLS, ODS, CSV) para convênios, uma nota por linha, com "Cadastrar tomador" direto da linha; reimportar a mesma planilha não repete notas já autorizadas.
 - **Feito** — "Corrigir e emitir" a partir de uma nota rejeitada.
-- **Feito** — **Envio por e-mail** (PDF + XML) pelo SMTP do escritório, automático após emitir (opcional) ou pelo botão "E-mail"; cada envio registrado. *Em validação com o servidor do escritório.*
+- **Feito** — **Envio por e-mail** (PDF + XML) pelo SMTP do escritório, automático após emitir (opcional) ou pelo botão "E-mail"; cada envio registrado. Testado com o servidor do escritório (Terra).
 - **Feito** — XML e PDF gravados em `<pasta>/<EMPRESA - CNPJ>/<AAAA-MM>/`.
 - **Pendente** — Agendamento automático do lote (hoje o operador dispara).
 
