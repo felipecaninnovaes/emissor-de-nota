@@ -23,12 +23,25 @@ function esc(texto) {
   );
 }
 
+/** Confirmação some em 4 s; erro fica até o operador fechar (e é anunciado como alerta). */
 function toast(texto, erro = false) {
   const el = document.createElement("div");
   el.className = "toast" + (erro ? " erro" : "");
-  el.textContent = texto;
+  const msg = document.createElement("span");
+  msg.textContent = texto;
+  el.append(msg);
+  if (erro) {
+    el.setAttribute("role", "alert");
+    const fechar = document.createElement("button");
+    fechar.type = "button";
+    fechar.className = "fechar";
+    fechar.textContent = "Fechar";
+    fechar.addEventListener("click", () => el.remove());
+    el.append(fechar);
+  } else {
+    setTimeout(() => el.remove(), 4000);
+  }
   $("#toasts").append(el);
-  setTimeout(() => el.remove(), erro ? 8000 : 4000);
 }
 
 /** Chama um comando mostrando o cursor de espera; o erro volta como texto. */
@@ -224,9 +237,16 @@ async function avisarVencimentos() {
 
 // ---------------------------------------------------------------- navegação e empresa atual
 
-function irPara(tela) {
-  for (const b of $$("nav button[data-tela]")) b.classList.toggle("ativo", b.dataset.tela === tela);
+/** Mostra uma tela; `focar` leva o foco ao título dela (troca feita pelo operador no menu). */
+function irPara(tela, focar = false) {
+  for (const b of $$("nav button[data-tela]")) {
+    const ativo = b.dataset.tela === tela;
+    b.classList.toggle("ativo", ativo);
+    if (ativo) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
+  }
   for (const s of $$("section[data-tela]")) s.hidden = s.dataset.tela !== tela;
+  if (focar) $(`section[data-tela="${tela}"] h1`)?.focus();
   const carregar = {
     notas: carregarNotas,
     lote: carregarLote,
@@ -240,7 +260,7 @@ function irPara(tela) {
   carregar?.().catch((e) => toast(String(e), true));
 }
 
-for (const b of $$("nav button[data-tela]")) b.addEventListener("click", () => irPara(b.dataset.tela));
+for (const b of $$("nav button[data-tela]")) b.addEventListener("click", () => irPara(b.dataset.tela, true));
 
 async function carregarEmpresas() {
   estado.empresas = await invoke("listar_empresas");
@@ -1658,6 +1678,8 @@ function editarNumeracao(empresa) {
 // ---------------------------------------------------------------- configurações
 
 async function carregarConfiguracoes() {
+  $("#ap-zoom").value = aparencia.zoom;
+  $("#ap-densidade").value = aparencia.densidade;
   $("#pasta-saida").value = await invoke("obter_pasta");
   await carregarEmail();
   const venc = await invoke("certificados_vencendo", { dias: 60 });
@@ -1778,6 +1800,70 @@ $("#abrir-pasta").addEventListener("click", async () => {
   }
 });
 
+// ---------------------------------------------------------------- aparência (tamanho do texto e densidade)
+
+const ZOOMS = ["0.9", "1", "1.1", "1.25", "1.4", "1.5"];
+let aparencia = { zoom: "1", densidade: "auto" };
+
+function aplicarAparencia() {
+  document.documentElement.style.setProperty("--zoom", aparencia.zoom);
+  document.documentElement.dataset.densidade = aparencia.densidade;
+}
+
+async function salvarAparencia() {
+  aplicarAparencia();
+  try {
+    await invoke("salvar_aparencia", { aparencia });
+  } catch (e) {
+    toast(String(e), true);
+  }
+}
+
+/** Ctrl + / Ctrl − / Ctrl 0 e Ctrl + roda do mouse; `passo` 0 volta a 100%. */
+function mudarZoom(passo) {
+  const i = ZOOMS.indexOf(aparencia.zoom);
+  const novo = passo === 0 ? "1" : ZOOMS[Math.min(ZOOMS.length - 1, Math.max(0, (i < 0 ? 1 : i) + passo))];
+  if (novo === aparencia.zoom) return;
+  aparencia.zoom = novo;
+  $("#ap-zoom").value = novo;
+  salvarAparencia();
+  toast(`Tamanho do texto: ${Math.round(Number(novo) * 100)}%`);
+}
+
+document.addEventListener("keydown", (ev) => {
+  if (!ev.ctrlKey || ev.altKey || ev.metaKey) return;
+  const passo = { "+": 1, "=": 1, "-": -1, "0": 0 }[ev.key];
+  if (passo === undefined) return;
+  ev.preventDefault();
+  mudarZoom(passo);
+});
+
+document.addEventListener(
+  "wheel",
+  (ev) => {
+    if (!ev.ctrlKey) return;
+    ev.preventDefault();
+    mudarZoom(ev.deltaY < 0 ? 1 : -1);
+  },
+  { passive: false },
+);
+
+$("#ap-zoom").addEventListener("change", (ev) => {
+  aparencia.zoom = ev.target.value;
+  salvarAparencia();
+});
+
+$("#ap-densidade").addEventListener("change", (ev) => {
+  aparencia.densidade = ev.target.value;
+  salvarAparencia();
+});
+
 // ---------------------------------------------------------------- início
 
+invoke("obter_aparencia")
+  .then((a) => {
+    aparencia = a;
+    aplicarAparencia();
+  })
+  .catch(() => {});
 iniciarTrava().catch((e) => mostrarErro($("#erro-trava"), e));

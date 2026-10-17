@@ -13,8 +13,8 @@
         "title": "Emissor de NFS-e",
         "width": 1280,
         "height": 820,
-        "minWidth": 1024,
-        "minHeight": 680,
+        "minWidth": 960,
+        "minHeight": 560,
         "center": true
       }
     ],

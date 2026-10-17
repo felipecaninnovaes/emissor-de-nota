@@ -20,9 +20,38 @@ pub struct Estado {
     pub emissor: RwLock<Option<Emissor<ConectorSefin>>>,
 }
 
+/// Na primeira abertura (sem tamanho guardado pelo plugin window-state) a janela ocupa 90% da
+/// área útil do monitor, centralizada; depois volta sempre com o tamanho e a posição da última vez.
+fn dimensionar_primeira_abertura(app: &tauri::App) -> tauri::Result<()> {
+    let guardado = app
+        .path()
+        .app_config_dir()?
+        .join(tauri_plugin_window_state::DEFAULT_FILENAME);
+    if guardado.exists() {
+        return Ok(());
+    }
+    let Some(janela) = app.get_webview_window("main") else {
+        return Ok(());
+    };
+    if let Some(monitor) = janela.current_monitor()? {
+        let area = monitor.work_area().size;
+        janela.set_size(tauri::PhysicalSize::new(area.width * 9 / 10, area.height * 9 / 10))?;
+        janela.center()?;
+    }
+    Ok(())
+}
+
 fn main() {
+    use tauri_plugin_window_state::StateFlags;
+
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED)
+                .build(),
+        )
         .setup(|app| {
+            dimensionar_primeira_abertura(app)?;
             let dados: PathBuf = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dados)?;
             let banco = tauri::async_runtime::block_on(Banco::abrir(&dados.join("emissor.db")))?;
@@ -38,6 +67,8 @@ fn main() {
             comandos::abrir_cofre,
             comandos::obter_pasta,
             comandos::definir_pasta,
+            comandos::obter_aparencia,
+            comandos::salvar_aparencia,
             comandos::listar_empresas,
             comandos::cadastrar_empresa,
             comandos::atualizar_empresa,
