@@ -4,6 +4,7 @@
 
 pub(crate) mod aparencia;
 pub(crate) mod atualizacao;
+pub(crate) mod backup;
 pub(crate) mod cofre;
 mod comum;
 pub(crate) mod consultas;

@@ -80,6 +80,10 @@ Regras: guardar sempre o XML autorizado original, com hash conferido na leitura;
 
 `nfse-db/src/cofre.rs`: a chave AES-256 é derivada da senha mestra com Argon2id; o banco guarda só o sal, os parâmetros e um verificador. Certificados e a senha do SMTP são cifrados com AES-256-GCM, com contexto por registro (`empresa_id:thumbprint:tipo`), e decifrados só em memória. A derivação roda em `spawn_blocking`. A senha mestra não tem recuperação. O botão "Bloquear" descarta a chave e volta à tela de senha.
 
+## Backup cifrado
+
+`nfse-db/src/backup.rs`: `VACUUM INTO` num arquivo temporário do sistema, cifrado em blocos de 1 MiB com a chave do cofre (AES-256-GCM; o AAD amarra o índice do bloco e se é o último, o que detecta truncamento e reordenação) e gravado como `emissor-AAAAMMDD-HHMMSS.nfbk`. O cabeçalho leva o sal e os parâmetros do Argon2 (sem segredo), então a senha mestra abre o backup em outra máquina. O banco já guarda os XMLs autorizados e os eventos, por isso o backup é só o banco. `restaurar_backup` decifra para um arquivo novo e roda `PRAGMA integrity_check`. Comandos em `crates/app/src/comandos/backup.rs`; o automático roda ao abrir o cofre (a cada 20 h, no máximo) e falha só na auditoria.
+
 ## Aplicativo (Tauri)
 
 - `crates/app/src/main.rs`: abre o banco, registra os plugins (`updater`, `window-state`) e o `generate_handler!`.

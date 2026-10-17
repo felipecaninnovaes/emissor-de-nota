@@ -2820,6 +2820,7 @@ async function carregarConfiguracoes() {
   $("#ap-zoom").value = aparencia.zoom;
   $("#ap-densidade").value = aparencia.densidade;
   $("#pasta-saida").value = await invoke("obter_pasta");
+  await carregarBackup();
   await carregarEmail();
   const venc = await invoke("certificados_vencendo", { dias: 60 });
   $("#lista-vencimentos").innerHTML = venc.length
@@ -2939,6 +2940,58 @@ $("#salvar-pasta").addEventListener("click", async () => {
     toast("Pasta salva.");
   } catch (e) {
     toast(String(e), true);
+  }
+});
+
+async function carregarBackup() {
+  const b = await invoke("obter_backup");
+  $("#pasta-backup").value = b.pasta;
+  $("#ultimo-backup").textContent = b.ultimo
+    ? `Último backup: ${new Date(b.ultimo).toLocaleString("pt-BR")}.`
+    : b.pasta
+      ? "Nenhum backup feito ainda."
+      : "Defina a pasta para ativar o backup automático.";
+}
+
+$("#salvar-pasta-backup").addEventListener("click", async () => {
+  try {
+    await chamar("definir_pasta_backup", { pasta: $("#pasta-backup").value });
+    toast("Pasta do backup salva.");
+    await carregarBackup();
+  } catch (e) {
+    toast(String(e), true);
+  }
+});
+
+$("#fazer-backup").addEventListener("click", async () => {
+  const botao = $("#fazer-backup");
+  botao.disabled = true;
+  try {
+    const nome = await chamar("fazer_backup");
+    toast(`Backup gravado: ${nome}`);
+    await carregarBackup();
+  } catch (e) {
+    toast(String(e), true);
+  } finally {
+    botao.disabled = false;
+  }
+});
+
+$("#restaurar-backup").addEventListener("click", async () => {
+  const botao = $("#restaurar-backup");
+  botao.disabled = true;
+  try {
+    await chamar("restaurar_backup", {
+      arquivo: $("#restaurar-arquivo").value,
+      senha: $("#restaurar-senha").value,
+      destino: $("#restaurar-destino").value,
+    });
+    $("#restaurar-senha").value = "";
+    toast("Backup aberto e íntegro. O banco foi gerado no destino informado.");
+  } catch (e) {
+    toast(String(e), true);
+  } finally {
+    botao.disabled = false;
   }
 });
 

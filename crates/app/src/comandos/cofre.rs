@@ -54,6 +54,7 @@ async fn iniciar(estado: &Estado, cofre: nfse_db::Cofre) -> R<Abertura> {
         });
     }
     *estado.emissor.write().await = Some(emissor);
+    super::backup::automatico(estado).await;
     Ok(Abertura { pendencias })
 }
 

@@ -4,6 +4,7 @@
 //! ao abrir o banco.
 
 mod ajustes;
+pub mod backup;
 pub mod cofre;
 pub mod dps;
 pub mod emails;

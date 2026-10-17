@@ -83,7 +83,8 @@ O banco concentra os certificados de todos os clientes; quem copia o arquivo e d
 - **Feito** — integridade: hash do XML autorizado conferido a cada leitura.
 - **Feito** — consulta de CNPJ e CEP: só o documento ou o CEP sai da máquina.
 - **Pendente (LGPD)** — nomes, CPFs, e-mails e valores ficam em claro no `emissor.db`; exportar ou anonimizar tomador PF sem notas.
-- **Pendente** — backup automático do SQLite com teste de restauração; exportação ZIP da guarda de XML (confirmar o prazo de guarda com o contador responsável).
+- **Feito** — backup cifrado do banco (que contém os XMLs autorizados), automático ao abrir o sistema e manual, com teste de restauração. A criptografia do banco inteiro em repouso (SQLCipher) não foi adotada: o certificado já é cifrado e o resto se protege com criptografia de disco.
+- **Pendente** — exportação ZIP da guarda de XML (confirmar o prazo de guarda com o contador responsável).
 - **Logs**: nunca registrar senha, chave privada ou XML completo.
 
 ## Riscos
@@ -94,7 +95,7 @@ O banco concentra os certificados de todos os clientes; quem copia o arquivo e d
 | Timeout gera nota duplicada | Mitigado por reconciliação pelo Id da DPS |
 | Série já usada por outro emissor (E0014) | Mitigado por "Consultar na Sefin" |
 | Produção Restrita sem o contribuinte cadastrado (E0084) | Testes reais em Produção |
-| Vazamento do banco com certificados | Cofre com senha mestra; backup cifrado pendente |
+| Vazamento do banco com certificados | Cofre com senha mestra; backup cifrado |
 | Limites das APIs públicas de CNPJ | Cache e alternativa pendentes |
 | Parametrização municipal divergente (E0312, E0116) | Orientação por código; consulta de parâmetros pendente |
 | Antispam do provedor de e-mail | Cabeçalhos completos; falha registrada e reenvio pelo botão "E-mail" |
@@ -108,7 +109,7 @@ O banco concentra os certificados de todos os clientes; quem copia o arquivo e d
 
 **Fase 2 — instalação e operação** · em andamento
 - **Feito** — instalador MSI, CI que o gera, atualização automática, logomarca oficial no DANFSe.
-- **Pendente** — assinatura de código (evita o alerta do SmartScreen); backup automático do banco; log de erros exportável; tabela de municípios IBGE; validação da cadeia ICP-Brasil; cache da consulta de CNPJ; testes de integração dos comandos do app.
+- **Pendente** — assinatura de código (evita o alerta do SmartScreen); log de erros exportável; tabela de municípios IBGE; validação da cadeia ICP-Brasil; cache da consulta de CNPJ; testes de integração dos comandos do app.
 
 **Fase 3 — pós-emissão e integração** · pendente: substituição; consulta de eventos; distribuição DF-e pelo ADN; manifestação do tomador; parâmetros municipais; relatórios e ZIP mensal; tomador estrangeiro e intermediário.
 

@@ -352,6 +352,31 @@
           </div>
         </div>
         <div class="cartao">
+          <h2>Backup do banco</h2>
+          <p class="ajuda">Cópia cifrada com a senha mestra do banco inteiro (cadastros, numeração e os XMLs das notas).
+            Use uma pasta fora desta máquina (unidade externa ou pasta sincronizada com a nuvem). O sistema faz um backup
+            ao abrir, no máximo uma vez por dia, e guarda os 10 mais recentes. Sem a senha mestra o backup não abre.</p>
+          <div class="com-botao linha-campo">
+            <input id="pasta-backup" aria-label="Pasta do backup">
+            <button class="botao" id="salvar-pasta-backup">Salvar</button>
+            <button class="botao" id="fazer-backup">Fazer backup agora</button>
+          </div>
+          <p class="ajuda" id="ultimo-backup"></p>
+          <h3>Testar ou restaurar um backup</h3>
+          <p class="ajuda">Gera um banco novo a partir do backup e confere a integridade. Não substitui o banco em uso: para
+            restaurar de verdade, feche o sistema e troque o <code>emissor.db</code> pelo arquivo gerado.</p>
+          <div class="linha-campo">
+            <input id="restaurar-arquivo" aria-label="Arquivo de backup (.nfbk)" placeholder="Arquivo de backup (.nfbk)">
+          </div>
+          <div class="linha-campo">
+            <input id="restaurar-destino" aria-label="Banco a gerar" placeholder="Arquivo do banco a gerar (novo)">
+          </div>
+          <div class="com-botao linha-campo">
+            <input id="restaurar-senha" type="password" aria-label="Senha mestra" placeholder="Senha mestra" autocomplete="off">
+            <button class="botao" id="restaurar-backup">Testar restauração</button>
+          </div>
+        </div>
+        <div class="cartao">
           <h2>E-mail das notas</h2>
           <p class="ajuda">A nota (PDF e XML) sai pela conta do escritório, com o nome da empresa emissora como remetente e
             "responder para" o e-mail dela. Destinatários: os "E-mails de envio" do tomador ou, sem eles, o e-mail do cadastro.</p>
