@@ -162,9 +162,38 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--caneta); ou
 input[inputmode="decimal"], input[type="month"] { font-family: var(--font-mono); }
 textarea { resize: vertical; min-height: 4rem; }
 input[readonly] { background: var(--papel); color: var(--tinta-suave); border-style: dashed; }
-.grade { display: grid; gap: var(--espaco-4); grid-template-columns: repeat(12, 1fr); }
+.grade { display: grid; gap: var(--espaco-3) var(--espaco-4); grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: start; }
 .c2 { grid-column: span 2; } .c3 { grid-column: span 3; } .c4 { grid-column: span 4; } .c5 { grid-column: span 5; }
-.c6 { grid-column: span 6; } .c8 { grid-column: span 8; } .c9 { grid-column: span 9; } .c12 { grid-column: span 12; }
+.c6 { grid-column: span 6; } .c7 { grid-column: span 7; } .c8 { grid-column: span 8; } .c9 { grid-column: span 9; }
+.c12 { grid-column: span 12; }
+
+/* a grade se ajusta à largura do cartão ou do diálogo onde está (não à da janela) */
+.cartao:not(.tabela) { container-type: inline-size; }
+@container (max-width: 46rem) {
+  .grade > .c2, .grade > .c3, .grade > .c4, .grade > .c5 { grid-column: span 6; }
+  .grade > .c7, .grade > .c8, .grade > .c9 { grid-column: span 12; }
+  .grade > .c-pct { grid-column: span 4; }
+}
+@container (max-width: 30rem) {
+  .grade > * { grid-column: span 12; }
+  .grade > .c-pct { grid-column: span 6; }
+}
+
+/* largura do campo pelo dado que ele guarda */
+input[data-formato]:not([data-formato="email"]):not([data-formato="emails"]) { font-family: var(--font-mono); }
+.campo-pct { max-width: 8rem; }
+.campo-numero { max-width: 10rem; }
+.campo-valor { max-width: 14rem; }
+.com-botao input { flex: 1 1 auto; min-width: 0; }
+.campo-doc { min-width: 11rem; }
+
+/* obrigatório e erro junto do campo */
+label.obrigatorio::after { content: " *"; color: var(--vermelho); }
+[aria-invalid="true"] { border-color: var(--vermelho); box-shadow: inset 0 0 0 1px var(--vermelho); }
+[aria-invalid="true"]:focus { outline-color: var(--vermelho); border-color: var(--vermelho); }
+.erro-campo { color: var(--vermelho); font-size: 0.7812rem; line-height: 1.125rem; margin: var(--espaco-1) 0 0; font-weight: 500; }
+.contador { display: block; text-align: right; font-family: var(--font-mono); font-size: 0.75rem; color: var(--tinta-suave); margin-top: 0.125rem; }
+.contador.alerta { color: var(--amarelo); }
 fieldset { border: 1px solid var(--fio-forte); border-radius: var(--raio-fino); padding: var(--espaco-4); margin: 0; }
 legend {
   font-family: var(--font-condensed); font-weight: 600; font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase;
@@ -401,9 +430,34 @@ tbody tr.detalhe:hover { background: var(--papel); }
 .validade.vencido .trilho span { background: var(--vermelho); }
 
 /* ---------- diálogos e mensagens ---------- */
-dialog { border: 1px solid var(--fio-forte); border-radius: var(--raio-medio); padding: 0; width: min(var(--largura-dialogo), 92vw); background: var(--folha); color: var(--tinta); box-shadow: var(--sombra-flutuante); }
+/* diálogo: título fixo em cima, corpo que rola, ações fixas embaixo */
+dialog {
+  border: 1px solid var(--fio-forte); border-radius: var(--raio-medio); padding: 0; width: min(var(--largura-dialogo), 94vw);
+  max-height: calc(100dvh - 2rem); overflow: hidden; background: var(--folha); color: var(--tinta); box-shadow: var(--sombra-flutuante);
+}
+dialog.largo { width: min(68rem, 94vw); }
+dialog.estreito { width: min(34rem, 94vw); }
 dialog::backdrop { background: var(--veu); }
-dialog form { padding: var(--espaco-5); }
+dialog form { display: flex; flex-direction: column; max-height: calc(100dvh - 2rem - 2px); padding: 0; }
+.dialogo-topo { display: block; flex: none; padding: var(--espaco-4) var(--espaco-5) var(--espaco-3); background: var(--folha); border-bottom: 1px solid var(--fio); }
+.dialogo-topo h2 { margin: 0; padding: 0; border: 0; }
+.dialogo-topo .ajuda { margin-top: var(--espaco-1); }
+.dialogo-topo .ajuda:empty { display: none; }
+.dialogo-corpo {
+  flex: 1 1 auto; min-height: 0; overflow: auto; container: dialogo / inline-size;
+  display: flex; flex-direction: column; gap: var(--espaco-4); padding: var(--espaco-4) var(--espaco-5);
+}
+.dialogo-corpo > .ajuda { margin: calc(-1 * var(--espaco-2)) 0 0; }
+.dialogo-corpo > .aviso { margin: 0; }
+dialog form > .acoes { flex: none; align-items: center; margin: 0; padding: var(--espaco-3) var(--espaco-5); background: var(--folha); }
+.nota-obrigatorio { margin-right: auto; font-size: 0.75rem; color: var(--tinta-suave); }
+fieldset.bloco { padding: var(--espaco-3) var(--espaco-4) var(--espaco-4); min-width: 0; }
+fieldset.bloco > .ajuda { margin-top: var(--espaco-3); }
+.blocos { display: grid; gap: var(--espaco-4); grid-template-columns: minmax(0, 1fr); }
+@container dialogo (min-width: 56rem) {
+  .blocos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .blocos > .largo { grid-column: span 2; }
+}
 #toasts { position: fixed; right: 1.25rem; bottom: 1.25rem; display: flex; flex-direction: column; gap: var(--espaco-2); z-index: 50; }
 .toast { background: var(--tinta); color: var(--sobre-tinta); padding: calc(0.625rem * var(--densidade)) calc(0.875rem * var(--densidade)); border-radius: var(--raio-fino); max-width: 28.75rem; box-shadow: var(--sombra-flutuante); }
 .toast.erro { background: var(--vermelho); display: flex; gap: var(--espaco-3); align-items: flex-start; }

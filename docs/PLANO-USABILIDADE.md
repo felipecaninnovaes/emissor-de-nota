@@ -84,7 +84,7 @@ Cada etapa é um commit separado, testado no app real por você antes do próxim
 - Cabeçalho fixo ao rolar (`position: sticky`), rodapé com contagem e total do período em Notas e Lote, e um `.tabela-rolagem` com rolagem horizontal visível como último recurso.
 - Empresas: coluna Certificado mostra só validade e dias restantes (carimbo), titular no `title`.
 
-### Etapa 4 — Formulários e diálogos
+### Etapa 4 — Formulários e diálogos · feita em 17/10/2026
 - Estrutura do diálogo: cabeçalho fixo (título + empresa), corpo rolável, **rodapé fixo com as ações**; `max-height: calc(100dvh - 2rem)`.
 - Larguras pelo dado, com classes `.campo-cnpj` (19ch), `.campo-cpf` (15ch), `.campo-cep` (10ch), `.campo-valor` (14ch), `.campo-pct` (8ch), `.campo-porta` (7ch), `.campo-ibge` (9ch); a grade passa a `repeat(auto-fill, minmax(…))` por fieldset e cai para 6 colunas em diálogos estreitos.
 - Rótulos de uma linha (texto curto) e a explicação em `.ajuda` abaixo; fileiras com `align-items: end` para alinhar os campos mesmo se um rótulo quebrar. Exemplos: "Código tributação nacional" → rótulo "Cód. trib. nacional" + ajuda "6 dígitos, ex.: 171901"; "Nome do remetente (em branco = …)" → rótulo "Nome do remetente" + ajuda.

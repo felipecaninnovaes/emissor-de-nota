@@ -259,33 +259,327 @@ function preencherForm(form, dados) {
   for (const el of form.elements) {
     if (!el.name || !(el.name in dados)) continue;
     if (el.type === "checkbox") el.checked = !!dados[el.name];
-    else if (el.type !== "file") el.value = dados[el.name] ?? "";
+    else if (el.type !== "file") {
+      el.value = dados[el.name] ?? "";
+      if (el.dataset.formato) aplicarMascara(el);
+    }
   }
 }
 
+// ---------------------------------------------------------------- formulários: formatos, máscaras e erros por campo
+
+/** Erro de um campo específico: aparece embaixo dele em vez de no aviso geral do diálogo. */
+class ErroCampo extends Error {
+  constructor(campo, mensagem) {
+    super(mensagem);
+    this.campo = campo;
+  }
+}
+
+/** Dígito verificador do CNPJ (vale também para o CNPJ alfanumérico: cada caractere vale código − 48). */
+function digitoCnpj(base) {
+  let soma = 0;
+  let peso = 2;
+  for (let i = base.length - 1; i >= 0; i--) {
+    soma += (base.charCodeAt(i) - 48) * peso;
+    peso = peso === 9 ? 2 : peso + 1;
+  }
+  const resto = soma % 11;
+  return resto < 2 ? 0 : 11 - resto;
+}
+
+function cnpjValido(texto) {
+  const c = String(texto).replace(/[^0-9A-Za-z]/g, "").toUpperCase();
+  if (!/^[0-9A-Z]{12}\d{2}$/.test(c) || /^(\d)\1{13}$/.test(c)) return false;
+  return digitoCnpj(c.slice(0, 12)) === Number(c[12]) && digitoCnpj(c.slice(0, 13)) === Number(c[13]);
+}
+
+function cpfValido(texto) {
+  const c = soDigitos(texto);
+  if (c.length !== 11 || /^(\d)\1{10}$/.test(c)) return false;
+  for (const n of [9, 10]) {
+    let soma = 0;
+    for (let i = 0; i < n; i++) soma += Number(c[i]) * (n + 1 - i);
+    if (((soma * 10) % 11) % 10 !== Number(c[n])) return false;
+  }
+  return true;
+}
+
+const mascaraCnpj = (t) => {
+  const c = String(t).replace(/[^0-9A-Za-z]/g, "").toUpperCase();
+  return c.length === 14 ? `${c.slice(0, 2)}.${c.slice(2, 5)}.${c.slice(5, 8)}/${c.slice(8, 12)}-${c.slice(12)}` : t;
+};
+const mascaraCpf = (t) => {
+  const c = soDigitos(t);
+  return c.length === 11 ? `${c.slice(0, 3)}.${c.slice(3, 6)}.${c.slice(6, 9)}-${c.slice(9)}` : t;
+};
+/** Valor digitado ("1500", "1.500,5", "1500.50") → número, ou NaN. */
+const numeroDigitado = (t) => Number(String(valorDigitado(t) ?? "").replace(",", "."));
+const exatoDigitos = (n, msg) => ({ mascara: soDigitos, valida: (v) => soDigitos(v).length === n || msg });
+const emailValido = (e) => /^[^\s@;,]+@[^\s@;,]+\.[^\s@;,]+$/.test(e);
+
 /**
- * Abre um <dialog> com formulário. `salvar(dados)` roda ao clicar no botão "salvar";
- * se lançar erro, a mensagem aparece em `erroEl` e o diálogo continua aberto.
+ * Formatos dos campos marcados com data-formato: `mascara` arruma o texto ao sair do campo (aceita
+ * colar com ou sem pontuação); `valida` devolve true ou a mensagem de erro. Campo vazio não passa
+ * por aqui (quem decide se pode ficar vazio é o atributo required).
+ */
+const FORMATOS = {
+  cnpj: { mascara: mascaraCnpj, valida: (v) => cnpjValido(v) || "CNPJ inválido: confira os 14 caracteres." },
+  cpf: { mascara: mascaraCpf, valida: (v) => cpfValido(v) || "CPF inválido: confira os 11 dígitos." },
+  cep: {
+    mascara: (t) => {
+      const c = soDigitos(t);
+      return c.length === 8 ? `${c.slice(0, 5)}-${c.slice(5)}` : t;
+    },
+    valida: (v) => soDigitos(v).length === 8 || "CEP com 8 dígitos.",
+  },
+  ibge: exatoDigitos(7, "Código IBGE com 7 dígitos (ex.: 3511102)."),
+  ctn: exatoDigitos(6, "6 dígitos, sem pontos (ex.: 171901)."),
+  nbs: exatoDigitos(9, "NBS com 9 dígitos."),
+  ctm: exatoDigitos(3, "Código municipal com 3 dígitos."),
+  cst: exatoDigitos(2, "CST com 2 dígitos (ex.: 00)."),
+  telefone: {
+    mascara: (t) => {
+      const c = soDigitos(t);
+      if (c.length === 10) return `(${c.slice(0, 2)}) ${c.slice(2, 6)}-${c.slice(6)}`;
+      if (c.length === 11) return `(${c.slice(0, 2)}) ${c.slice(2, 7)}-${c.slice(7)}`;
+      return t;
+    },
+    valida: (v) => [10, 11].includes(soDigitos(v).length) || "Telefone com DDD: 10 ou 11 dígitos.",
+  },
+  email: { mascara: (t) => t.trim(), valida: (v) => emailValido(v.trim()) || "E-mail inválido." },
+  emails: {
+    mascara: (t) =>
+      t
+        .split(/[;,\s]+/)
+        .filter(Boolean)
+        .join("; "),
+    valida: (v) => {
+      const ruins = v.split(/[;,\s]+/).filter((e) => e && !emailValido(e));
+      return !ruins.length || `E-mail inválido: ${ruins.join(", ")}.`;
+    },
+  },
+  valor: {
+    mascara: (t) => {
+      const n = numeroDigitado(t);
+      return Number.isFinite(n) && n > 0 ? moeda(n.toFixed(2)) : t;
+    },
+    valida: (v) => {
+      const n = numeroDigitado(v);
+      return (Number.isFinite(n) && n > 0) || "Valor em reais, maior que zero (ex.: 1.250,00).";
+    },
+  },
+  pct: {
+    mascara: (t) => t.trim().replace(".", ","),
+    valida: (v) => {
+      const t = v.trim().replace(",", ".");
+      const n = Number(t);
+      return (/^\d{1,3}(\.\d{1,4})?$/.test(t) && n <= 100) || "Percentual de 0 a 100 (ex.: 2,5).";
+    },
+  },
+  serie: { mascara: soDigitos, valida: (v) => /^\d{1,5}$/.test(soDigitos(v)) || "Série com 1 a 5 dígitos." },
+  inteiro: { valida: (v) => /^\d+$/.test(v.trim()) || "Número inteiro, maior que zero." },
+  porta: {
+    valida: (v) => {
+      const n = Number(v);
+      return (Number.isInteger(n) && n >= 1 && n <= 65535) || "Porta de 1 a 65535 (ex.: 587).";
+    },
+  },
+  documento: {}, // CNPJ ou CPF conforme o select indicado em data-tipo (ver formatoDe)
+};
+
+/** Formato efetivo de um campo; "documento" segue o tipo escolhido (e muda para CPF se vierem 11 dígitos). */
+function formatoDe(el) {
+  const nome = el.dataset.formato;
+  if (nome !== "documento") return FORMATOS[nome];
+  const tipo = document.getElementById(el.dataset.tipo);
+  if (tipo && tipo.value === "cnpj" && soDigitos(el.value).length === 11 && !/[A-Za-z]/.test(el.value)) tipo.value = "cpf";
+  return FORMATOS[tipo?.value === "cpf" ? "cpf" : "cnpj"];
+}
+
+function aplicarMascara(el) {
+  const f = el.dataset.formato && formatoDe(el);
+  if (f?.mascara && el.value.trim()) el.value = f.mascara(el.value);
+}
+
+function rotuloDe(el) {
+  return (document.querySelector(`label[for="${el.id}"]`)?.textContent ?? el.name ?? "").trim();
+}
+
+/** Mensagem de erro do campo, ou "" se está bom. */
+function erroDoCampo(el) {
+  const v = el.type === "file" ? (el.files.length ? "x" : "") : el.value.trim();
+  if (!v) {
+    if (!el.required) return "";
+    if (el.tagName === "SELECT") return "Escolha uma opção.";
+    if (el.type === "file") return "Escolha o arquivo.";
+    return "Preencha este campo.";
+  }
+  if (el.minLength > 0 && v.length < el.minLength) {
+    return `Escreva pelo menos ${el.minLength} caracteres (faltam ${el.minLength - v.length}).`;
+  }
+  const f = el.dataset.formato && formatoDe(el);
+  const r = f?.valida ? f.valida(el.value) : true;
+  return r === true ? "" : r;
+}
+
+function marcarErro(el, mensagem) {
+  const celula = el.closest(".grade > *") ?? el.parentElement;
+  let p = $(".erro-campo", celula);
+  if (!p) {
+    p = document.createElement("p");
+    p.className = "erro-campo";
+    p.id = `${el.id || el.name}-erro`;
+    celula.append(p);
+  }
+  p.textContent = mensagem;
+  el.setAttribute("aria-invalid", "true");
+  const descritos = new Set((el.getAttribute("aria-describedby") ?? "").split(" ").filter(Boolean));
+  descritos.add(p.id);
+  el.setAttribute("aria-describedby", [...descritos].join(" "));
+}
+
+function limparErro(el) {
+  const p = $(".erro-campo", el.closest(".grade > *") ?? el.parentElement);
+  if (p) {
+    const resto = (el.getAttribute("aria-describedby") ?? "").split(" ").filter((id) => id && id !== p.id);
+    if (resto.length) el.setAttribute("aria-describedby", resto.join(" "));
+    else el.removeAttribute("aria-describedby");
+    p.remove();
+  }
+  el.removeAttribute("aria-invalid");
+}
+
+function limparErros(raiz) {
+  for (const el of $$('[aria-invalid="true"]', raiz)) limparErro(el);
+}
+
+/** Valida os campos visíveis de `raiz`; devolve [{ el, msg }] na ordem da tela. */
+function validarCampos(raiz) {
+  return $$("input, select, textarea", raiz)
+    .filter((el) => !el.disabled && el.type !== "hidden" && el.type !== "checkbox" && el.getClientRects().length)
+    .map((el) => {
+      aplicarMascara(el);
+      return { el, msg: erroDoCampo(el) };
+    })
+    .filter((e) => e.msg);
+}
+
+/** Marca os campos com erro e põe o foco no primeiro; com mais de um, resume no `resumoEl`. */
+function mostrarErros(erros, resumoEl) {
+  for (const { el, msg } of erros) marcarErro(el, msg);
+  erros[0].el.focus();
+  if (resumoEl && erros.length > 1) {
+    mostrarErro(resumoEl, `Corrija ${erros.length} campos: ${erros.map((e) => rotuloDe(e.el)).join(", ")}.`);
+  }
+}
+
+// Ao sair do campo: arruma o formato; um campo marcado com erro é conferido de novo (e desmarcado se ficou bom).
+document.addEventListener("change", (ev) => {
+  const el = ev.target;
+  if (el.dataset?.formato) aplicarMascara(el);
+  if (el.getAttribute?.("aria-invalid") === "true") {
+    const msg = erroDoCampo(el);
+    if (msg) marcarErro(el, msg);
+    else limparErro(el);
+  }
+});
+document.addEventListener("input", (ev) => {
+  const el = ev.target;
+  if (el.getAttribute?.("aria-invalid") === "true" && !erroDoCampo(el)) limparErro(el);
+  if (el.matches?.("[data-contador]")) atualizarContador(el);
+});
+
+/** Contador "n / máximo" embaixo de textos com limite (justificativa do cancelamento). */
+function atualizarContador(el) {
+  const celula = el.closest(".grade > *") ?? el.parentElement;
+  let c = $(".contador", celula);
+  if (!c) {
+    c = document.createElement("span");
+    c.className = "contador";
+    el.after(c);
+  }
+  const n = el.value.length;
+  c.textContent = `${n} / ${el.maxLength}`;
+  c.classList.toggle("alerta", n > 0 && n < el.minLength);
+}
+
+/** Foco inicial: o primeiro campo vazio do diálogo (ou o primeiro campo, se já vem preenchido). */
+function focarPrimeiroCampo(raiz) {
+  const campos = $$("input, select, textarea", raiz).filter(
+    (el) => !el.disabled && !el.readOnly && el.type !== "hidden" && el.getClientRects().length,
+  );
+  const vazioEl = campos.find((el) => el.tagName !== "SELECT" && el.type !== "checkbox" && !el.value);
+  (vazioEl ?? campos[0])?.focus();
+}
+
+/**
+ * Abre um <dialog> com formulário. `salvar(dados, form)` roda ao salvar, depois que os campos
+ * passam na validação; se lançar ErroCampo, a mensagem vai para o campo; outro erro aparece em
+ * `erroEl` e o diálogo continua aberto. Cancelar (ou Esc) com alterações pede confirmação.
  */
 function abrirDialogo(dlg, erroEl, salvar) {
   const form = $("form", dlg);
   erroEl.hidden = true;
+  limparErros(form);
+  const empresa = $("[data-empresa-dialogo]", dlg);
+  if (empresa) empresa.textContent = estado.empresa ? `${estado.empresa.nome} — ${estado.empresa.cnpj_formatado}` : "";
+  for (const el of $$("[data-contador]", form)) atualizarContador(el);
+  const inicial = JSON.stringify(lerForm(form));
+  const descartar = () => JSON.stringify(lerForm(form)) === inicial || confirm("Descartar as alterações feitas?");
+
   form.onsubmit = async (ev) => {
-    if (ev.submitter?.value !== "salvar") return; // Cancelar fecha normalmente
+    if (ev.submitter?.value !== "salvar") {
+      if (!descartar()) ev.preventDefault();
+      return;
+    }
     ev.preventDefault();
     erroEl.hidden = true;
+    limparErros(form);
+    const erros = validarCampos(form);
+    if (erros.length) return mostrarErros(erros, erroEl);
     const botao = ev.submitter;
     botao.disabled = true;
     try {
       await salvar(lerForm(form), form);
       dlg.close();
     } catch (e) {
-      mostrarErro(erroEl, e);
+      if (e instanceof ErroCampo && form.elements[e.campo]) {
+        mostrarErros([{ el: form.elements[e.campo], msg: e.message }], erroEl);
+      } else {
+        mostrarErro(erroEl, e);
+        erroEl.scrollIntoView({ block: "nearest" });
+      }
     } finally {
       botao.disabled = false;
     }
   };
+  dlg.oncancel = (ev) => {
+    if (!descartar()) ev.preventDefault();
+  };
   dlg.showModal();
+  const corpo = $(".dialogo-corpo", dlg);
+  if (corpo) corpo.scrollTop = 0;
+  focarPrimeiroCampo(form);
+}
+
+// Enter salva o diálogo (Ctrl+Enter também dentro de textos longos); no campo de CNPJ, Enter consulta.
+// Sem isto, o Enter do formulário acionaria o primeiro botão, que é o "Cancelar".
+document.addEventListener("keydown", (ev) => {
+  if (ev.key !== "Enter" || ev.defaultPrevented || ev.shiftKey || ev.altKey) return;
+  const el = ev.target;
+  const form = el.closest?.("dialog form");
+  if (!form || el.tagName === "BUTTON" || el.type === "file") return;
+  if (el.tagName === "TEXTAREA" && !ev.ctrlKey) return;
+  ev.preventDefault();
+  const consultar = !ev.ctrlKey && el.closest(".com-botao")?.querySelector("[data-consultar-cnpj]");
+  if (consultar) return consultar.click();
+  form.requestSubmit(form.querySelector('button[value="salvar"]'));
+});
+
+// Campos obrigatórios: asterisco na legenda (o leitor de tela já anuncia "obrigatório" pelo atributo).
+for (const el of $$("[required]")) {
+  if (el.id) document.querySelector(`label[for="${el.id}"]`)?.classList.add("obrigatorio");
 }
 
 // ---------------------------------------------------------------- trava (senha mestra)
@@ -582,6 +876,10 @@ function montarPedido() {
 
 $("#revisar").addEventListener("click", async () => {
   $("#resultado").hidden = true;
+  const formulario = $('section[data-tela="emitir"] .cartao');
+  limparErros(formulario);
+  const erros = validarCampos(formulario);
+  if (erros.length) return mostrarErros(erros);
   let pedido;
   try {
     pedido = montarPedido();
@@ -854,7 +1152,7 @@ function cancelarNota(n) {
   $("form", dlg).reset();
   abrirDialogo(dlg, $("#erro-cancelar"), async (d) => {
     const justificativa = d.justificativa.trim();
-    if (justificativa.length < 15) throw "A justificativa precisa ter pelo menos 15 caracteres.";
+    if (justificativa.length < 15) throw new ErroCampo("justificativa", "Escreva pelo menos 15 caracteres.");
     await chamar("cancelar", { nfseId: n.nfse_id, motivo: d.motivo, justificativa });
     toast(`NFS-e ${n.numero_nfse ?? ""} cancelada.`);
     await carregarNotas();
@@ -1423,16 +1721,8 @@ function editarTomador(dto, depois, { empresaId = estado.empresa?.id, documento 
     if (vazio(d.email)) tomador.email = vazio(d.email);
     const temEndereco = [d.cep, d.municipio, d.logradouro, d.numero, d.bairro].some((v) => vazio(v));
     if (temEndereco) {
-      const faltando = [
-        ["CEP", d.cep],
-        ["município", d.municipio],
-        ["logradouro", d.logradouro],
-        ["bairro", d.bairro],
-      ]
-        .filter(([, v]) => !vazio(v))
-        .map(([k]) => k);
-      if (faltando.length) throw `Endereço incompleto: falta ${faltando.join(", ")}.`;
-      if (soDigitos(d.municipio).length !== 7) throw "Município: informe o código IBGE com 7 dígitos.";
+      const faltando = ["cep", "municipio", "logradouro", "bairro"].find((campo) => !vazio(d[campo]));
+      if (faltando) throw new ErroCampo(faltando, "Endereço começado: preencha também este campo.");
       tomador.endereco = {
         municipio: soDigitos(d.municipio),
         cep: soDigitos(d.cep),
@@ -1652,7 +1942,7 @@ function editarServico(s) {
     let total_tributos = "nao_informado";
     if (d.tot_tipo === "percentual_simples") {
       const p = percentualDigitado(d.tot_sn);
-      if (p == null) throw "Informe o percentual do Simples Nacional (ou escolha \"Não informar\").";
+      if (p == null) throw new ErroCampo("tot_sn", 'Informe o percentual do Simples (ou escolha "Não informar").');
       total_tributos = { percentual_simples: p };
     } else if (d.tot_tipo === "percentuais") {
       total_tributos = {
@@ -1787,18 +2077,18 @@ function editarEmpresa(empresa) {
     });
   }
   abrirDialogo(dlg, $("#erro-empresa"), async (d) => {
-    if (d.simples === "me_epp" && !d.apuracao) throw "Para ME/EPP optante, escolha a forma de apuração.";
+    if (d.simples === "me_epp" && !d.apuracao) throw new ErroCampo("apuracao", "Para ME/EPP optante, escolha a forma de apuração.");
     const regime = { simples: d.simples, regime_especial: Number(d.regime_especial) };
     if (d.simples === "me_epp") regime.apuracao_simples = d.apuracao;
     const dados = {
-      cnpj: empresa ? empresa.cnpj : d.cnpj,
+      cnpj: empresa ? empresa.cnpj : d.cnpj.replace(/[^0-9A-Za-z]/g, "").toUpperCase(),
       nome: d.nome.trim(),
       inscricao_municipal: vazio(d.im),
       municipio_emissor: soDigitos(d.municipio),
       regime,
       ambiente: d.ambiente,
       serie: d.serie,
-      telefone: vazio(d.telefone),
+      telefone: vazio(soDigitos(d.telefone)),
       email: vazio(d.email),
     };
     const vaiParaProducao = d.ambiente === "producao" && empresa?.ambiente !== "producao";
@@ -1874,7 +2164,7 @@ function editarNumeracao(empresa) {
   abrirDialogo(dlg, $("#erro-numeracao"), async (d) => {
     if (vazio(d.proximo)) {
       const proximo = Number(d.proximo);
-      if (!Number.isInteger(proximo) || proximo < 1) throw "Próximo número inválido.";
+      if (!Number.isInteger(proximo) || proximo < 1) throw new ErroCampo("proximo", "Número inteiro, maior que zero.");
       if (!confirm(`Próxima DPS da série ${empresa.serie} será a nº ${proximo}. Confirma?`)) throw "Não confirmado.";
       await chamar("definir_proximo_numero", {
         empresaId: empresa.id,
@@ -1973,7 +2263,18 @@ function lerConfigEmail() {
   };
 }
 
+/** Confere os campos do e-mail (e, no teste, o destinatário); devolve false e marca o erro se algo está errado. */
+function emailConfigOk(...extras) {
+  const form = $("#form-email");
+  limparErros(form);
+  for (const el of extras) limparErro(el);
+  const erros = [...validarCampos(form), ...extras.flatMap((el) => validarCampos(el.parentElement).filter((e) => e.el === el))];
+  if (erros.length) mostrarErros(erros);
+  return !erros.length;
+}
+
 $("#salvar-email").addEventListener("click", async () => {
+  if (!emailConfigOk()) return;
   try {
     await chamar("salvar_email", lerConfigEmail());
     toast("Configuração de e-mail salva.");
@@ -1984,8 +2285,8 @@ $("#salvar-email").addEventListener("click", async () => {
 });
 
 $("#testar-email").addEventListener("click", async () => {
+  if (!emailConfigOk($("#email-teste"))) return;
   const para = $("#email-teste").value.trim();
-  if (!para) return toast("Informe para quem enviar o teste.", true);
   const botao = $("#testar-email");
   botao.disabled = true;
   botao.textContent = "Enviando...";
