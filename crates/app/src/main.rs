@@ -3,6 +3,7 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod cep;
 mod cnpj;
 mod comandos;
 
@@ -110,6 +111,7 @@ fn main() {
             comandos::destinatarios_email,
             comandos::enviar_email,
             comandos::consultar_cnpj,
+            comandos::consultar_cep,
             comandos::versao_app,
             comandos::procurar_atualizacao,
             comandos::instalar_atualizacao,

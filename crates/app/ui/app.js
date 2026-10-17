@@ -2046,6 +2046,63 @@ ligarConsultaCnpj(
   },
 );
 
+// ---------------------------------------------------------------- consulta de CEP
+
+/**
+ * Ao sair do campo de CEP com 8 dígitos, consulta o CEP e chama `preencher(dados)`.
+ * `aviso` (opcional) mostra a cidade encontrada ou "consultando...".
+ */
+function ligarConsultaCep(campo, preencher, aviso) {
+  campo.addEventListener("change", async () => {
+    const cep = soDigitos(campo.value);
+    if (cep.length !== 8) return;
+    if (aviso) aviso.textContent = "Consultando o CEP...";
+    try {
+      const d = await chamar("consultar_cep", { cep });
+      if (soDigitos(campo.value) !== cep) return; // o operador já trocou o CEP
+      preencher(d);
+      if (aviso) aviso.textContent = d.municipio_nome ? `${d.municipio_nome}/${d.uf ?? ""}` : "";
+      if (!d.logradouro) toast("CEP geral da cidade: preencha logradouro e bairro.");
+    } catch (e) {
+      if (aviso) aviso.textContent = "";
+      toast(String(e), true);
+    }
+  });
+  campo.addEventListener("input", () => {
+    if (aviso) aviso.textContent = "";
+  });
+}
+
+ligarConsultaCep(
+  $("#obra-cep"),
+  (d) => {
+    for (const [id, valor] of [
+      ["#obra-logradouro", d.logradouro],
+      ["#obra-bairro", d.bairro],
+      ["#obra-complemento", d.complemento],
+    ]) {
+      if (valor) $(id).value = valor;
+    }
+    $(d.logradouro ? "#obra-numero" : "#obra-logradouro").focus();
+  },
+  $("#obra-cep-cidade"),
+);
+
+ligarConsultaCep(
+  $("#form-tomador").elements.cep,
+  (d) => {
+    const form = $("#form-tomador");
+    copiarSeVeio(form, [
+      ["municipio", d.municipio],
+      ["logradouro", d.logradouro],
+      ["complemento", d.complemento],
+      ["bairro", d.bairro],
+    ]);
+    form.elements[d.logradouro ? "numero" : "logradouro"].focus();
+  },
+  $("#dlg-tomador [data-municipio-nome]"),
+);
+
 $("#form-tomador").elements.municipio.addEventListener("input", () => {
   $("#dlg-tomador [data-municipio-nome]").textContent = "";
 });

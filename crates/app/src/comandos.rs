@@ -937,6 +937,16 @@ pub async fn consultar_cnpj(cnpj: String) -> R<crate::cnpj::DadosCnpj> {
     crate::cnpj::consultar(cnpj.as_str()).await
 }
 
+/// Consulta pública do CEP para sugerir logradouro, bairro e município.
+#[tauri::command]
+pub async fn consultar_cep(cep: String) -> R<crate::cep::DadosCep> {
+    let cep: String = cep.chars().filter(char::is_ascii_digit).collect();
+    if cep.len() != 8 {
+        return Err("CEP com 8 dígitos".into());
+    }
+    crate::cep::consultar(&cep).await
+}
+
 // ---------- notas recorrentes e lote do mês ----------
 
 fn mes_de(mes: &str) -> R<NaiveDate> {
