@@ -28,6 +28,7 @@ const CHAVE_PASTA: &str = "pasta_saida";
 /// Pasta padrão: Documentos\NFS-e do usuário.
 fn pasta_padrao() -> PathBuf {
     let base = std::env::var_os("USERPROFILE")
+        .or_else(|| std::env::var_os("HOME"))
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."));
     base.join("Documents").join("NFS-e")
@@ -41,6 +42,16 @@ async fn pasta_configurada(estado: &Estado) -> R<PathBuf> {
         .map_err(texto)?
         .map(PathBuf::from)
         .unwrap_or_else(pasta_padrao))
+}
+
+/// Abre o arquivo ou pasta com o programa padrão do sistema.
+fn abrir_no_sistema(caminho: &std::path::Path) -> R<()> {
+    let programa = if cfg!(windows) { "explorer" } else { "xdg-open" };
+    std::process::Command::new(programa)
+        .arg(caminho)
+        .spawn()
+        .map(drop)
+        .map_err(|e| format!("não foi possível abrir {}: {e}", caminho.display()))
 }
 
 /// Os dados fiscais só são acessíveis com o cofre aberto pela senha mestra.
@@ -940,11 +951,7 @@ pub async fn abrir_arquivo(estado: State<'_, Estado>, caminho: String) -> R<()> 
             return Err("tipo de arquivo não permitido".into());
         }
     }
-    std::process::Command::new("explorer")
-        .arg(&alvo)
-        .spawn()
-        .map_err(texto)?;
-    Ok(())
+    abrir_no_sistema(&alvo)
 }
 
 /// Abre o PDF (ou, com `pasta = true`, a pasta) da nota.
@@ -966,11 +973,7 @@ pub async fn abrir_nota(estado: State<'_, Estado>, nfse_id: i64, pasta: bool) ->
     if !alvo.exists() {
         return Err(format!("arquivo não encontrado: {}", alvo.display()));
     }
-    std::process::Command::new("explorer")
-        .arg(&alvo)
-        .spawn()
-        .map_err(texto)?;
-    Ok(())
+    abrir_no_sistema(&alvo)
 }
 
 /// Consulta pública do CNPJ para sugerir nome, endereço e contato no cadastro.
@@ -1283,10 +1286,7 @@ async fn gravar_e_abrir_csv(estado: &Estado, nome: &str, conteudo: &str) -> R<St
     // BOM: o Excel abre o CSV em UTF-8 com os acentos certos.
     std::fs::write(&caminho, format!("\u{feff}{conteudo}"))
         .map_err(|e| format!("não foi possível gravar {nome}: {e}"))?;
-    std::process::Command::new("explorer")
-        .arg(&caminho)
-        .spawn()
-        .map_err(texto)?;
+    abrir_no_sistema(&caminho)?;
     Ok(caminho.display().to_string())
 }
 
