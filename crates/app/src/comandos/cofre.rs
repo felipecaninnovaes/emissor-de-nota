@@ -24,6 +24,11 @@ pub async fn situacao_cofre(estado: State<'_, Estado>) -> R<SituacaoCofre> {
     })
 }
 
+/// Logomarca da NFS-e no cabeçalho do DANFSe. O PNG vem do SVG oficial
+/// (`logo-nfse-assinatura-horizontal.svg`), renderizado com a área alargada para o texto caber:
+/// `rsvg-convert -w 1200 logo.svg -o logo-nfse.png`.
+const LOGO_NFSE: &[u8] = include_bytes!("../../assets/logo-nfse.png");
+
 #[derive(Serialize)]
 pub struct Abertura {
     /// Resultado da reconciliação das DPS que ficaram sem desfecho.
@@ -34,6 +39,7 @@ async fn iniciar(estado: &Estado, cofre: nfse_db::Cofre) -> R<Abertura> {
     let pasta = pasta_configurada(estado).await?;
     let emissor = Emissor::novo(estado.banco.clone(), cofre, ConectorSefin)
         .com_versao(concat!("emissor-nfse/", env!("CARGO_PKG_VERSION")))
+        .com_logo(LOGO_NFSE.to_vec())
         .com_pasta(pasta);
     let mut pendencias = Vec::new();
     for (dps_id, resultado) in emissor.reconciliar_pendentes().await.map_err(texto)? {

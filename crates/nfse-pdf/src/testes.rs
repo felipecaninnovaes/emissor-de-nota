@@ -63,6 +63,23 @@ fn gera_pdf_de_uma_pagina() {
 }
 
 #[test]
+fn gera_pdf_com_a_logomarca_da_nfse() {
+    let logo = include_bytes!("../../app/assets/logo-nfse.png").to_vec();
+    let sem = gerar_danfse(NFSE, &Opcoes::default(), &fontes()).unwrap();
+    let com = gerar_danfse(
+        NFSE,
+        &Opcoes {
+            logo_png: Some(logo),
+            ..Opcoes::default()
+        },
+        &fontes(),
+    )
+    .unwrap();
+    assert!(com.starts_with(b"%PDF-"));
+    assert!(com.len() > sem.len(), "a imagem deve entrar no PDF");
+}
+
+#[test]
 fn cancelada_homologacao_e_textos_longos() {
     let longo = NFSE.replace("<tpAmb>1</tpAmb>", "<tpAmb>2</tpAmb>").replace(
         "SERVIÇOS CONTÁBEIS REFERENTE A 09/2026",

@@ -331,7 +331,8 @@ O banco concentra os certificados de todos os clientes: quem copia o arquivo e d
 - **Feito** — Instalador MSI (pt-BR) e CI que gera o instalador (manual ou por tag). Atualização automática pelo `tauri-plugin-updater`. **Pendente** — assinatura de código.
 - Backup automático diário do banco, com teste de restauração.
 - Log de erros exportável para suporte.
-- Logomarca oficial da NFS-e no DANFSe; tabela de municípios IBGE (nome do município do tomador).
+- **Feito** — Logomarca oficial da NFS-e no DANFSe.
+- Tabela de municípios IBGE (nome do município do tomador).
 - Validação da cadeia ICP-Brasil do certificado; cache e fallback da consulta de CNPJ.
 
 **Fase 3 — Pós-emissão e integração**
