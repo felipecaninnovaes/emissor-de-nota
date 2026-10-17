@@ -637,15 +637,18 @@ async function entrar(pendencias) {
       <ul>${pendencias.map((p) => `<li>${esc(p)}</li>`).join("")}</ul></div>`;
   }
   $("#mes-ref").value = mesAnterior();
-  $("#mes-notas").value = mesAtual();
-  $("#mes-lote").value = mesAnterior();
+  $("#mes-notas").value = mesLembrado("mes-notas", mesAtual());
+  $("#mes-lote").value = mesLembrado("mes-lote", mesAnterior());
   $("#mes-planilha").value = mesAnterior();
   await carregarEmpresas();
   await avisarVencimentos();
   if (!estado.empresas.length) {
     irPara("empresas");
     toast("Cadastre a primeira empresa para começar.");
+    return;
   }
+  const ultima = lerPreferencia("tela");
+  if (ultima && ultima !== "emitir" && TELAS.includes(ultima)) irPara(ultima);
 }
 
 async function avisarVencimentos() {
@@ -672,6 +675,7 @@ function irPara(tela, focar = false) {
   }
   for (const s of $$("section[data-tela]")) s.hidden = s.dataset.tela !== tela;
   if (focar) $(`section[data-tela="${tela}"] h1`)?.focus();
+  gravarPreferencia("tela", tela);
   const carregar = {
     notas: carregarNotas,
     lote: carregarLote,
@@ -1027,15 +1031,36 @@ $("#confirmar-emissao").addEventListener("click", async () => {
         ${r.avisos
           .map((a) => `<div class="aviso ${a.startsWith("E-mail enviado") ? "ok" : "atencao"}">${esc(a)}</div>`)
           .join("")}
-        <div class="acoes" style="justify-content:flex-start">
+        <div class="acoes inicio">
           <button class="botao primario" data-abrir="pdf">Abrir PDF</button>
           <button class="botao" data-abrir="pasta">Abrir pasta</button>
+          ${r.avisos.some((a) => a.startsWith("E-mail enviado")) ? "" : `<button class="botao" data-email>Enviar por e-mail</button>`}
+          ${estado.tomador ? `<button class="botao" data-outra title="Mantém o tomador e o serviço; só falta o valor">Emitir outra para este tomador</button>` : ""}
           <button class="botao" data-recorrente title="Cria uma recorrência com este tomador, serviço, valor e descrição">Tornar recorrente</button>
         </div>`;
       res.querySelector('[data-abrir="pdf"]').onclick = () => abrirNota(r.nfse_id, false);
       res.querySelector('[data-abrir="pasta"]').onclick = () => abrirNota(r.nfse_id, true);
       const emitido = estado.pedido;
       const tomadorEmitido = estado.tomador;
+      const nota = {
+        nfse_id: r.nfse_id,
+        numero_nfse: r.numero,
+        tomador: tomadorEmitido?.tomador.nome ?? null,
+        situacao: "autorizada",
+      };
+      const botaoEmail = res.querySelector("[data-email]");
+      if (botaoEmail) botaoEmail.onclick = () => enviarEmailNota(nota);
+      const botaoOutra = res.querySelector("[data-outra]");
+      if (botaoOutra) {
+        botaoOutra.onclick = () => {
+          escolherTomador(tomadorEmitido);
+          $("#servico").value = String(emitido.servico_id);
+          aplicarServico();
+          res.hidden = true;
+          $("#valor").select();
+          $("#valor").focus();
+        };
+      }
       res.querySelector("[data-recorrente]").onclick = () =>
         editarRecorrencia(null, {
           tomador_id: tomadorEmitido?.pessoa_id,
@@ -1081,12 +1106,12 @@ async function carregarNotas() {
   const corpo = $("#lista-notas");
   $("#rodape-notas").innerHTML = "";
   if (!estado.empresa) {
-    corpo.innerHTML = `<tr><td colspan="8" class="vazio">Nenhuma empresa selecionada.</td></tr>`;
+    corpo.innerHTML = linhaVazia(8, "Nenhuma empresa selecionada.", { ir: "empresas", texto: "Cadastrar empresa" });
     return;
   }
   notasCarregadas = await invoke("listar_notas", { empresaId: estado.empresa.id, mes: vazio($("#mes-notas").value) });
   if (!notasCarregadas.length) {
-    corpo.innerHTML = `<tr><td colspan="8" class="vazio">Nenhuma nota neste período.</td></tr>`;
+    corpo.innerHTML = linhaVazia(8, "Nenhuma nota neste período.", { ir: "emitir", texto: "Emitir nota" });
     return;
   }
   corpo.innerHTML = notasCarregadas
@@ -1254,7 +1279,7 @@ let recorrenciasCarregadas = [];
 async function carregarRecorrencias() {
   const corpo = $("#lista-recorrencias");
   if (!estado.empresa) {
-    corpo.innerHTML = `<tr><td colspan="5" class="vazio">Nenhuma empresa selecionada.</td></tr>`;
+    corpo.innerHTML = linhaVazia(5, "Nenhuma empresa selecionada.", { ir: "empresas", texto: "Cadastrar empresa" });
     return;
   }
   recorrenciasCarregadas = await invoke("listar_recorrencias", { empresaId: estado.empresa.id, mes: mesAnterior() });
@@ -1279,7 +1304,10 @@ async function carregarRecorrencias() {
         </tr>`,
         )
         .join("")
-    : `<tr><td colspan="5" class="vazio">Nenhuma recorrência nesta empresa. Crie uma aqui ou use "Tornar recorrente" depois de emitir uma nota.</td></tr>`;
+    : linhaVazia(5, 'Nenhuma recorrência nesta empresa (também dá para usar "Tornar recorrente" depois de emitir).', {
+        clicar: "#nova-recorrencia",
+        texto: "Nova recorrência",
+      });
 }
 
 $("#lista-recorrencias").addEventListener("click", async (ev) => {
@@ -1414,9 +1442,11 @@ function desenharLote() {
   $("#lote-todos").checked = false;
   $("#rodape-lote").innerHTML = "";
   if (!loteCarregado.length) {
-    corpo.innerHTML = `<tr><td colspan="7" class="vazio">Nenhuma recorrência cadastrada${
-      $("#lote-so-empresa").checked ? " nesta empresa" : ""
-    }. Cadastre em "Recorrentes".</td></tr>`;
+    corpo.innerHTML = linhaVazia(
+      7,
+      `Nenhuma recorrência cadastrada${$("#lote-so-empresa").checked ? " nesta empresa" : ""}.`,
+      { ir: "recorrentes", texto: "Cadastrar recorrência" },
+    );
     atualizarBotaoLote();
     return;
   }
@@ -1772,7 +1802,7 @@ let tomadoresCarregados = [];
 async function carregarTomadores() {
   const corpo = $("#lista-tomadores");
   if (!estado.empresa) {
-    corpo.innerHTML = `<tr><td colspan="5" class="vazio">Nenhuma empresa selecionada.</td></tr>`;
+    corpo.innerHTML = linhaVazia(5, "Nenhuma empresa selecionada.", { ir: "empresas", texto: "Cadastrar empresa" });
     return;
   }
   tomadoresCarregados = await invoke("buscar_tomadores", {
@@ -1791,7 +1821,10 @@ async function carregarTomadores() {
         </tr>`,
         )
         .join("")
-    : `<tr><td colspan="5" class="vazio">Nenhum tomador encontrado (a lista mostra até 20; use a busca).</td></tr>`;
+    : linhaVazia(5, "Nenhum tomador encontrado (a lista mostra até 20; use a busca).", {
+        clicar: "#novo-tomador",
+        texto: "Novo tomador",
+      });
 }
 
 let buscaTomadores = 0;
@@ -1964,7 +1997,7 @@ const NOME_RETENCAO = { irrf: "IRRF", csll: "CSLL", cp: "INSS", pis: "PIS", cofi
 async function carregarServicos() {
   const corpo = $("#lista-servicos");
   if (!estado.empresa) {
-    corpo.innerHTML = `<tr><td colspan="6" class="vazio">Nenhuma empresa selecionada.</td></tr>`;
+    corpo.innerHTML = linhaVazia(6, "Nenhuma empresa selecionada.", { ir: "empresas", texto: "Cadastrar empresa" });
     return;
   }
   estado.servicos = await invoke("listar_servicos", { empresaId: estado.empresa.id });
@@ -1992,7 +2025,7 @@ async function carregarServicos() {
           </tr>`;
         })
         .join("")
-    : `<tr><td colspan="6" class="vazio">Nenhum serviço cadastrado para esta empresa.</td></tr>`;
+    : linhaVazia(6, "Nenhum serviço cadastrado para esta empresa.", { clicar: "#novo-servico", texto: "Novo serviço" });
 }
 
 $("#lista-servicos").addEventListener("click", async (ev) => {
@@ -2145,7 +2178,7 @@ async function renderizarEmpresas() {
           </tr>`;
         })
         .join("")
-    : `<tr><td colspan="6" class="vazio">Nenhuma empresa cadastrada.</td></tr>`;
+    : linhaVazia(6, "Nenhuma empresa cadastrada.", { clicar: "#nova-empresa", texto: "Nova empresa" });
 }
 
 $("#lista-empresas").addEventListener("click", (ev) => {
@@ -2443,6 +2476,106 @@ $("#abrir-pasta").addEventListener("click", async () => {
   } catch (e) {
     toast(String(e), true);
   }
+});
+
+// ---------------------------------------------------------------- atalhos e preferências do dia a dia
+
+const TELAS = $$("nav button[data-tela]").map((b) => b.dataset.tela);
+const telaAtual = () => $$("section[data-tela]").find((s) => !s.hidden)?.dataset.tela;
+
+// o atalho aparece no title dos botões e é informado ao leitor de tela
+TELAS.forEach((tela, i) => {
+  const b = $(`nav button[data-tela="${tela}"]`);
+  b.title = `${b.title} (Alt+${i + 1})`;
+  b.setAttribute("aria-keyshortcuts", `Alt+${i + 1}`);
+});
+for (const [sel, texto] of [
+  ["#revisar", "Revisar (Ctrl+Enter)"],
+  ["#confirmar-emissao", "Emitir nota (Ctrl+Enter)"],
+]) {
+  $(sel).title = texto;
+  $(sel).setAttribute("aria-keyshortcuts", "Control+Enter");
+}
+
+/** Ctrl+N: tela de emissão limpa, com o foco na busca do tomador (mantém o serviço escolhido). */
+function novaNota() {
+  irPara("emitir");
+  limparEmissao();
+  $("#termo-tomador").focus();
+}
+
+document.addEventListener("keydown", (ev) => {
+  if ($("#app").hidden || ev.defaultPrevented) return;
+  const emDialogo = !!document.querySelector("dialog[open]");
+  // F5 e Ctrl+R recarregariam a página (e trancariam o sistema): recarregam só a lista da tela
+  if (ev.key === "F5" || (ev.ctrlKey && !ev.altKey && ev.key.toLowerCase() === "r")) {
+    ev.preventDefault();
+    if (!emDialogo && telaAtual()) irPara(telaAtual());
+    return;
+  }
+  if (emDialogo) return;
+  if (ev.altKey && !ev.ctrlKey && /^[1-9]$/.test(ev.key)) {
+    const tela = TELAS[Number(ev.key) - 1];
+    if (tela) {
+      ev.preventDefault();
+      irPara(tela, true);
+    }
+    return;
+  }
+  if (!ev.ctrlKey || ev.altKey || ev.shiftKey) return;
+  const tecla = ev.key.toLowerCase();
+  if (tecla === "n") {
+    ev.preventDefault();
+    novaNota();
+  } else if (tecla === "f") {
+    const busca = $({ emitir: "#termo-tomador", tomadores: "#busca-tomadores" }[telaAtual()] ?? "#nenhum");
+    if (busca?.getClientRects().length) {
+      ev.preventDefault();
+      busca.focus();
+      busca.select();
+    }
+  } else if (ev.key === "Enter" && telaAtual() === "emitir") {
+    // primeiro Enter revisa; com a revisão aberta, o segundo emite
+    ev.preventDefault();
+    const confirmar = $("#confirmar-emissao");
+    if (!$("#revisao").hidden && !confirmar.disabled) confirmar.click();
+    else $("#revisar").click();
+  }
+});
+
+/** Mês escolhido numa tela, lembrado só até o fim do mês corrente (no mês seguinte volta ao padrão). */
+function mesLembrado(chave, padrao) {
+  try {
+    const v = JSON.parse(lerPreferencia(chave) ?? "null");
+    if (v && v.em === mesAtual() && typeof v.mes === "string") return v.mes;
+  } catch {
+    /* preferência ilegível: usa o padrão */
+  }
+  return padrao;
+}
+for (const [campo, chave] of [
+  ["#mes-notas", "mes-notas"],
+  ["#mes-lote", "mes-lote"],
+]) {
+  $(campo).addEventListener("change", (ev) =>
+    gravarPreferencia(chave, JSON.stringify({ mes: ev.target.value, em: mesAtual() })),
+  );
+}
+$("#todas-notas").addEventListener("click", () =>
+  gravarPreferencia("mes-notas", JSON.stringify({ mes: "", em: mesAtual() })),
+);
+
+/** Linha de "nenhum registro" com a ação que resolve: clica num botão da tela ou vai para outra tela. */
+function linhaVazia(colunas, texto, acao) {
+  const alvo = acao?.clicar ? `data-clicar="${acao.clicar}"` : `data-ir="${acao?.ir}"`;
+  const botao = acao ? ` <button type="button" class="botao pequeno" ${alvo}>${esc(acao.texto)}</button>` : "";
+  return `<tr><td colspan="${colunas}" class="vazio">${esc(texto)}${botao}</td></tr>`;
+}
+document.addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-clicar], [data-ir]");
+  if (!b) return;
+  if (b.dataset.clicar) $(b.dataset.clicar)?.click();
+  else irPara(b.dataset.ir, true);
 });
 
 // ---------------------------------------------------------------- aparência (tamanho do texto e densidade)

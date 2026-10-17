@@ -105,7 +105,7 @@ Cada etapa é um commit separado, testado no app real por você antes do próxim
 - `@media (prefers-reduced-motion: reduce)`: rolagem sem animação.
 - Alvos de clique ≥ 24×24px (WCAG 2.5.8): conferir `botao pequeno` e as caixas de marcação das tabelas.
 
-### Etapa 6 — Fluidez do trabalho diário
+### Etapa 6 — Fluidez do trabalho diário · feita em 17/10/2026
 - Atalhos (com lista em Configurações e no `title` dos botões): Alt+1…9 telas, Ctrl+N nova nota, Ctrl+Enter revisar/emitir, Ctrl+F busca da tela, F5 atualizar lista.
 - Lembrar a última tela, o mês escolhido em Notas/Lote e a empresa selecionada.
 - Estados vazios com a ação que resolve ("Nenhum serviço cadastrado — Novo serviço").

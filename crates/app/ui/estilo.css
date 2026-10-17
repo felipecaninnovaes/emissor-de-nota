@@ -554,3 +554,14 @@ input[type="checkbox"] { width: 1rem; height: 1rem; accent-color: var(--caneta);
   .toast { border: 2px solid CanvasText; }
   button.primario, button.perigo.primario { border: 2px solid ButtonText; }
 }
+
+/* ---------- fluidez do dia a dia ---------- */
+.acoes.inicio { justify-content: flex-start; flex-wrap: wrap; }
+.vazio .botao { margin-left: var(--espaco-3); }
+.atalhos { display: grid; grid-template-columns: max-content 1fr; gap: var(--espaco-2) var(--espaco-5); margin: 0; align-items: baseline; }
+.atalhos dt { white-space: nowrap; }
+.atalhos dd { margin: 0; color: var(--tinta-suave); }
+kbd {
+  font-family: var(--font-mono); font-size: 0.75rem; padding: 0.0625rem 0.375rem; border: 1px solid var(--fio-forte);
+  border-bottom-width: 2px; border-radius: var(--raio-fino); background: var(--papel); color: var(--tinta);
+}
