@@ -559,6 +559,23 @@ function focarPrimeiroCampo(raiz) {
  * passam na validação; se lançar ErroCampo, a mensagem vai para o campo; outro erro aparece em
  * `erroEl` e o diálogo continua aberto. Cancelar (ou Esc) com alterações pede confirmação.
  */
+/**
+ * Confirmação própria: o `confirm()` do navegador não funciona em todos os webviews (no Linux e no
+ * macOS devolve "não" sem mostrar nada). Devolve uma promessa de true/false.
+ */
+function confirmar(texto, { ok = "Confirmar", cancelar = "Cancelar" } = {}) {
+  const dlg = $("#dlg-confirmar");
+  $("#confirmar-texto").textContent = texto;
+  $("#confirmar-sim").textContent = ok;
+  $("#confirmar-nao").textContent = cancelar;
+  return new Promise((resolve) => {
+    dlg.addEventListener("close", () => resolve(dlg.returnValue === "sim"), { once: true });
+    dlg.returnValue = "nao";
+    dlg.showModal();
+    $("#confirmar-sim").focus();
+  });
+}
+
 function abrirDialogo(dlg, erroEl, salvar) {
   const form = $("form", dlg);
   erroEl.hidden = true;
@@ -567,14 +584,17 @@ function abrirDialogo(dlg, erroEl, salvar) {
   if (empresa) empresa.textContent = estado.empresa ? `${estado.empresa.nome} — ${estado.empresa.cnpj_formatado}` : "";
   for (const el of $$("[data-contador]", form)) atualizarContador(el);
   const inicial = JSON.stringify(lerForm(form));
-  const descartar = () => JSON.stringify(lerForm(form)) === inicial || confirm("Descartar as alterações feitas?");
+  const mudou = () => JSON.stringify(lerForm(form)) !== inicial;
+  /** Fecha o diálogo; se houve alterações, pergunta antes de descartar. */
+  const descartar = async () => {
+    if (!mudou() || (await confirmar("Descartar as alterações feitas?", { ok: "Descartar", cancelar: "Continuar editando" }))) {
+      dlg.close();
+    }
+  };
 
   form.onsubmit = async (ev) => {
-    if (ev.submitter?.value !== "salvar") {
-      if (!descartar()) ev.preventDefault();
-      return;
-    }
     ev.preventDefault();
+    if (ev.submitter?.value !== "salvar") return descartar();
     erroEl.hidden = true;
     limparErros(form);
     const erros = validarCampos(form);
@@ -596,7 +616,8 @@ function abrirDialogo(dlg, erroEl, salvar) {
     }
   };
   dlg.oncancel = (ev) => {
-    if (!descartar()) ev.preventDefault();
+    ev.preventDefault(); // o Esc passa pela mesma pergunta do botão Cancelar
+    descartar();
   };
   dlg.showModal();
   const corpo = $(".dialogo-corpo", dlg);
@@ -1500,7 +1521,7 @@ $("#lista-recorrencias").addEventListener("click", async (ev) => {
   if (!b) return;
   const r = recorrenciasCarregadas[Number(b.dataset.i)];
   if (b.dataset.acao === "editar") return editarRecorrencia(r);
-  if (!confirm(`Remover a recorrência de ${r.tomador ?? "nota sem tomador"}? As notas já emitidas não mudam.`)) return;
+  if (!(await confirmar(`Remover a recorrência de ${r.tomador ?? "nota sem tomador"}? As notas já emitidas não mudam.`))) return;
   try {
     await chamar("desativar_recorrencia", { id: r.id });
     await carregarRecorrencias();
@@ -1782,7 +1803,7 @@ async function emitirEmSequencia({ itens, andamento, celulaDe, descrever, emitir
 
 /** Confirmação antes de emitir em lote: quantidade, total e quantas em Produção. */
 function confirmarEmissao(quantidade, total, producao, referencia) {
-  return confirm(
+  return confirmar(
     `Emitir ${quantidade} nota(s)${referencia ? ` com referência ${referencia}` : ""}, total R$ ${moeda(
       total.toFixed(2),
     )}?` + (producao ? `\n\n${producao} em PRODUÇÃO (valor fiscal).` : ""),
@@ -1796,7 +1817,7 @@ $("#lote-emitir").addEventListener("click", async () => {
   const [ano, m] = mes.split("-");
   const producao = itens.filter((r) => ambienteDe(r.empresa_id) === "producao").length;
   const total = itens.reduce((soma, r) => soma + Number(r.valor_efetivo ?? 0), 0);
-  if (!confirmarEmissao(itens.length, total, producao, `${m}/${ano}`)) return;
+  if (!(await confirmarEmissao(itens.length, total, producao, `${m}/${ano}`))) return;
 
   loteEmAndamento = true;
   atualizarBotaoLote();
@@ -1963,7 +1984,7 @@ $("#planilha-emitir").addEventListener("click", async () => {
   if (!itens.length) return;
   const producao = itens.filter((it) => ambienteDe(it.empresa_id) === "producao").length;
   const total = itens.reduce((soma, it) => soma + Number(it.valor ?? 0), 0);
-  if (!confirmarEmissao(itens.length, total, producao, null)) return;
+  if (!(await confirmarEmissao(itens.length, total, producao, null))) return;
 
   planilhaEmAndamento = true;
   atualizarBotaoPlanilha();
@@ -2279,7 +2300,7 @@ $("#lista-servicos").addEventListener("click", async (ev) => {
   if (!b) return;
   const s = estado.servicos[Number(b.dataset.i)];
   if (b.dataset.acao === "editar") return editarServico(s);
-  if (!confirm(`Remover o serviço "${s.nome}" da lista? As notas já emitidas não mudam.`)) return;
+  if (!(await confirmar(`Remover o serviço "${s.nome}" da lista? As notas já emitidas não mudam.`))) return;
   try {
     await chamar("desativar_servico", { id: s.id });
     await carregarServicos();
@@ -2612,7 +2633,7 @@ async function excluirEmpresa(empresa) {
     `Excluir ${empresa.nome} (${empresa.cnpj_formatado})?\n\n` +
     "Sem notas emitidas, o cadastro, o certificado e os serviços são apagados.\n" +
     "Com notas emitidas, a empresa só é arquivada e as notas continuam guardadas.";
-  if (!confirm(pergunta)) return;
+  if (!(await confirmar(pergunta))) return;
   try {
     toast(await chamar("excluir_empresa", { empresaId: empresa.id }));
     if (estado.empresa?.id === empresa.id) estado.empresa = null;
@@ -2666,7 +2687,7 @@ function editarEmpresa(empresa) {
     };
     const vaiParaProducao = d.ambiente === "producao" && empresa?.ambiente !== "producao";
     const mudaEmissao = empresa && (d.ambiente !== empresa.ambiente || d.serie.trim() !== empresa.serie);
-    if (vaiParaProducao && !confirm(`${empresa ? "Passar" : "Cadastrar"} ${d.nome.trim()} em PRODUÇÃO? As notas emitidas terão valor fiscal.`)) {
+    if (vaiParaProducao && !(await confirmar(`${empresa ? "Passar" : "Cadastrar"} ${d.nome.trim()} em PRODUÇÃO? As notas emitidas terão valor fiscal.`))) {
       throw "Não confirmado.";
     }
     if (!empresa) {
@@ -2738,7 +2759,7 @@ function editarNumeracao(empresa) {
     if (vazio(d.proximo)) {
       const proximo = Number(d.proximo);
       if (!Number.isInteger(proximo) || proximo < 1) throw new ErroCampo("proximo", "Número inteiro, maior que zero.");
-      if (!confirm(`Próxima DPS da série ${empresa.serie} será a nº ${proximo}. Confirma?`)) throw "Não confirmado.";
+      if (!(await confirmar(`Próxima DPS da série ${empresa.serie} será a nº ${proximo}. Confirma?`))) throw "Não confirmado.";
       await chamar("definir_proximo_numero", {
         empresaId: empresa.id,
         ambiente: empresa.ambiente,
@@ -3086,7 +3107,7 @@ async function instalarAtualizacao() {
   if (loteEmAndamento || planilhaEmAndamento) {
     return toast("Espere terminar a emissão em andamento antes de atualizar.", true);
   }
-  if (!confirm(`Atualizar para a versão ${atualizacao.versao}? O sistema fecha, instala e abre de novo.`)) return;
+  if (!(await confirmar(`Atualizar para a versão ${atualizacao.versao}? O sistema fecha, instala e abre de novo.`))) return;
   const botoes = $$("#instalar-atualizacao, [data-instalar-atualizacao]");
   for (const b of botoes) b.disabled = true;
   mostrarSituacaoAtualizacao("Baixando a atualização...");
