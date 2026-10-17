@@ -14,6 +14,7 @@ pub mod planilha;
 pub mod planilha_servicos;
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use chrono::{DateTime, Datelike, FixedOffset, NaiveDate, Utc};
 
@@ -388,10 +389,10 @@ impl<C: Conector> Emissor<C> {
     }
 
     /// O ambiente vem da DPS quando ela já existe: a empresa pode ter mudado de ambiente depois.
-    async fn conectar(&self, empresa: &Empresa, ambiente: Ambiente) -> Result<(CertificadoA1, C::S), ErroEmissao> {
+    async fn conectar(&self, empresa: &Empresa, ambiente: Ambiente) -> Result<(std::sync::Arc<CertificadoA1>, C::S), ErroEmissao> {
         let cert = self.banco.certificado_ativo(&self.cofre, empresa.id).await?;
         let sefin = self.conector.conectar(&cert, ambiente).map_err(ErroEmissao::Sefin)?;
-        Ok((cert, sefin))
+        Ok((std::sync::Arc::new(cert), sefin))
     }
 
     pub async fn emitir(&self, pedido: &PedidoEmissao) -> Result<ResultadoEmissao, ErroEmissao> {
@@ -457,7 +458,7 @@ impl<C: Conector> Emissor<C> {
         modelo.serie = reserva.serie.clone();
         modelo.numero = reserva.numero;
         let (xml, id) = nfse_xml::gerar_dps(&modelo)?;
-        let assinado = nfse_xml::assinar(&xml, id.as_str(), &cert)?;
+        let assinado = assinar_em_thread(xml, id.as_str().to_owned(), cert.clone()).await?;
         self.banco.registrar_envio(reserva.id, &modelo, &assinado).await?;
 
         match sefin.emitir(&assinado).await {
@@ -865,7 +866,7 @@ impl<C: Conector> Emissor<C> {
             descricao: justificativa.to_owned(),
         };
         let (xml, id) = nfse_xml::gerar_pedido_cancelamento(&pedido)?;
-        let assinado = nfse_xml::assinar(&xml, &id, &cert)?;
+        let assinado = assinar_em_thread(xml, id, cert.clone()).await?;
         // O Id do pedido é fixo por chave e tipo de evento: repetir após falha não duplica.
         let evento = sefin
             .registrar_evento(&nfse.chave, &assinado)
@@ -909,3 +910,11 @@ impl<C: Conector> Emissor<C> {
 
 #[cfg(test)]
 mod testes;
+
+/// A assinatura (C14N + RSA) é CPU-bound: roda fora das threads assíncronas do Tokio.
+async fn assinar_em_thread(xml: String, id: String, cert: Arc<CertificadoA1>) -> Result<String, ErroEmissao> {
+    match tokio::task::spawn_blocking(move || nfse_xml::assinar(&xml, &id, cert.as_ref())).await {
+        Ok(assinado) => Ok(assinado?),
+        Err(e) => std::panic::resume_unwind(e.into_panic()),
+    }
+}
