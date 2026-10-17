@@ -168,7 +168,12 @@ pub fn federais_da_nota(t: &nfse_db::servicos::Tributacao, valor: Valor) -> nfse
     let mut f = t.federais.clone();
     let aplicar = |p: Option<nfse_core::Percentual>| p.map(|p| valor.aplicar(p));
     f.retencao_irrf = aplicar(r.irrf).or(f.retencao_irrf);
-    f.retencao_csll = aplicar(r.csll).or(f.retencao_csll);
+    // NT 007/2026: PIS, COFINS e CSLL retidos vão somados em vRetCSLL (o tpRetPisCofins diz quais
+    // entram); vPis/vCofins são débito de apuração própria e não entram no vTotalRet nem no vLiq.
+    let retidos: Vec<Valor> = [r.csll, r.pis, r.cofins].into_iter().filter_map(aplicar).collect();
+    if !retidos.is_empty() {
+        f.retencao_csll = Some(Valor::de_centesimos(retidos.iter().map(|v| v.centesimos()).sum()));
+    }
     f.retencao_cp = aplicar(r.cp).or(f.retencao_cp);
     if r.pis.is_some() || r.cofins.is_some() {
         let pc = f.pis_cofins.get_or_insert_with(|| nfse_core::modelo::PisCofins {
@@ -180,13 +185,35 @@ pub fn federais_da_nota(t: &nfse_db::servicos::Tributacao, valor: Valor) -> nfse
             valor_cofins: None,
             tipo_retencao: None,
         });
-        pc.base_calculo = Some(valor);
-        pc.aliquota_pis = r.pis;
-        pc.aliquota_cofins = r.cofins;
-        pc.valor_pis = aplicar(r.pis);
-        pc.valor_cofins = aplicar(r.cofins);
+        // Retido não é débito próprio: vPis/vCofins saem da base do IBS/CBS na Sefin, e repetir
+        // aqui o que já está em vRetCSLL reduz a base duas vezes (nota real: base = valor − ISS).
+        pc.base_calculo = None;
+        pc.aliquota_pis = None;
+        pc.aliquota_cofins = None;
+        pc.valor_pis = None;
+        pc.valor_cofins = None;
+    }
+    // Com retenção percentual no serviço, o tipo sai dela (e não do que ficou no cadastro).
+    if (r.pis.is_some() || r.cofins.is_some() || r.csll.is_some())
+        && let Some(pc) = f.pis_cofins.as_mut()
+    {
+        pc.tipo_retencao = Some(tipo_retencao_pis_cofins(r.pis.is_some(), r.cofins.is_some(), r.csll.is_some()));
     }
     f
+}
+
+/// `tpRetPisCofins` para a combinação de tributos retidos.
+fn tipo_retencao_pis_cofins(pis: bool, cofins: bool, csll: bool) -> u8 {
+    match (pis, cofins, csll) {
+        (false, false, false) => 0,
+        (true, true, true) => 3,
+        (true, true, false) => 4,
+        (true, false, false) => 5,
+        (false, true, false) => 6,
+        (false, true, true) => 7,
+        (false, false, true) => 8,
+        (true, false, true) => 9,
+    }
 }
 
 /// Monta o modelo da DPS a partir dos cadastros. O número é provisório até a reserva.

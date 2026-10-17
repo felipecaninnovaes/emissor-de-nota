@@ -25,8 +25,8 @@ pub struct Tributacao {
     pub retencoes: RetencoesPercentuais,
 }
 
-/// Alíquotas de retenção do serviço. Na emissão viram valores (`vRetIRRF`, `vRetCSLL`, `vRetCP`,
-/// `vPis`/`vCofins` com base no valor do serviço), arredondados ao centavo.
+/// Alíquotas de retenção do serviço. Na emissão viram valores (`vRetIRRF`, `vRetCP` e `vRetCSLL`,
+/// este com PIS + COFINS + CSLL retidos, NT 007/2026), arredondados ao centavo.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct RetencoesPercentuais {
     #[serde(default, skip_serializing_if = "Option::is_none")]

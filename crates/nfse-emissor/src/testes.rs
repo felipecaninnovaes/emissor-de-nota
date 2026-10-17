@@ -245,12 +245,66 @@ fn retencoes_percentuais_viram_valores() {
     };
     let f = federais_da_nota(&t, Valor::parse("1234.56").unwrap());
     assert_eq!(f.retencao_irrf.unwrap().to_string(), "18.52");
-    assert_eq!(f.retencao_csll.unwrap().to_string(), "12.35");
+    // vRetCSLL = CSLL 12,35 + PIS 8,02 + COFINS 37,04 (NT 007/2026)
+    assert_eq!(f.retencao_csll.unwrap().to_string(), "57.41");
     assert_eq!(f.retencao_cp, None);
     let pc = f.pis_cofins.unwrap();
-    assert_eq!(pc.base_calculo.unwrap().to_string(), "1234.56");
-    assert_eq!(pc.valor_pis.unwrap().to_string(), "8.02");
-    assert_eq!(pc.valor_cofins.unwrap().to_string(), "37.04");
+    // retido vai só em vRetCSLL: sem base nem valores de apuração própria (não reduz a base do IBS/CBS)
+    assert_eq!(pc.base_calculo, None);
+    assert_eq!((pc.valor_pis, pc.valor_cofins), (None, None));
+    assert_eq!((pc.aliquota_pis, pc.aliquota_cofins), (None, None));
+    // PIS, COFINS e CSLL retidos: sem isso a Sefin não os desconta do valor líquido.
+    assert_eq!(pc.tipo_retencao, Some(3));
+}
+
+/// Nota real de 17/10/2026: 7.000,00 com IR 1,5%, PIS 0,65%, COFINS 3% e CSLL 1% deve dar líquido 6.569,50.
+#[test]
+fn retencoes_somam_no_valor_liquido() {
+    let p = |v: &str| Some(Percentual::parse(v).unwrap());
+    let t = Tributacao {
+        retencoes: nfse_db::servicos::RetencoesPercentuais {
+            irrf: p("1.5"),
+            csll: p("1"),
+            cp: None,
+            pis: p("0.65"),
+            cofins: p("3"),
+        },
+        ..Default::default()
+    };
+    let f = federais_da_nota(&t, Valor::parse("7000").unwrap());
+    // vTotalRet da Sefin = vRetCP + vRetIRRF + vRetCSLL
+    let total: i64 = [f.retencao_cp, f.retencao_irrf, f.retencao_csll]
+        .into_iter()
+        .flatten()
+        .map(|v| v.centesimos())
+        .sum();
+    assert_eq!(f.retencao_csll.unwrap().to_string(), "325.50");
+    assert_eq!(Valor::de_centesimos(700_000 - total).to_string(), "6569.50");
+}
+
+#[test]
+fn tipo_de_retencao_segue_os_percentuais() {
+    let p = |v: &str| Some(Percentual::parse(v).unwrap());
+    let mut t = Tributacao::default();
+    // cadastro com "não retidos" e PIS/COFINS retidos nos percentuais
+    t.federais.pis_cofins = Some(nfse_core::modelo::PisCofins {
+        cst: "01".into(),
+        base_calculo: None,
+        aliquota_pis: None,
+        aliquota_cofins: None,
+        valor_pis: None,
+        valor_cofins: None,
+        tipo_retencao: Some(0),
+    });
+    t.retencoes.pis = p("0.65");
+    t.retencoes.cofins = p("3");
+    let tipo = |t: &Tributacao| federais_da_nota(t, Valor::parse("1000").unwrap()).pis_cofins.unwrap().tipo_retencao;
+    assert_eq!(tipo(&t), Some(4));
+    t.retencoes.cofins = None;
+    assert_eq!(tipo(&t), Some(5));
+    t.retencoes.pis = None;
+    // sem retenção percentual, vale o tipo do cadastro
+    assert_eq!(tipo(&t), Some(0));
 }
 
 #[tokio::test]
