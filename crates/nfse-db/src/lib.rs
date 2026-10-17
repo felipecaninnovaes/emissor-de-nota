@@ -3,6 +3,7 @@
 //! Um arquivo por máquina (decisão do escopo). As migrações ficam em `migrations/` e rodam
 //! ao abrir o banco.
 
+mod abertura;
 mod ajustes;
 pub mod backup;
 pub mod cofre;
@@ -14,10 +15,9 @@ pub mod recorrencias;
 pub mod servicos;
 pub mod tomadores;
 
-use std::path::Path;
 use std::str::FromStr;
 
-use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous};
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::{Row, SqlitePool};
 
 pub use cofre::{CabecalhoCofre, Cofre, ErroCofre};
@@ -60,33 +60,29 @@ pub struct Banco {
 }
 
 impl Banco {
-    /// Abre (ou cria) o arquivo do banco e aplica as migrações pendentes.
-    pub async fn abrir(caminho: &Path) -> Resultado<Self> {
-        let opcoes = SqliteConnectOptions::new()
-            .filename(caminho)
-            .create_if_missing(true)
-            .journal_mode(SqliteJournalMode::Wal)
-            .synchronous(SqliteSynchronous::Full)
-            .foreign_keys(true)
-            .busy_timeout(std::time::Duration::from_secs(10));
-        Self::conectar(opcoes, 4).await
-    }
-
-    /// Banco temporário em memória (testes).
+    /// Banco temporário em memória (testes). Sem cifra: não há arquivo.
     pub async fn em_memoria() -> Resultado<Self> {
         let opcoes = SqliteConnectOptions::from_str("sqlite::memory:")?.foreign_keys(true);
         // Uma conexão só: cada conexão em memória seria um banco diferente.
-        Self::conectar(opcoes, 1).await
+        let pool = SqlitePoolOptions::new().max_connections(1).connect_with(opcoes).await?;
+        let banco = Self::com_pool(pool);
+        banco.preparar().await?;
+        Ok(banco)
     }
 
-    async fn conectar(opcoes: SqliteConnectOptions, conexoes: u32) -> Resultado<Self> {
-        let pool = SqlitePoolOptions::new()
-            .max_connections(conexoes)
-            .connect_with(opcoes)
-            .await?;
-        sqlx::migrate!("./migrations").run(&pool).await?;
-        ajustes::aplicar(&pool).await?;
-        Ok(Self { pool })
+    pub(crate) fn com_pool(pool: SqlitePool) -> Self {
+        Self { pool }
+    }
+
+    /// Migrações e ajustes de esquema pendentes.
+    pub(crate) async fn preparar(&self) -> Resultado<()> {
+        sqlx::migrate!("./migrations").run(&self.pool).await?;
+        ajustes::aplicar(&self.pool).await
+    }
+
+    /// Fecha as conexões (e com elas o acesso ao arquivo cifrado).
+    pub async fn fechar(&self) {
+        self.pool.close().await;
     }
 
     pub(crate) fn pool(&self) -> &SqlitePool {
@@ -114,52 +110,12 @@ impl Banco {
         Ok(())
     }
 
-    pub async fn cofre_existe(&self) -> Resultado<bool> {
-        Ok(self.configuracao("cofre").await?.is_some())
-    }
-
-    /// Cria o cofre no primeiro uso. Recusa se já existir (trocar a senha exige recifrar tudo).
-    pub async fn criar_cofre(&self, senha: &str) -> Resultado<Cofre> {
-        if self.cofre_existe().await? {
-            return Err(ErroBanco::Regra(
-                "o cofre já foi criado; use a senha mestra existente".into(),
-            ));
-        }
-        let senha = senha.to_owned();
-        let (cofre, cabecalho) = tokio::task::spawn_blocking(move || Cofre::criar(&senha))
-            .await
-            .map_err(|e| ErroBanco::Regra(format!("falha ao criar o cofre: {e}")))??;
-        self.gravar_cabecalho(&cabecalho).await?;
-        Ok(cofre)
-    }
-
-    /// Cofre com Argon2 leve, só para testes (aqui e nos crates que usam o banco).
+    /// Cofre com Argon2 leve para os testes dos crates que usam o banco em memória. Não grava
+    /// o cabeçalho: quem precisa de arquivo usa [`Banco::criar_protegido_rapido`].
     #[cfg(any(test, feature = "teste"))]
     pub async fn criar_cofre_rapido(&self, senha: &str) -> Resultado<Cofre> {
-        let (cofre, cabecalho) = Cofre::criar_com(senha, 1024, 1, 1)?;
-        self.gravar_cabecalho(&cabecalho).await?;
+        let (cofre, _) = Cofre::criar_com(senha, 1024, 1, 1)?;
         Ok(cofre)
-    }
-
-    async fn gravar_cabecalho(&self, cabecalho: &CabecalhoCofre) -> Resultado<()> {
-        sqlx::query("INSERT INTO configuracao (chave, valor) VALUES ('cofre', ?)")
-            .bind(json(cabecalho))
-            .execute(&self.pool)
-            .await?;
-        self.auditar("cofre_criado", None, None).await
-    }
-
-    pub async fn abrir_cofre(&self, senha: &str) -> Resultado<Cofre> {
-        let cabecalho = self
-            .configuracao("cofre")
-            .await?
-            .ok_or(ErroBanco::NaoEncontrado("cofre"))?;
-        let cabecalho: CabecalhoCofre = de_json(&cabecalho, "cofre")?;
-        let senha = senha.to_owned();
-        tokio::task::spawn_blocking(move || Cofre::abrir(&senha, &cabecalho))
-            .await
-            .map_err(|e| ErroBanco::Regra(format!("falha ao abrir o cofre: {e}")))?
-            .map_err(Into::into)
     }
 
     pub async fn auditar(&self, acao: &str, empresa_id: Option<i64>, detalhe: Option<&str>) -> Resultado<()> {
@@ -190,40 +146,131 @@ impl Banco {
 mod testes {
     use super::*;
 
-    #[tokio::test]
-    async fn cofre_no_banco() {
-        let banco = Banco::em_memoria().await.unwrap();
-        assert!(!banco.cofre_existe().await.unwrap());
-        let cofre = banco.criar_cofre_rapido("senha-mestra").await.unwrap();
-        let blob = cofre.cifrar(b"x", "c").unwrap();
-        assert!(banco.cofre_existe().await.unwrap());
-        assert!(matches!(
-            banco.criar_cofre("senha-mestra").await,
-            Err(ErroBanco::Regra(_))
-        ));
-        let reaberto = banco.abrir_cofre("senha-mestra").await.unwrap();
-        assert_eq!(reaberto.decifrar(&blob, "c").unwrap().as_slice(), b"x");
-        assert!(matches!(
-            banco.abrir_cofre("errada!!").await,
-            Err(ErroBanco::Cofre(ErroCofre::SenhaIncorreta))
-        ));
-        assert_eq!(banco.auditoria(10).await.unwrap()[0].1, "cofre_criado");
+    fn pasta_temp(nome: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("nfse-db-{nome}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
     }
 
     #[tokio::test]
-    async fn arquivo_em_disco_com_wal() {
-        let dir = std::env::temp_dir().join(format!("nfse-db-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+    async fn cofre_e_banco_cifrado_em_disco() {
+        let dir = pasta_temp("cifrado");
         let caminho = dir.join("emissor.db");
-        {
-            let banco = Banco::abrir(&caminho).await.unwrap();
-            banco.criar_cofre_rapido("senha-mestra").await.unwrap();
-            banco.pool().close().await;
+        assert!(!Banco::cofre_existe(caminho.clone()).await.unwrap());
+        let (banco, cofre) = Banco::criar_protegido_rapido(caminho.clone(), "senha-mestra")
+            .await
+            .unwrap();
+        banco
+            .definir_configuracao("marca", "texto-secreto-no-banco")
+            .await
+            .unwrap();
+        let blob = cofre.cifrar(b"x", "c").unwrap();
+        assert_eq!(banco.auditoria(10).await.unwrap()[0].1, "cofre_criado");
+        banco.fechar().await;
+
+        assert!(Banco::cofre_existe(caminho.clone()).await.unwrap());
+        assert!(matches!(
+            Banco::criar_protegido_rapido(caminho.clone(), "senha-mestra").await,
+            Err(ErroBanco::Regra(_))
+        ));
+        // Nada legível no arquivo, nem no WAL.
+        for arquivo in ["emissor.db", "emissor.db-wal"] {
+            if let Ok(bytes) = std::fs::read(dir.join(arquivo)) {
+                assert!(!bytes.starts_with(b"SQLite format 3"), "{arquivo} em claro");
+                assert!(
+                    !bytes.windows(22).any(|w| w == b"texto-secreto-no-banco"),
+                    "{arquivo} legível"
+                );
+            }
         }
-        let banco = Banco::abrir(&caminho).await.unwrap();
-        assert!(banco.cofre_existe().await.unwrap());
-        banco.pool().close().await;
+
+        assert!(matches!(
+            Banco::abrir_protegido(caminho.clone(), "errada!!".into()).await,
+            Err(ErroBanco::Cofre(ErroCofre::SenhaIncorreta))
+        ));
+        let (banco, reaberto) = Banco::abrir_protegido(caminho.clone(), "senha-mestra".into())
+            .await
+            .unwrap();
+        assert_eq!(reaberto.decifrar(&blob, "c").unwrap().as_slice(), b"x");
+        assert_eq!(
+            banco.configuracao("marca").await.unwrap().as_deref(),
+            Some("texto-secreto-no-banco")
+        );
+        banco.fechar().await;
         // No Windows o -wal/-shm pode continuar preso por alguns instantes; limpeza é só cortesia.
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn cabecalho_de_outro_banco_nao_abre() {
+        let dir = pasta_temp("outro");
+        let (a, _) = Banco::criar_protegido_rapido(dir.join("a.db"), "senha-mestra")
+            .await
+            .unwrap();
+        a.fechar().await;
+        let (b, _) = Banco::criar_protegido_rapido(dir.join("b.db"), "senha-mestra")
+            .await
+            .unwrap();
+        b.fechar().await;
+        std::fs::copy(dir.join("b.cofre"), dir.join("a.cofre")).unwrap();
+        assert!(matches!(
+            Banco::abrir_protegido(dir.join("a.db"), "senha-mestra".into()).await,
+            Err(ErroBanco::Regra(_))
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Banco de versão anterior: SQLite em claro, com o cabeçalho do cofre na tabela `configuracao`.
+    #[tokio::test]
+    async fn converte_banco_em_claro_de_versao_anterior() {
+        let dir = pasta_temp("legado");
+        let caminho = dir.join("emissor.db");
+        let (cofre, cabecalho) = Cofre::criar_com("senha-mestra", 1024, 1, 1).unwrap();
+        let blob = cofre.cifrar(b"certificado", "c").unwrap();
+        {
+            let opcoes = SqliteConnectOptions::new().filename(&caminho).create_if_missing(true);
+            let pool = SqlitePoolOptions::new()
+                .max_connections(1)
+                .connect_with(opcoes)
+                .await
+                .unwrap();
+            let antigo = Banco::com_pool(pool);
+            antigo.preparar().await.unwrap();
+            sqlx::query("INSERT INTO configuracao (chave, valor) VALUES ('cofre', ?)")
+                .bind(json(&cabecalho))
+                .execute(antigo.pool())
+                .await
+                .unwrap();
+            antigo.definir_configuracao("marca", "dado-antigo").await.unwrap();
+            antigo.fechar().await;
+        }
+        assert!(Banco::cofre_existe(caminho.clone()).await.unwrap());
+        assert!(matches!(
+            Banco::abrir_protegido(caminho.clone(), "errada!!".into()).await,
+            Err(ErroBanco::Cofre(ErroCofre::SenhaIncorreta))
+        ));
+        assert!(std::fs::read(&caminho).unwrap().starts_with(b"SQLite format 3"));
+
+        let (banco, reaberto) = Banco::abrir_protegido(caminho.clone(), "senha-mestra".into())
+            .await
+            .unwrap();
+        // Mesma senha, mesma chave dos certificados: nada precisa ser reimportado.
+        assert_eq!(reaberto.decifrar(&blob, "c").unwrap().as_slice(), b"certificado");
+        assert_eq!(
+            banco.configuracao("marca").await.unwrap().as_deref(),
+            Some("dado-antigo")
+        );
+        assert_eq!(banco.configuracao("cofre").await.unwrap(), None);
+        banco.fechar().await;
+        assert!(!std::fs::read(&caminho).unwrap().starts_with(b"SQLite format 3"));
+        assert!(dir.join("emissor.db.legado").exists());
+        assert!(dir.join("emissor.cofre").exists());
+
+        let (banco, _) = Banco::abrir_protegido(caminho.clone(), "senha-mestra".into())
+            .await
+            .unwrap();
+        banco.fechar().await;
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

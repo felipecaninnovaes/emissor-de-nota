@@ -138,10 +138,10 @@ pub(crate) async fn validar_pedido(
 pub async fn previa_dps(estado: State<'_, Estado>, pedido: PedidoDto) -> R<PreviaDto> {
     exigir_cofre(&estado).await?;
     let pedido = pedido.pedido()?;
-    let (dps, empresa, erros) = validar_pedido(&estado.banco, &pedido).await?;
-    let servico = estado.banco.servico(pedido.servico_id).await.map_err(texto)?;
+    let (dps, empresa, erros) = validar_pedido(&estado.banco()?, &pedido).await?;
+    let servico = estado.banco()?.servico(pedido.servico_id).await.map_err(texto)?;
     let tomador = match pedido.tomador {
-        Some(id) => Some(estado.banco.tomador(empresa.id, id).await.map_err(texto)?),
+        Some(id) => Some(estado.banco()?.tomador(empresa.id, id).await.map_err(texto)?),
         None => None,
     };
     let t = &servico.tributacao;

@@ -82,8 +82,9 @@ O banco concentra os certificados de todos os clientes; quem copia o arquivo e d
 - **Feito** — repositório público sem segredos nem dados de clientes (`.gitignore` bloqueia `.pfx`, `.db`, XMLs e `certs/`).
 - **Feito** — integridade: hash do XML autorizado conferido a cada leitura.
 - **Feito** — consulta de CNPJ e CEP: só o documento ou o CEP sai da máquina.
-- **Pendente (LGPD)** — nomes, CPFs, e-mails e valores ficam em claro no `emissor.db`; exportar ou anonimizar tomador PF sem notas.
-- **Feito** — backup cifrado do banco (que contém os XMLs autorizados), automático ao abrir o sistema e manual, com teste de restauração. A criptografia do banco inteiro em repouso (SQLCipher) não foi adotada: o certificado já é cifrado e o resto se protege com criptografia de disco.
+- **Feito** — banco inteiro cifrado em repouso com SQLCipher (chave derivada da senha mestra; [ADR 0013](decisoes/0013-banco-cifrado-sqlcipher.md)): nomes, CPFs, e-mails e valores não ficam legíveis no `emissor.db`.
+- **Pendente (LGPD)** — exportar ou anonimizar tomador PF sem notas. Os XML e PDF da pasta de saída continuam em claro (usar criptografia de disco).
+- **Feito** — backup cifrado do banco (que contém os XMLs autorizados), automático ao abrir o sistema e manual, com teste de restauração. 
 - **Pendente** — exportação ZIP da guarda de XML (confirmar o prazo de guarda com o contador responsável).
 - **Logs**: nunca registrar senha, chave privada ou XML completo.
 

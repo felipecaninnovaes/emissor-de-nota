@@ -54,7 +54,7 @@ Descrição da nota: `aplicar_mes_ref` troca as variáveis (lista em [usuario.md
 
 ## Banco de dados
 
-Um SQLite por máquina (`emissor.db` em `app_data_dir()`), em modo WAL com `synchronous = FULL` ([ADR 0008](decisoes/0008-synchronous-full.md)). Migrações em `crates/nfse-db/migrations/` (`0001` a `0006`), executadas pelo `sqlx::migrate!`. A recriação de tabela que exige desligar chaves estrangeiras roda como ajuste logo após as migrações (`crates/nfse-db/ajustes/`). As migrações têm de ficar em CRLF (`.gitattributes`); ver [desenvolvimento.md](desenvolvimento.md#migrações-do-banco).
+Um SQLite (SQLCipher) por máquina (`emissor.db` em `app_data_dir()`), em modo WAL com `synchronous = FULL` ([ADR 0008](decisoes/0008-synchronous-full.md)). Migrações em `crates/nfse-db/migrations/` (`0001` a `0006`), executadas pelo `sqlx::migrate!`. A recriação de tabela que exige desligar chaves estrangeiras roda como ajuste logo após as migrações (`crates/nfse-db/ajustes/`). As migrações têm de ficar em CRLF (`.gitattributes`); ver [desenvolvimento.md](desenvolvimento.md#migrações-do-banco).
 
 | Tabela | Conteúdo |
 | --- | --- |
@@ -78,11 +78,11 @@ Regras: guardar sempre o XML autorizado original, com hash conferido na leitura;
 
 ## Cofre de certificados
 
-`nfse-db/src/cofre.rs`: a chave AES-256 é derivada da senha mestra com Argon2id; o banco guarda só o sal, os parâmetros e um verificador. Certificados e a senha do SMTP são cifrados com AES-256-GCM, com contexto por registro (`empresa_id:thumbprint:tipo`), e decifrados só em memória. A derivação roda em `spawn_blocking`. A senha mestra não tem recuperação. O botão "Bloquear" descarta a chave e volta à tela de senha.
+`nfse-db/src/cofre.rs`: a chave AES-256 é derivada da senha mestra com Argon2id; o sal, os parâmetros e um verificador (sem segredo) ficam em `emissor.cofre`, ao lado do banco. Dessa chave sai, por SHA-256 com um rótulo, a chave do SQLCipher que cifra o `emissor.db` inteiro (`nfse-db/src/abertura.rs`; [ADR 0013](decisoes/0013-banco-cifrado-sqlcipher.md)). Por isso o `Banco` só existe depois da senha: `Estado.banco` começa vazio e o botão "Bloquear" fecha o banco. Um banco em claro de versão anterior é convertido na primeira abertura (o original fica como `emissor.db.legado`). Certificados e a senha do SMTP são cifrados com AES-256-GCM, com contexto por registro (`empresa_id:thumbprint:tipo`), e decifrados só em memória. A derivação roda em `spawn_blocking`. A senha mestra não tem recuperação. O botão "Bloquear" descarta a chave e volta à tela de senha.
 
 ## Backup cifrado
 
-`nfse-db/src/backup.rs`: `VACUUM INTO` num arquivo temporário do sistema, cifrado em blocos de 1 MiB com a chave do cofre (AES-256-GCM; o AAD amarra o índice do bloco e se é o último, o que detecta truncamento e reordenação) e gravado como `emissor-AAAAMMDD-HHMMSS.nfbk`. O cabeçalho leva o sal e os parâmetros do Argon2 (sem segredo), então a senha mestra abre o backup em outra máquina. O banco já guarda os XMLs autorizados e os eventos, por isso o backup é só o banco. `restaurar_backup` decifra para um arquivo novo e roda `PRAGMA integrity_check`. Comandos em `crates/app/src/comandos/backup.rs`; o automático roda ao abrir o cofre (a cada 20 h, no máximo) e falha só na auditoria.
+`nfse-db/src/backup.rs`: `VACUUM INTO` num arquivo temporário do sistema, cifrado em blocos de 1 MiB com a chave do cofre (AES-256-GCM; o AAD amarra o índice do bloco e se é o último, o que detecta truncamento e reordenação) e gravado como `emissor-AAAAMMDD-HHMMSS.nfbk`. O cabeçalho leva o sal e os parâmetros do Argon2 (sem segredo), então a senha mestra abre o backup em outra máquina. O banco já guarda os XMLs autorizados e os eventos, por isso o backup é só o banco. `restaurar_backup` decifra para um arquivo novo, grava o `.cofre` ao lado e roda `PRAGMA integrity_check`. Comandos em `crates/app/src/comandos/backup.rs`; o automático roda ao abrir o cofre (a cada 20 h, no máximo) e falha só na auditoria.
 
 ## Aplicativo (Tauri)
 

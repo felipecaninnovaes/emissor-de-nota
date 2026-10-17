@@ -7,6 +7,7 @@ Como preparar o ambiente, rodar, testar e alterar o código com segurança. Para
 - Rust 1.88 ou mais novo (`rust-version` do workspace; edição 2024).
 - Windows: o WebView2 (o instalador baixa o bootstrapper). O alvo de distribuição é só Windows (MSI).
 - Linux e macOS: o app compila no Linux (testado), mas não há CI para eles ([problemas conhecidos](#problemas-conhecidos)). No Linux o Tauri precisa dos pacotes de desenvolvimento do WebKitGTK 4.1 e do GTK 3 (`pkg-config --modversion webkit2gtk-4.1 gtk+-3.0` deve responder).
+- Compilador C e Perl (o SQLCipher embutido compila o OpenSSL junto; no Windows o Strawberry Perl que já vem nos runners do GitHub basta). A primeira compilação demora alguns minutos a mais.
 - Para os testes marcados `#[ignore]`: `xmllint` (pacote `libxml2-utils`) e `xmlsec1`.
 - Para gerar o MSI: `cargo install tauri-cli --version "^2" --locked`.
 

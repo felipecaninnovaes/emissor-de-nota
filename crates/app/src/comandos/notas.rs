@@ -35,7 +35,7 @@ pub async fn listar_notas(estado: State<'_, Estado>, empresa_id: i64, mes: Optio
     exigir_cofre(&estado).await?;
     let mes = vazio_para_none(mes);
     Ok(estado
-        .banco
+        .banco()?
         .listar_notas(empresa_id, mes.as_deref())
         .await
         .map_err(texto)?
@@ -160,7 +160,7 @@ pub struct PendenteDto {
 pub async fn pendentes(estado: State<'_, Estado>) -> R<Vec<PendenteDto>> {
     exigir_cofre(&estado).await?;
     Ok(estado
-        .banco
+        .banco()?
         .dps_pendentes()
         .await
         .map_err(texto)?

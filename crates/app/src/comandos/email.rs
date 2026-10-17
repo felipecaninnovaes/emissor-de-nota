@@ -17,7 +17,7 @@ pub struct ConfigEmailDto {
 #[tauri::command]
 pub async fn obter_email(estado: State<'_, Estado>) -> R<ConfigEmailDto> {
     exigir_cofre(&estado).await?;
-    let b = &estado.banco;
+    let b = &estado.banco()?;
     let gravada = b.smtp().await.map_err(texto)?;
     Ok(ConfigEmailDto {
         configurado: gravada.is_some(),
@@ -45,9 +45,9 @@ pub async fn salvar_email(
 ) -> R<()> {
     let guarda = emissor!(estado);
     let cofre = guarda.as_ref().expect("verificado").cofre();
-    estado.banco.definir_smtp(&config).await.map_err(texto)?;
+    estado.banco()?.definir_smtp(&config).await.map_err(texto)?;
     if let Some(senha) = senha.filter(|s| !s.is_empty()) {
-        estado.banco.definir_senha_smtp(cofre, &senha).await.map_err(texto)?;
+        estado.banco()?.definir_senha_smtp(cofre, &senha).await.map_err(texto)?;
     }
     Ok(())
 }
@@ -68,7 +68,7 @@ pub async fn testar_email(estado: State<'_, Estado>, para: String) -> R<()> {
 pub async fn destinatarios_email(estado: State<'_, Estado>, nfse_id: i64) -> R<Vec<String>> {
     exigir_cofre(&estado).await?;
     Ok(estado
-        .banco
+        .banco()?
         .dados_email_nfse(nfse_id)
         .await
         .map_err(texto)?

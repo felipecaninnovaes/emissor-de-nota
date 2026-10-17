@@ -4,7 +4,7 @@ Emissor desktop de NFS-e Padrão Nacional (API Sefin Nacional / ADN) para escrit
 
 - Emite, cancela e consulta notas; gera o DANFSe em PDF e envia XML e PDF por e-mail ao tomador.
 - Notas recorrentes, lote do mês e importação de planilha para convênios.
-- Certificados cifrados no banco local (SQLite) e protegidos por uma senha mestra.
+- Banco local (SQLite) cifrado em repouso com SQLCipher, protegido por uma senha mestra.
 - Atualiza-se sozinho a partir das Releases do GitHub.
 
 Uso interno de um escritório; o código é público e usa licença MIT.

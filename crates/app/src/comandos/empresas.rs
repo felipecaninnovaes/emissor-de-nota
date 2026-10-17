@@ -40,9 +40,9 @@ pub struct CertificadoDto {
 pub async fn listar_empresas(estado: State<'_, Estado>) -> R<Vec<EmpresaDto>> {
     exigir_cofre(&estado).await?;
     let mut lista = Vec::new();
-    for e in estado.banco.empresas().await.map_err(texto)? {
+    for e in estado.banco()?.empresas().await.map_err(texto)? {
         let certificado = estado
-            .banco
+            .banco()?
             .certificado_resumo(e.id)
             .await
             .map_err(texto)?
@@ -104,7 +104,7 @@ impl NovaEmpresaDto {
 pub async fn cadastrar_empresa(estado: State<'_, Estado>, empresa: NovaEmpresaDto) -> R<i64> {
     exigir_cofre(&estado).await?;
     let nova = empresa.empresa()?;
-    Ok(estado.banco.cadastrar_empresa(&nova).await.map_err(texto)?.id)
+    Ok(estado.banco()?.cadastrar_empresa(&nova).await.map_err(texto)?.id)
 }
 
 #[tauri::command]
@@ -112,7 +112,7 @@ pub async fn atualizar_empresa(estado: State<'_, Estado>, empresa_id: i64, empre
     exigir_cofre(&estado).await?;
     let dados = empresa.empresa()?;
     estado
-        .banco
+        .banco()?
         .atualizar_empresa(empresa_id, &dados)
         .await
         .map_err(texto)?;
@@ -129,7 +129,7 @@ pub async fn importar_certificado(
     let guarda = emissor!(estado);
     let cofre = guarda.as_ref().expect("verificado").cofre();
     let info = estado
-        .banco
+        .banco()?
         .importar_certificado(cofre, empresa_id, &pfx, &senha)
         .await
         .map_err(texto)?;
@@ -144,12 +144,14 @@ pub async fn importar_certificado(
 #[tauri::command]
 pub async fn excluir_empresa(estado: State<'_, Estado>, empresa_id: i64) -> R<String> {
     exigir_cofre(&estado).await?;
-    Ok(match estado.banco.excluir_empresa(empresa_id).await.map_err(texto)? {
-        Exclusao::Excluida => "Empresa excluída.".into(),
-        Exclusao::Arquivada { notas } => format!(
-            "Empresa arquivada: ela tem {notas} NFS-e no banco, que continuam guardadas.              Cadastrar o mesmo CNPJ de novo traz a empresa de volta com as notas."
-        ),
-    })
+    Ok(
+        match estado.banco()?.excluir_empresa(empresa_id).await.map_err(texto)? {
+            Exclusao::Excluida => "Empresa excluída.".into(),
+            Exclusao::Arquivada { notas } => format!(
+                "Empresa arquivada: ela tem {notas} NFS-e no banco, que continuam guardadas.              Cadastrar o mesmo CNPJ de novo traz a empresa de volta com as notas."
+            ),
+        },
+    )
 }
 
 #[tauri::command]
@@ -161,7 +163,7 @@ pub async fn definir_im_na_dps(
 ) -> R<()> {
     exigir_cofre(&estado).await?;
     estado
-        .banco
+        .banco()?
         .definir_im_na_dps(empresa_id, ambiente, informar)
         .await
         .map_err(texto)
@@ -177,7 +179,7 @@ pub async fn definir_proximo_numero(
 ) -> R<()> {
     exigir_cofre(&estado).await?;
     estado
-        .banco
+        .banco()?
         .definir_proximo_numero(empresa_id, ambiente, &serie, proximo)
         .await
         .map_err(texto)
@@ -211,7 +213,7 @@ pub struct VencimentoDto {
 pub async fn certificados_vencendo(estado: State<'_, Estado>, dias: i64) -> R<Vec<VencimentoDto>> {
     exigir_cofre(&estado).await?;
     Ok(estado
-        .banco
+        .banco()?
         .certificados_vencendo(dias)
         .await
         .map_err(texto)?

@@ -25,7 +25,7 @@ fn pasta_padrao() -> PathBuf {
 
 pub(crate) async fn pasta_configurada(estado: &Estado) -> R<PathBuf> {
     Ok(estado
-        .banco
+        .banco()?
         .configuracao(CHAVE_PASTA)
         .await
         .map_err(texto)?

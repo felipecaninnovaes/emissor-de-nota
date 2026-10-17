@@ -16,9 +16,36 @@ use nfse_db::Banco;
 use nfse_emissor::{ConectorSefin, Emissor};
 
 pub struct Estado {
-    pub banco: Banco,
+    /// Pasta de dados do aplicativo: banco cifrado, cabeçalho do cofre e aparência.
+    pub dados: PathBuf,
+    /// O banco só abre com a senha mestra (SQLCipher); é `None` até lá e volta a `None` ao bloquear.
+    /// Lock síncrono, segurado só para clonar: nunca atravessa um `await`.
+    banco: std::sync::RwLock<Option<Banco>>,
     /// Preenchido depois que o operador abre o cofre com a senha mestra.
     pub emissor: RwLock<Option<Emissor<ConectorSefin>>>,
+}
+
+impl Estado {
+    pub fn caminho_banco(&self) -> PathBuf {
+        self.dados.join("emissor.db")
+    }
+
+    /// O banco aberto, ou o aviso padrão de que falta a senha mestra.
+    pub fn banco(&self) -> Result<Banco, String> {
+        self.banco
+            .read()
+            .ok()
+            .and_then(|b| b.clone())
+            .ok_or_else(|| "abra o sistema com a senha mestra".to_string())
+    }
+
+    /// Troca o banco aberto e devolve o anterior (para fechá-lo).
+    pub fn trocar_banco(&self, novo: Option<Banco>) -> Option<Banco> {
+        self.banco
+            .write()
+            .ok()
+            .and_then(|mut b| std::mem::replace(&mut *b, novo))
+    }
 }
 
 /// Na primeira abertura (sem tamanho guardado pelo plugin window-state) a janela ocupa 90% da
@@ -56,9 +83,9 @@ fn main() {
             dimensionar_primeira_abertura(app)?;
             let dados: PathBuf = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dados)?;
-            let banco = tauri::async_runtime::block_on(Banco::abrir(&dados.join("emissor.db")))?;
             app.manage(Estado {
-                banco,
+                dados,
+                banco: std::sync::RwLock::new(None),
                 emissor: RwLock::new(None),
             });
             Ok(())

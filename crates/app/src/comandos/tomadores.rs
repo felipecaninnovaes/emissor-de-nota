@@ -34,7 +34,7 @@ impl From<TomadorVinculado> for TomadorDto {
 pub async fn buscar_tomadores(estado: State<'_, Estado>, empresa_id: i64, termo: String) -> R<Vec<TomadorDto>> {
     exigir_cofre(&estado).await?;
     Ok(estado
-        .banco
+        .banco()?
         .buscar_tomadores(empresa_id, &termo)
         .await
         .map_err(texto)?
@@ -55,7 +55,7 @@ pub async fn buscar_tomadores_de_outras_empresas(
         return Ok(vec![]);
     }
     Ok(estado
-        .banco
+        .banco()?
         .buscar_tomadores_de_outras_empresas(empresa_id, &termo)
         .await
         .map_err(texto)?
@@ -68,7 +68,7 @@ pub async fn buscar_tomadores_de_outras_empresas(
 pub async fn vincular_tomador(estado: State<'_, Estado>, empresa_id: i64, pessoa_id: i64) -> R<TomadorDto> {
     exigir_cofre(&estado).await?;
     Ok(estado
-        .banco
+        .banco()?
         .vincular_tomador_cadastrado(empresa_id, pessoa_id)
         .await
         .map_err(texto)?
@@ -86,17 +86,17 @@ pub async fn salvar_tomador(
 ) -> R<i64> {
     exigir_cofre(&estado).await?;
     let id = estado
-        .banco
+        .banco()?
         .salvar_tomador(empresa_id, &tomador, "manual")
         .await
         .map_err(texto)?;
     estado
-        .banco
+        .banco()?
         .definir_emails_tomador(empresa_id, id, vazio_para_none(emails).as_deref(), None)
         .await
         .map_err(texto)?;
     estado
-        .banco
+        .banco()?
         .definir_retencao_tomador(
             empresa_id,
             id,

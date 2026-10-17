@@ -48,6 +48,6 @@ O app consulta `releases/latest/download/latest.json` ao abrir e em Configuraç�
 
 ## Operação
 
-- **Dados**: um `emissor.db` por máquina; o backup cifrado é configurado em Configurações (pasta fora da máquina). Para copiar o banco para outra máquina, copie `emissor.db` e confira as [migrações em CRLF](desenvolvimento.md#migrações-do-banco) e a pasta de saída em Configurações.
+- **Dados**: um `emissor.db` por máquina; o backup cifrado é configurado em Configurações (pasta fora da máquina). Para copiar o banco para outra máquina, copie `emissor.db` **e** `emissor.cofre` (juntos; o banco é cifrado e só abre com a senha mestra) e confira as [migrações em CRLF](desenvolvimento.md#migrações-do-banco) e a pasta de saída em Configurações.
 - **Senha mestra**: não há recuperação. Sem ela, os certificados guardados no banco não podem ser decifrados; é preciso reimportar os `.pfx`.
 - **Notas incertas** (Sefin sem resposta) são reconciliadas ao abrir o sistema ou pelo botão "Verificar".

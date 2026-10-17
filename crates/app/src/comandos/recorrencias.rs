@@ -62,7 +62,7 @@ pub async fn listar_recorrencias(
 ) -> R<Vec<RecorrenciaDto>> {
     exigir_cofre(&estado).await?;
     let data = mes_de(&mes)?;
-    let b = &estado.banco;
+    let b = &estado.banco()?;
     let mut lista = Vec::new();
     for item in b.recorrencias(empresa_id, mes.trim()).await.map_err(texto)? {
         let r = &item.recorrencia;
@@ -137,7 +137,7 @@ pub struct RecorrenciaEntrada {
 pub async fn salvar_recorrencia(estado: State<'_, Estado>, recorrencia: RecorrenciaEntrada) -> R<i64> {
     exigir_cofre(&estado).await?;
     estado
-        .banco
+        .banco()?
         .salvar_recorrencia(&nfse_db::recorrencias::Recorrencia {
             id: recorrencia.id,
             empresa_id: recorrencia.empresa_id,
@@ -154,7 +154,7 @@ pub async fn salvar_recorrencia(estado: State<'_, Estado>, recorrencia: Recorren
 #[tauri::command]
 pub async fn desativar_recorrencia(estado: State<'_, Estado>, id: i64) -> R<()> {
     exigir_cofre(&estado).await?;
-    estado.banco.desativar_recorrencia(id).await.map_err(texto)
+    estado.banco()?.desativar_recorrencia(id).await.map_err(texto)
 }
 
 /// Emite uma recorrência no mês (`AAAA-MM`); o lote chama um item por vez para mostrar o andamento.

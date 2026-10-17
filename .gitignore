@@ -49,3 +49,6 @@ Thumbs.db
 
 # Gerado pelo tauri-build
 /crates/app/gen/
+*.cofre
+*.nfbk
+*.legado

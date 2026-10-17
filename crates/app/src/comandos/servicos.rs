@@ -42,7 +42,7 @@ impl From<Servico> for ServicoDto {
 pub async fn listar_servicos(estado: State<'_, Estado>, empresa_id: i64) -> R<Vec<ServicoDto>> {
     exigir_cofre(&estado).await?;
     Ok(estado
-        .banco
+        .banco()?
         .servicos(empresa_id)
         .await
         .map_err(texto)?
@@ -70,7 +70,7 @@ impl From<ServicoDto> for Servico {
 #[tauri::command]
 pub async fn salvar_servico(estado: State<'_, Estado>, servico: ServicoDto) -> R<i64> {
     exigir_cofre(&estado).await?;
-    estado.banco.salvar_servico(&servico.into()).await.map_err(texto)
+    estado.banco()?.salvar_servico(&servico.into()).await.map_err(texto)
 }
 
 #[derive(Serialize)]
@@ -118,7 +118,7 @@ pub async fn importar_servicos(
         return Err("Escolha ao menos uma empresa.".into());
     }
     let servicos: Vec<Servico> = servicos.into_iter().map(Into::into).collect();
-    let b = &estado.banco;
+    let b = &estado.banco()?;
     let mut resultado = Vec::with_capacity(empresa_ids.len());
     for id in empresa_ids {
         let empresa = b.empresa(id).await.map_err(texto)?;
@@ -157,7 +157,7 @@ pub async fn salvar_modelo_servicos(estado: State<'_, Estado>) -> R<String> {
 #[tauri::command]
 pub async fn exportar_servicos(estado: State<'_, Estado>, empresa_id: i64) -> R<String> {
     exigir_cofre(&estado).await?;
-    let b = &estado.banco;
+    let b = &estado.banco()?;
     let empresa = b.empresa(empresa_id).await.map_err(texto)?;
     let servicos = b.servicos(empresa_id).await.map_err(texto)?;
     if servicos.is_empty() {
@@ -170,5 +170,5 @@ pub async fn exportar_servicos(estado: State<'_, Estado>, empresa_id: i64) -> R<
 #[tauri::command]
 pub async fn desativar_servico(estado: State<'_, Estado>, id: i64) -> R<()> {
     exigir_cofre(&estado).await?;
-    estado.banco.desativar_servico(id).await.map_err(texto)
+    estado.banco()?.desativar_servico(id).await.map_err(texto)
 }

@@ -45,7 +45,7 @@ pub async fn ler_planilha(
     exigir_cofre(&estado).await?;
     let mes_padrao = mes_de(&mes)?;
     let linhas = nfse_emissor::planilha::ler(&nome, &bytes)?;
-    let b = &estado.banco;
+    let b = &estado.banco()?;
     let itens = nfse_emissor::importacao::resolver(b, &linhas, empresa_id, mes_padrao)
         .await
         .map_err(texto)?;

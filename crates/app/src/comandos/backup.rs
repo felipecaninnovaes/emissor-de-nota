@@ -27,12 +27,12 @@ pub async fn obter_backup(estado: State<'_, Estado>) -> R<SituacaoBackup> {
     exigir_cofre(&estado).await?;
     Ok(SituacaoBackup {
         pasta: estado
-            .banco
+            .banco()?
             .configuracao(CHAVE_PASTA_BACKUP)
             .await
             .map_err(texto)?
             .unwrap_or_default(),
-        ultimo: estado.banco.configuracao(CHAVE_ULTIMO_BACKUP).await.map_err(texto)?,
+        ultimo: estado.banco()?.configuracao(CHAVE_ULTIMO_BACKUP).await.map_err(texto)?,
     })
 }
 
@@ -44,7 +44,7 @@ pub async fn definir_pasta_backup(estado: State<'_, Estado>, pasta: String) -> R
         std::fs::create_dir_all(pasta).map_err(|e| format!("não foi possível usar a pasta: {e}"))?;
     }
     estado
-        .banco
+        .banco()?
         .definir_configuracao(CHAVE_PASTA_BACKUP, pasta)
         .await
         .map_err(texto)
@@ -58,7 +58,7 @@ pub async fn fazer_backup(estado: State<'_, Estado>) -> R<String> {
 
 async fn executar(estado: &Estado) -> R<String> {
     let pasta = estado
-        .banco
+        .banco()?
         .configuracao(CHAVE_PASTA_BACKUP)
         .await
         .map_err(texto)?
@@ -67,12 +67,12 @@ async fn executar(estado: &Estado) -> R<String> {
     let guarda = emissor!(estado);
     let emissor = guarda.as_ref().expect("cofre conferido acima");
     let arquivo = estado
-        .banco
+        .banco()?
         .fazer_backup(emissor.cofre(), Path::new(&pasta))
         .await
         .map_err(texto)?;
     estado
-        .banco
+        .banco()?
         .definir_configuracao(CHAVE_ULTIMO_BACKUP, &chrono::Utc::now().to_rfc3339())
         .await
         .map_err(texto)?;
@@ -85,14 +85,14 @@ async fn executar(estado: &Estado) -> R<String> {
 /// Backup automático ao abrir o cofre: só roda com pasta definida e último backup antigo.
 /// Falha não impede o uso do sistema; fica na auditoria.
 pub(crate) async fn automatico(estado: &Estado) {
-    let Ok(Some(pasta)) = estado.banco.configuracao(CHAVE_PASTA_BACKUP).await else {
+    let Ok(banco) = estado.banco() else { return };
+    let Ok(Some(pasta)) = banco.configuracao(CHAVE_PASTA_BACKUP).await else {
         return;
     };
     if pasta.trim().is_empty() {
         return;
     }
-    let ultimo = estado
-        .banco
+    let ultimo = banco
         .configuracao(CHAVE_ULTIMO_BACKUP)
         .await
         .ok()
@@ -102,13 +102,13 @@ pub(crate) async fn automatico(estado: &Estado) {
         return;
     }
     if let Err(e) = executar(estado).await {
-        let _ = estado.banco.auditar("backup_falhou", None, Some(&e)).await;
+        let _ = banco.auditar("backup_falhou", None, Some(&e)).await;
     }
 }
 
 /// Decifra um backup para um arquivo novo e confere a integridade (serve de teste de
 /// restauração). Não substitui o banco em uso: para restaurar de verdade, feche o sistema e
-/// troque o `emissor.db` pelo arquivo gerado.
+/// troque o `emissor.db` e o `emissor.cofre` pelos arquivos gerados.
 #[tauri::command]
 pub async fn restaurar_backup(estado: State<'_, Estado>, arquivo: String, senha: String, destino: String) -> R<()> {
     exigir_cofre(&estado).await?;

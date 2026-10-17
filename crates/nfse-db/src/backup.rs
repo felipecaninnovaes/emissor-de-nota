@@ -13,10 +13,9 @@
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
-use sqlx::{Connection, Row, SqliteConnection};
-
-use crate::cofre::{CabecalhoCofre, Cofre};
-use crate::{Banco, ErroBanco, Resultado, de_json, json};
+use crate::abertura::conferir_integridade;
+use crate::cofre::{CabecalhoCofre, Cofre, gravar_cabecalho};
+use crate::{Banco, ErroBanco, Resultado, json};
 
 const MAGICO: &[u8] = b"NFBK1";
 const TAM_BLOCO: usize = 1024 * 1024;
@@ -56,11 +55,7 @@ impl Banco {
     /// Grava em `pasta` um backup cifrado do banco e devolve o caminho do arquivo. Mantém só as
     /// [`COPIAS_MANTIDAS`] mais recentes.
     pub async fn fazer_backup(&self, cofre: &Cofre, pasta: &Path) -> Resultado<PathBuf> {
-        let cabecalho = self
-            .configuracao("cofre")
-            .await?
-            .ok_or(ErroBanco::NaoEncontrado("cofre"))?;
-        let cabecalho: CabecalhoCofre = de_json(&cabecalho, "cofre")?;
+        let cabecalho = cofre.cabecalho();
         std::fs::create_dir_all(pasta).map_err(erro_io)?;
 
         // Cópia consistente do banco (inclui o que ainda está no WAL). Fica em claro só no
@@ -80,7 +75,7 @@ impl Banco {
         let nome = format!("{PREFIXO}{}.{EXTENSAO}", chrono::Local::now().format("%Y%m%d-%H%M%S"));
         let destino = pasta.join(nome);
         let parcial = ApagarAoSair(pasta.join(format!(".{unico}.parcial")));
-        cifrar_arquivo(cofre, &cabecalho, &copia.0, &parcial.0)?;
+        cifrar_arquivo(cofre, cabecalho, &copia.0, &parcial.0)?;
         std::fs::rename(&parcial.0, &destino).map_err(erro_io)?;
 
         podar(pasta, COPIAS_MANTIDAS);
@@ -139,8 +134,9 @@ fn podar(pasta: &Path, manter: usize) {
 }
 
 /// Abre o backup com a senha mestra e grava o banco decifrado em `destino` (que não pode
-/// existir), conferindo a integridade do SQLite. Serve para restaurar e para testar a restauração.
-/// Não mexe no banco em uso: quem restaura troca o arquivo depois, com o aplicativo fechado.
+/// existir) e o cabeçalho do cofre ao lado dele (`.cofre`), conferindo a integridade do SQLite.
+/// Serve para restaurar e para testar a restauração. Não mexe no banco em uso: quem restaura
+/// troca os dois arquivos depois, com o aplicativo fechado.
 pub async fn restaurar_backup(arquivo: &Path, senha: &str, destino: &Path) -> Resultado<()> {
     if destino.exists() {
         return Err(ErroBanco::Regra(
@@ -149,21 +145,12 @@ pub async fn restaurar_backup(arquivo: &Path, senha: &str, destino: &Path) -> Re
     }
     let (arquivo, senha, alvo) = (arquivo.to_owned(), senha.to_owned(), destino.to_owned());
     let guarda = ApagarAoSair(destino.to_owned());
-    tokio::task::spawn_blocking(move || decifrar_arquivo(&arquivo, &senha, &alvo))
+    let cofre = tokio::task::spawn_blocking(move || decifrar_arquivo(&arquivo, &senha, &alvo))
         .await
         .map_err(|e| ErroBanco::Regra(format!("falha ao restaurar: {e}")))??;
-
-    let mut conexao = SqliteConnection::connect(&format!("sqlite://{}?mode=ro", destino.display())).await?;
-    let resultado: String = sqlx::query("PRAGMA integrity_check")
-        .fetch_one(&mut conexao)
-        .await?
-        .get(0);
-    conexao.close().await?;
-    if resultado != "ok" {
-        return Err(ErroBanco::DadoInvalido(format!(
-            "banco restaurado com problemas: {resultado}"
-        )));
-    }
+    conferir_integridade(destino.to_owned(), Some(cofre.chave_banco_hex().to_string())).await?;
+    // O banco restaurado só abre junto do cabeçalho do cofre.
+    gravar_cabecalho(destino, cofre.cabecalho())?;
     guarda.manter();
     Ok(())
 }
@@ -177,7 +164,7 @@ fn ler_u32(f: &mut std::fs::File) -> Result<Option<usize>, std::io::Error> {
     Ok(Some(u32::from_be_bytes(b) as usize))
 }
 
-fn decifrar_arquivo(arquivo: &Path, senha: &str, alvo: &Path) -> Resultado<()> {
+fn decifrar_arquivo(arquivo: &Path, senha: &str, alvo: &Path) -> Resultado<Cofre> {
     let invalido = || ErroBanco::Regra("arquivo de backup inválido ou corrompido".into());
     let mut f = std::fs::File::open(arquivo).map_err(erro_io)?;
     let mut magico = [0u8; MAGICO.len()];
@@ -211,7 +198,8 @@ fn decifrar_arquivo(arquivo: &Path, senha: &str, alvo: &Path) -> Resultado<()> {
             None => break,
         }
     }
-    saida.sync_all().map_err(erro_io)
+    saida.sync_all().map_err(erro_io)?;
+    Ok(cofre)
 }
 
 fn ler_bloco(f: &mut std::fs::File) -> Result<Option<Vec<u8>>, std::io::Error> {
@@ -237,8 +225,9 @@ mod testes {
     }
 
     async fn banco_em_disco(dir: &Path) -> (Banco, Cofre) {
-        let banco = Banco::abrir(&dir.join("emissor.db")).await.unwrap();
-        let cofre = banco.criar_cofre_rapido("senha-mestra").await.unwrap();
+        let (banco, cofre) = Banco::criar_protegido_rapido(dir.join("emissor.db"), "senha-mestra")
+            .await
+            .unwrap();
         banco.definir_configuracao("marca", "valor-do-teste").await.unwrap();
         (banco, cofre)
     }
@@ -255,15 +244,19 @@ mod testes {
 
         let restaurado = dir.join("restaurado.db");
         restaurar_backup(&arquivo, "senha-mestra", &restaurado).await.unwrap();
-        let outro = Banco::abrir(&restaurado).await.unwrap();
+        // Restaurar = trocar emissor.db e emissor.cofre pelos gerados; aqui o par vira restaurado.db/.cofre.
+        assert!(dir.join("restaurado.cofre").exists());
+        assert!(!std::fs::read(&restaurado).unwrap().starts_with(b"SQLite format 3"));
+        let (outro, _) = Banco::abrir_protegido(restaurado.clone(), "senha-mestra".into())
+            .await
+            .unwrap();
         assert_eq!(
             outro.configuracao("marca").await.unwrap().as_deref(),
             Some("valor-do-teste")
         );
-        assert!(outro.abrir_cofre("senha-mestra").await.is_ok());
         assert_eq!(banco.auditoria(5).await.unwrap()[0].1, "backup_criado");
-        banco.pool().close().await;
-        outro.pool().close().await;
+        banco.fechar().await;
+        outro.fechar().await;
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -303,7 +296,7 @@ mod testes {
                 .await
                 .is_err()
         );
-        banco.pool().close().await;
+        banco.fechar().await;
         let _ = std::fs::remove_dir_all(&dir);
     }
 

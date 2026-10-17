@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use serde::Serialize;
 use tauri::State;
 
+use nfse_db::Banco;
 use nfse_emissor::{ConectorSefin, Emissor};
 
 use super::comum::{CHAVE_PASTA, R, exigir_cofre, pasta_configurada, texto};
@@ -19,7 +20,7 @@ pub struct SituacaoCofre {
 #[tauri::command]
 pub async fn situacao_cofre(estado: State<'_, Estado>) -> R<SituacaoCofre> {
     Ok(SituacaoCofre {
-        existe: estado.banco.cofre_existe().await.map_err(texto)?,
+        existe: Banco::cofre_existe(estado.caminho_banco()).await.map_err(texto)?,
         aberto: estado.emissor.read().await.is_some(),
     })
 }
@@ -36,9 +37,22 @@ pub struct Abertura {
     pendencias: Vec<String>,
 }
 
-async fn iniciar(estado: &Estado, cofre: nfse_db::Cofre) -> R<Abertura> {
+/// Roda a abertura do banco numa thread bloqueante. As migrações do sqlx usam `&mut conexão`, e o
+/// rustc não consegue provar `Send` para isso dentro de um comando do Tauri; ali o futuro nunca
+/// cruza threads, então não precisa ser `Send`.
+async fn em_thread_bloqueante<F, Fut, T>(trabalho: F) -> Result<T, tauri::Error>
+where
+    F: FnOnce() -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = T>,
+    T: Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(move || tauri::async_runtime::block_on(trabalho())).await
+}
+
+async fn iniciar(estado: &Estado, banco: Banco, cofre: nfse_db::Cofre) -> R<Abertura> {
+    estado.trocar_banco(Some(banco.clone()));
     let pasta = pasta_configurada(estado).await?;
-    let emissor = Emissor::novo(estado.banco.clone(), cofre, ConectorSefin)
+    let emissor = Emissor::novo(banco, cofre, ConectorSefin)
         .com_versao(concat!("emissor-nfse/", env!("CARGO_PKG_VERSION")))
         .com_logo(LOGO_NFSE.to_vec())
         .com_pasta(pasta);
@@ -60,21 +74,32 @@ async fn iniciar(estado: &Estado, cofre: nfse_db::Cofre) -> R<Abertura> {
 
 #[tauri::command]
 pub async fn criar_cofre(estado: State<'_, Estado>, senha: String) -> R<Abertura> {
-    let cofre = estado.banco.criar_cofre(&senha).await.map_err(texto)?;
-    iniciar(&estado, cofre).await
+    let caminho = estado.caminho_banco();
+    let (banco, cofre) = em_thread_bloqueante(move || Banco::criar_protegido(caminho, senha))
+        .await
+        .map_err(texto)?
+        .map_err(texto)?;
+    iniciar(&estado, banco, cofre).await
 }
 
 #[tauri::command]
 pub async fn abrir_cofre(estado: State<'_, Estado>, senha: String) -> R<Abertura> {
-    let cofre = estado.banco.abrir_cofre(&senha).await.map_err(texto)?;
-    iniciar(&estado, cofre).await
+    let caminho = estado.caminho_banco();
+    let (banco, cofre) = em_thread_bloqueante(move || Banco::abrir_protegido(caminho, senha))
+        .await
+        .map_err(texto)?
+        .map_err(texto)?;
+    iniciar(&estado, banco, cofre).await
 }
 
-/// Descarta o emissor (e com ele a chave do cofre); a senha mestra volta a ser exigida.
-/// Espera as operações em andamento terminarem, porque elas seguram o emissor em leitura.
+/// Descarta o emissor (e com ele a chave do cofre) e fecha o banco cifrado; a senha mestra volta
+/// a ser exigida. Espera as operações em andamento terminarem, porque elas seguram o emissor em leitura.
 #[tauri::command]
 pub async fn bloquear_cofre(estado: State<'_, Estado>) -> R<()> {
     *estado.emissor.write().await = None;
+    if let Some(banco) = estado.trocar_banco(None) {
+        banco.fechar().await;
+    }
     Ok(())
 }
 
@@ -89,7 +114,7 @@ pub async fn definir_pasta(estado: State<'_, Estado>, pasta: String) -> R<()> {
     let caminho = PathBuf::from(pasta.trim());
     std::fs::create_dir_all(&caminho).map_err(|e| format!("não foi possível usar a pasta: {e}"))?;
     estado
-        .banco
+        .banco()?
         .definir_configuracao(CHAVE_PASTA, &caminho.display().to_string())
         .await
         .map_err(texto)?;

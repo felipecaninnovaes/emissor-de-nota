@@ -34,5 +34,6 @@ O CI roda fmt, clippy e testes no Windows. No Linux, `nfse-nacional::testes::ide
 ## Armadilhas
 
 - `crates/graft/` é cache de ferramenta, sem `Cargo.toml`; está excluída do workspace.
+- O banco é cifrado (SQLCipher): copie sempre `emissor.db` e `emissor.cofre` juntos; sem o `.cofre` ou com outra senha ele não abre. Em `Cargo.toml` do `nfse-db`, a build-dependency do `libsqlite3-sys` (que só vale com o `build.rs` do crate) é necessária no Windows ([ADR 0013](docs/decisoes/0013-banco-cifrado-sqlcipher.md)); não remova.
 - Ao copiar um banco do Windows para outro sistema, a pasta de saída gravada continua com caminho do Windows; trocar em Configurações.
 - A Produção Restrita só aceita contribuintes cadastrados nela (E0084); os testes reais foram em Produção. Nunca emita em Produção sem intenção.

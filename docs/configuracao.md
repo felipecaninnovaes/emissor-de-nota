@@ -19,17 +19,18 @@ Tabela `configuracao` (chave → valor), lida e gravada por `Banco::configuracao
 | Chave | Padrão | Conteúdo |
 | --- | --- | --- |
 | `pasta_saida` | `<USERPROFILE ou HOME>/Documents/NFS-e` | Pasta onde XML e PDF são gravados; alterada em Configurações |
-| `interface_zoom` | `1` | Fator do tamanho do texto: `0.9`, `1`, `1.1`, `1.25`, `1.4` ou `1.5` |
-| `interface_densidade` | `auto` | `auto`, `confortavel` ou `compacta` (a automática fica compacta em janelas com menos de 700 px de altura) |
 | `smtp` | — | JSON com servidor, porta, segurança, usuário, remetente, nome do remetente, assunto, corpo e envio automático depois da emissão |
 | `smtp_senha` | — | Senha do SMTP, cifrada com a chave do cofre (hexadecimal) |
-| `cofre` | criado na primeira abertura | Sal, parâmetros do Argon2 e verificador da senha mestra |
+| `backup_pasta` | — | Pasta do backup cifrado; vazia desliga o backup automático |
+| `backup_ultimo` | — | Data e hora (UTC) do último backup feito com sucesso |
 
 ## Arquivos e pastas
 
 | O quê | Onde |
 | --- | --- |
-| Banco | `app_data_dir()/emissor.db`, com identificador `br.emissor-nfse.app`. No Windows, `%APPDATA%\br.emissor-nfse.app\`; no Linux, `~/.local/share/br.emissor-nfse.app/` |
+| Banco | `app_data_dir()/emissor.db`, cifrado com SQLCipher, com identificador `br.emissor-nfse.app`. No Windows, `%APPDATA%\br.emissor-nfse.app\`; no Linux, `~/.local/share/br.emissor-nfse.app/` |
+| Cabeçalho do cofre | `emissor.cofre`, ao lado do banco: sal, parâmetros do Argon2 e verificador da senha mestra (sem segredo). O banco não abre sem ele; copiar sempre os dois arquivos |
+| Aparência | `aparencia.json`, ao lado do banco: `zoom` (`0.9`, `1`, `1.1`, `1.25`, `1.4` ou `1.5`) e `densidade` (`auto`, `confortavel` ou `compacta`; a automática fica compacta em janelas com menos de 700 px de altura). Fica fora do banco porque é lida antes da senha mestra |
 | Tamanho e posição da janela | `app_config_dir()`, arquivo do plugin `window-state`. Na primeira abertura a janela ocupa 90% da área útil do monitor |
 | XML e PDF das notas | `<pasta_saida>/<EMPRESA - CNPJ>/<AAAA-MM>/` |
 | Certificados reais para a CLI | `certs/` (ignorada pelo git) |
