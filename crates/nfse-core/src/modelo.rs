@@ -172,8 +172,8 @@ pub struct Servico {
 
 /// Códigos de tributação nacional (subitens 07.02.01 a 14.14.04) que exigem o grupo de obra (E0370).
 pub const CODIGOS_COM_OBRA: [&str; 13] = [
-    "070201", "070202", "070401", "070501", "070502", "070601", "070602", "070701", "070801", "071701",
-    "071901", "141403", "141404",
+    "070201", "070202", "070401", "070501", "070502", "070601", "070602", "070701", "070801", "071701", "071901",
+    "141403", "141404",
 ];
 
 pub fn exige_obra(codigo_tributacao_nacional: &str) -> bool {

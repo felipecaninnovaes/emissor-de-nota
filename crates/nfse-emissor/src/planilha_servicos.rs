@@ -285,7 +285,10 @@ fn linha(numero: usize, campos: &BTreeMap<ColunaServico, String>) -> LinhaServic
     {
         let indicador = completar(texto(C::IbsIndicador), 6);
         if indicador.is_none() {
-            erros.push(format!("{}: informe o código de 6 dígitos (ex.: 100301)", C::IbsIndicador.titulo()));
+            erros.push(format!(
+                "{}: informe o código de 6 dígitos (ex.: 100301)",
+                C::IbsIndicador.titulo()
+            ));
         }
         let consumo_pessoal = match texto(C::IbsConsumoPessoal).map(normalizar).as_deref() {
             None | Some("nao" | "n" | "0" | "false") => None,
@@ -540,9 +543,20 @@ mod testes {
                    C;z;171901;;010\r\n";
         let linhas = ler("s.csv", csv.as_bytes()).unwrap();
         let a = linhas[0].servico.tributacao.ibs_cbs.as_ref().unwrap();
-        assert_eq!((a.indicador_operacao.as_str(), a.cst.as_str(), a.classificacao_tributaria.as_str()), ("030101", "000", "000001"));
+        assert_eq!(
+            (
+                a.indicador_operacao.as_str(),
+                a.cst.as_str(),
+                a.classificacao_tributaria.as_str()
+            ),
+            ("030101", "000", "000001")
+        );
         assert_eq!(linhas[1].servico.tributacao.ibs_cbs, None);
-        assert!(linhas[2].erros.iter().any(|e| e.contains("cIndOp")), "{:?}", linhas[2].erros);
+        assert!(
+            linhas[2].erros.iter().any(|e| e.contains("cIndOp")),
+            "{:?}",
+            linhas[2].erros
+        );
     }
 
     #[test]

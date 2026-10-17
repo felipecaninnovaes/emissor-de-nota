@@ -298,7 +298,12 @@ fn tipo_de_retencao_segue_os_percentuais() {
     });
     t.retencoes.pis = p("0.65");
     t.retencoes.cofins = p("3");
-    let tipo = |t: &Tributacao| federais_da_nota(t, Valor::parse("1000").unwrap()).pis_cofins.unwrap().tipo_retencao;
+    let tipo = |t: &Tributacao| {
+        federais_da_nota(t, Valor::parse("1000").unwrap())
+            .pis_cofins
+            .unwrap()
+            .tipo_retencao
+    };
     assert_eq!(tipo(&t), Some(4));
     t.retencoes.cofins = None;
     assert_eq!(tipo(&t), Some(5));

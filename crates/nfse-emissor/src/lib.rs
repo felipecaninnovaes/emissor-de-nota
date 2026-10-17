@@ -197,7 +197,11 @@ pub fn federais_da_nota(t: &nfse_db::servicos::Tributacao, valor: Valor) -> nfse
     if (r.pis.is_some() || r.cofins.is_some() || r.csll.is_some())
         && let Some(pc) = f.pis_cofins.as_mut()
     {
-        pc.tipo_retencao = Some(tipo_retencao_pis_cofins(r.pis.is_some(), r.cofins.is_some(), r.csll.is_some()));
+        pc.tipo_retencao = Some(tipo_retencao_pis_cofins(
+            r.pis.is_some(),
+            r.cofins.is_some(),
+            r.csll.is_some(),
+        ));
     }
     f
 }
