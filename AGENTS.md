@@ -15,7 +15,7 @@ cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-O CI roda fmt, clippy e testes no Windows. No Linux, `nfse-nacional::testes::identidade_mtls_a_partir_do_pfx` falha por causa do ambiente; os outros passam ([docs/desenvolvimento.md](docs/desenvolvimento.md#problemas-conhecidos)).
+O CI roda fmt, clippy e testes no Windows. No Linux, `nfse-nacional::testes::identidade_mtls_a_partir_do_pfx` falha porque o OpenSSL 3 não abre o `.pfx` legado de teste; os outros passam ([docs/desenvolvimento.md](docs/desenvolvimento.md#problemas-conhecidos)).
 
 ## Regras
 

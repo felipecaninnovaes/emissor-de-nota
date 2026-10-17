@@ -72,7 +72,7 @@ Um SQLite por máquina (`emissor.db` em `app_data_dir()`), em modo WAL com `sync
 | `envio_email` | Registro de cada envio |
 | `configuracao`, `auditoria` | Chaves da aplicação ([configuracao.md](configuracao.md)) e log de ações |
 
-<!-- TODO: verificar a lista de tabelas e colunas contra as migrações 0001 a 0006 -->
+O ambiente é gravado como `producao` ou `homologacao` (`homologacao` é a Produção Restrita).
 
 Regras: guardar sempre o XML autorizado original, com hash conferido na leitura; a versão do leiaute vai em cada DPS; o Id da DPS é único por ambiente.
 

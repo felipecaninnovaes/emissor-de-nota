@@ -6,7 +6,7 @@ Como preparar o ambiente, rodar, testar e alterar o código com segurança. Para
 
 - Rust 1.88 ou mais novo (`rust-version` do workspace; edição 2024).
 - Windows: o WebView2 (o instalador baixa o bootstrapper). O alvo de distribuição é só Windows (MSI).
-- Linux e macOS: o app compila e roda, mas não há CI para eles ([problemas conhecidos](#problemas-conhecidos)). No Linux o Tauri precisa das bibliotecas do WebKitGTK <!-- TODO: verificar a lista de pacotes -->.
+- Linux e macOS: o app compila no Linux (testado), mas não há CI para eles ([problemas conhecidos](#problemas-conhecidos)). No Linux o Tauri precisa dos pacotes de desenvolvimento do WebKitGTK 4.1 e do GTK 3 (`pkg-config --modversion webkit2gtk-4.1 gtk+-3.0` deve responder).
 - Para os testes marcados `#[ignore]`: `xmllint` (pacote `libxml2-utils`) e `xmlsec1`.
 - Para gerar o MSI: `cargo install tauri-cli --version "^2" --locked`.
 
@@ -31,7 +31,11 @@ O `target/` de desenvolvimento já chegou a 30 GB. O `Cargo.toml` raiz reduz o d
 
 ## Testes
 
-Os testes ficam junto do código (`#[cfg(test)]`); a Sefin é substituída por um simulado através dos traits `Conector` e `Sefin` (`crates/nfse-emissor/src/testes.rs`). Os certificados de teste são autoassinados, em `crates/nfse-cert/tests/fixtures/` (senha `1234`). Seis testes são `#[ignore]` e rodam com `-- --include-ignored` quando `xmllint` e `xmlsec1` estão no `PATH`.
+Os testes ficam junto do código (`#[cfg(test)]`); a Sefin é substituída por um simulado através dos traits `Conector` e `Sefin` (`crates/nfse-emissor/src/testes.rs`). Os certificados de teste são autoassinados, em `crates/nfse-cert/tests/fixtures/` (senha `1234`). Seis testes são `#[ignore]`: três em `nfse-xml` (exigem `xmllint` ou `xmlsec1` no `PATH`; rodam no CI com `-- --include-ignored`), dois em `crates/app` (`cnpj.rs` e `cep.rs`, consultam a rede) e um em `nfse-cert` que confere `.pfx` reais sem saber a senha:
+
+```bash
+NFSE_PFX_DIR=<pasta com .pfx> cargo test -p nfse-cert -- --ignored pfx_reais
+```
 
 ## Migrações do banco
 
@@ -90,7 +94,7 @@ O repositório é público. **Nunca** versionar certificados reais, senhas, banc
 
 ## Problemas conhecidos
 
-- **`cargo test --workspace` falha no Linux** em `nfse-nacional::testes::identidade_mtls_a_partir_do_pfx` (`Identidade("builder error")`). O teste monta a identidade mTLS com `native-tls` a partir de um `.pfx` legado; no Windows usa o SChannel, no Linux o OpenSSL. Nos demais crates passam 135 testes e 6 ficam ignorados (execução de 17/10/2026, OpenSSL 3.6). <!-- TODO: verificar a causa exata -->
+- **`cargo test --workspace` falha no Linux** em `nfse-nacional::testes::identidade_mtls_a_partir_do_pfx` (`Identidade("builder error")`). O teste monta a identidade mTLS com `native-tls` a partir de `teste-ecnpj-legacy.pfx`, que usa RC2-40; o OpenSSL 3 não abre esse algoritmo sem o provedor `legacy` (`openssl pkcs12 -in teste-ecnpj-legacy.pfx -passin pass:1234 -noout` falha; com `-legacy` passa). No Windows o SChannel aceita. Com `--no-fail-fast`, nos demais crates passam 135 testes e 6 ficam ignorados (execução de 17/10/2026, OpenSSL 3.6).
 - **Sem CI para macOS.** Os nomes das fontes Arial do macOS, a abertura de pastas com `open` e os caminhos não foram confirmados em um Mac.
 - **Banco copiado do Windows** guarda a pasta de saída com caminho do Windows. No Linux e no macOS, troque em Configurações antes de emitir; senão o app cria um diretório com esse nome dentro do diretório atual.
 - **Pasta `crates/graft/`** é cache de ferramenta, sem `Cargo.toml`; o workspace a exclui (`exclude = ["crates/graft"]`).

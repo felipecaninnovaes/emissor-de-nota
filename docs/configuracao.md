@@ -7,7 +7,7 @@ Variáveis de ambiente, opções guardadas pelo aplicativo e locais dos arquivos
 | Variável | Onde é lida | Padrão | Uso |
 | --- | --- | --- | --- |
 | `NFSE_PFX_SENHA` | `nfse-poc` (`crates/nfse-poc/src/main.rs`) | pede no terminal | Senha do `.pfx` nos subcomandos que usam certificado |
-| `NFSE_PFX_DIR` | teste em `crates/nfse-cert/src/lib.rs` | — | Pasta com certificados reais para um teste local <!-- TODO: verificar se o teste é #[ignore] e o que ele espera na pasta --> |
+| `NFSE_PFX_DIR` | teste `pfx_reais_abrem_ate_o_mac` em `crates/nfse-cert/src/lib.rs` (`#[ignore]`) | — | Pasta com arquivos `.pfx` reais, para conferir que abrem até o MAC |
 | `USERPROFILE` | `crates/app/src/comandos/comum.rs` | — | Base da pasta padrão de notas no Windows |
 | `HOME` | idem | — | Base da pasta padrão quando não há `USERPROFILE` (Linux, macOS) |
 | `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | build do MSI e `.github/workflows/instalador.yml` | — | Assinatura do MSI para o atualizador ([deploy.md](deploy.md)) |
@@ -19,13 +19,11 @@ Tabela `configuracao` (chave → valor), lida e gravada por `Banco::configuracao
 | Chave | Padrão | Conteúdo |
 | --- | --- | --- |
 | `pasta_saida` | `<USERPROFILE ou HOME>/Documents/NFS-e` | Pasta onde XML e PDF são gravados; alterada em Configurações |
-| `interface_zoom` | — | Tamanho do texto da interface |
-| `interface_densidade` | `auto` | Densidade: confortável, compacta ou automática (compacta em janelas com menos de 700 px de altura) |
+| `interface_zoom` | `1` | Fator do tamanho do texto: `0.9`, `1`, `1.1`, `1.25`, `1.4` ou `1.5` |
+| `interface_densidade` | `auto` | `auto`, `confortavel` ou `compacta` (a automática fica compacta em janelas com menos de 700 px de altura) |
 | `smtp` | — | JSON com servidor, porta, segurança, usuário, remetente, nome do remetente, assunto, corpo e envio automático depois da emissão |
 | `smtp_senha` | — | Senha do SMTP, cifrada com a chave do cofre (hexadecimal) |
 | `cofre` | criado na primeira abertura | Sal, parâmetros do Argon2 e verificador da senha mestra |
-
-<!-- TODO: verificar os valores aceitos em interface_zoom e o padrão -->
 
 ## Arquivos e pastas
 
