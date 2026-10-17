@@ -369,9 +369,10 @@ impl<C: Conector> Emissor<C> {
     }
 
     /// DANFSe em memória; `None` sem pasta configurada (as fontes são carregadas com ela).
-    fn gerar_pdf(&self, xml: &str, situacao: nfse_pdf::Situacao) -> Result<Option<Vec<u8>>, String> {
+    /// A renderização é CPU-bound: roda numa thread de bloqueio, fora do executor assíncrono.
+    async fn gerar_pdf(&self, xml: &str, situacao: nfse_pdf::Situacao) -> Result<Option<Vec<u8>>, String> {
         let fontes = match &self.fontes {
-            Some(Ok(f)) => f,
+            Some(Ok(f)) => f.clone(),
             Some(Err(e)) => return Err(e.clone()),
             None => return Ok(None),
         };
@@ -379,18 +380,30 @@ impl<C: Conector> Emissor<C> {
             situacao,
             logo_png: self.logo.clone(),
         };
-        nfse_pdf::gerar_danfse(xml, &opcoes, fontes)
+        let xml = xml.to_owned();
+        tokio::task::spawn_blocking(move || nfse_pdf::gerar_danfse(&xml, &opcoes, &fontes))
+            .await
+            .map_err(|e| format!("falha ao gerar o DANFSe: {e}"))?
             .map(Some)
             .map_err(|e| e.to_string())
     }
 
     /// Gera o DANFSe e grava ao lado do XML (mesmo nome, extensão .pdf).
-    fn gravar_pdf(&self, caminho_xml: &std::path::Path, xml: &str, situacao: nfse_pdf::Situacao) -> Result<(), String> {
-        let Some(pdf) = self.gerar_pdf(xml, situacao)? else {
+    async fn gravar_pdf(
+        &self,
+        caminho_xml: &std::path::Path,
+        xml: &str,
+        situacao: nfse_pdf::Situacao,
+    ) -> Result<(), String> {
+        let Some(pdf) = self.gerar_pdf(xml, situacao).await? else {
             return Ok(());
         };
         let caminho = caminho_xml.with_extension("pdf");
-        arquivo::gravar(&caminho, &pdf).map_err(|e| format!("{}: {e}", caminho.display()))
+        tokio::task::spawn_blocking(move || {
+            arquivo::gravar(&caminho, &pdf).map_err(|e| format!("{}: {e}", caminho.display()))
+        })
+        .await
+        .map_err(|e| format!("falha ao gravar o DANFSe: {e}"))?
     }
 
     pub fn banco(&self) -> &Banco {
@@ -554,7 +567,7 @@ impl<C: Conector> Emissor<C> {
                     "a nota foi autorizada, mas não foi gravada em {}: {e}",
                     caminho.display()
                 ));
-            } else if let Err(e) = self.gravar_pdf(&caminho, xml, nfse_pdf::Situacao::Normal) {
+            } else if let Err(e) = self.gravar_pdf(&caminho, xml, nfse_pdf::Situacao::Normal).await {
                 avisos.push(format!("a nota foi autorizada, mas o PDF não foi gerado: {e}"));
             }
         }
@@ -742,7 +755,7 @@ impl<C: Conector> Emissor<C> {
             nfse_pdf::Situacao::Normal
         };
         // Sem PDF (fontes indisponíveis), vai só o XML, que é o documento fiscal.
-        let pdf = self.gerar_pdf(&dados.xml, situacao).ok().flatten();
+        let pdf = self.gerar_pdf(&dados.xml, situacao).await.ok().flatten();
         let (mensagem, assunto) = match email::montar(&cfg, &dados, &destinatarios, pdf) {
             Ok(m) => m,
             Err(e) => {
@@ -909,7 +922,7 @@ impl<C: Conector> Emissor<C> {
                 nfse.numero.as_deref().unwrap_or("sem-numero"),
                 &nfse.chave,
             ));
-            if let Err(e) = self.gravar_pdf(&caminho_xml, &nfse.xml, nfse_pdf::Situacao::Cancelada) {
+            if let Err(e) = self.gravar_pdf(&caminho_xml, &nfse.xml, nfse_pdf::Situacao::Cancelada).await {
                 let aviso = format!("cancelamento registrado, mas o PDF não foi atualizado: {e}");
                 self.banco.auditar("aviso", Some(empresa.id), Some(&aviso)).await?;
             }
