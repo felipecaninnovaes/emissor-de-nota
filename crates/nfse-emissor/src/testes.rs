@@ -693,3 +693,105 @@ async fn planilha_emite_e_nao_repete_ao_reimportar() {
     );
     assert_eq!(c.sefin.recebidos().len(), 2);
 }
+
+/// Carteiro que guarda as mensagens em vez de enviar (ou falha, se pedido).
+#[derive(Default)]
+struct CarteiroTeste {
+    enviadas: Mutex<Vec<String>>,
+    falhar: bool,
+}
+
+impl email::Carteiro for CarteiroTeste {
+    async fn entregar(
+        &self,
+        _cfg: &nfse_db::emails::ConfigSmtp,
+        senha: Option<&str>,
+        mensagem: lettre::Message,
+    ) -> Result<(), String> {
+        assert_eq!(senha, Some("senha-smtp-teste"));
+        if self.falhar {
+            return Err("conexão recusada".into());
+        }
+        self.enviadas
+            .lock()
+            .unwrap()
+            .push(String::from_utf8_lossy(&mensagem.formatted()).into_owned());
+        Ok(())
+    }
+}
+
+async fn configurar_email(c: &Cenario, enviar_ao_emitir: bool) {
+    let banco = c.emissor.banco();
+    banco
+        .definir_smtp(&nfse_db::emails::ConfigSmtp {
+            servidor: "smtp.exemplo.com".into(),
+            porta: 587,
+            seguranca: nfse_db::emails::Seguranca::StartTls,
+            usuario: Some("notas@escritorio.com".into()),
+            remetente: "notas@escritorio.com".into(),
+            nome_remetente: None,
+            assunto: nfse_db::emails::ConfigSmtp::ASSUNTO_PADRAO.into(),
+            corpo: nfse_db::emails::ConfigSmtp::CORPO_PADRAO.into(),
+            enviar_ao_emitir,
+        })
+        .await
+        .unwrap();
+    banco
+        .definir_senha_smtp(c.emissor.cofre(), "senha-smtp-teste")
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn envia_a_nota_por_email_e_registra() {
+    let c = cenario(vec![Resposta::Emitir(Ok(nfse_autorizada()))]).await;
+    let ResultadoEmissao::Autorizada { nfse, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+        panic!()
+    };
+    let carteiro = CarteiroTeste::default();
+    let banco = c.emissor.banco();
+
+    // Sem configuração: avisa e não envia.
+    let erro = c.emissor.enviar_email(nfse.id, &[], &carteiro).await.unwrap_err();
+    assert!(erro.to_string().contains("Configurações"), "{erro}");
+    configurar_email(&c, false).await;
+    assert_eq!(
+        c.emissor.enviar_email_apos_emissao(nfse.id, &carteiro).await,
+        None,
+        "automático desligado"
+    );
+
+    // Tomador sem e-mail de envio: falha registrada.
+    assert!(c.emissor.enviar_email(nfse.id, &[], &carteiro).await.is_err());
+    banco
+        .definir_emails_tomador(
+            c.pedido.empresa_id,
+            c.pedido.tomador.unwrap(),
+            Some("financeiro@cliente.com"),
+            None,
+        )
+        .await
+        .unwrap();
+    let para = c.emissor.enviar_email(nfse.id, &[], &carteiro).await.unwrap();
+    assert_eq!(para, vec!["financeiro@cliente.com"]);
+    let enviada = carteiro.enviadas.lock().unwrap()[0].clone();
+    assert!(enviada.contains("To: financeiro@cliente.com"));
+    assert!(enviada.contains("NFSe-1-"), "anexos com o nome do arquivo da nota");
+
+    let notas = banco.listar_notas(c.pedido.empresa_id, None).await.unwrap();
+    assert!(notas[0].email_enviado_em.is_some());
+
+    // Falha do servidor: erro registrado, e o envio que deu certo continua valendo.
+    let quebrado = CarteiroTeste {
+        falhar: true,
+        ..Default::default()
+    };
+    configurar_email(&c, true).await;
+    let aviso = c.emissor.enviar_email_apos_emissao(nfse.id, &quebrado).await.unwrap();
+    assert!(
+        aviso.contains("não enviado") && aviso.contains("conexão recusada"),
+        "{aviso}"
+    );
+    let aviso = c.emissor.enviar_email_apos_emissao(nfse.id, &carteiro).await.unwrap();
+    assert!(aviso.starts_with("E-mail enviado"), "{aviso}");
+}

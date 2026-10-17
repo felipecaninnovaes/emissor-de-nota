@@ -179,9 +179,7 @@ pub async fn resolver(
                 vincular_tomador = banco.tomador(e.id, id).await.is_err();
             }
         } else {
-            erros.push(format!(
-                "tomador {texto_tomador} não cadastrado"
-            ));
+            erros.push(format!("tomador {texto_tomador} não cadastrado"));
         }
 
         let mut servico = None;

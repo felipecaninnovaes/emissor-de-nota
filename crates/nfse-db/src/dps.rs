@@ -99,6 +99,8 @@ pub struct ResumoNota {
     pub competencia: Option<String>,
     pub tomador: Option<String>,
     pub descricao: Option<String>,
+    /// Último envio por e-mail que deu certo.
+    pub email_enviado_em: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -435,7 +437,8 @@ impl Banco {
     pub async fn listar_notas(&self, empresa_id: i64, mes: Option<&str>) -> Resultado<Vec<ResumoNota>> {
         let linhas = sqlx::query(
             "SELECT d.id, d.serie, d.numero, d.situacao, d.ultimo_erro, d.modelo_json, d.criado_em,
-                    n.id, n.chave, n.numero, n.valor_servico, n.competencia
+                    n.id, n.chave, n.numero, n.valor_servico, n.competencia,
+                    (SELECT MAX(criado_em) FROM envio_email WHERE nfse_id = n.id AND erro IS NULL)
              FROM dps d LEFT JOIN nfse n ON n.dps_id = d.id
              WHERE d.empresa_id = ? AND d.situacao <> 'reservada'
                AND (? IS NULL OR COALESCE(n.competencia, substr(d.criado_em, 1, 10)) LIKE ? || '%')
@@ -467,6 +470,7 @@ impl Banco {
                         .map(Valor::de_centesimos)
                         .or_else(|| modelo.as_ref().map(|m| m.valores.servico)),
                     competencia: r.get(11),
+                    email_enviado_em: r.get(12),
                     tomador: modelo.as_ref().and_then(|m| m.tomador.as_ref()).map(|t| t.nome.clone()),
                     descricao: modelo.map(|m| m.servico.descricao),
                 })

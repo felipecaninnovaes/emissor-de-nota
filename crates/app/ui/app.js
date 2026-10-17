@@ -489,7 +489,9 @@ $("#confirmar-emissao").addEventListener("click", async () => {
     if (r.autorizada) {
       res.innerHTML = `<div class="aviso ok"><strong>NFS-e ${esc(r.numero ?? "")} autorizada.</strong><br>
           Chave: <code>${esc(r.chave)}</code></div>
-        ${r.avisos.length ? `<div class="aviso atencao"><ul>${r.avisos.map((a) => `<li>${esc(a)}</li>`).join("")}</ul></div>` : ""}
+        ${r.avisos
+          .map((a) => `<div class="aviso ${a.startsWith("E-mail enviado") ? "ok" : "atencao"}">${esc(a)}</div>`)
+          .join("")}
         <div class="acoes" style="justify-content:flex-start">
           <button class="botao primario" data-abrir="pdf">Abrir PDF</button>
           <button class="botao" data-abrir="pasta">Abrir pasta</button>
@@ -558,6 +560,9 @@ async function carregarNotas() {
         acoes.push(`<button class="botao pequeno" data-acao="pdf" data-i="${i}">PDF</button>`);
         acoes.push(`<button class="botao pequeno" data-acao="pasta" data-i="${i}">Pasta</button>`);
       }
+      if (n.nfse_id && (n.situacao === "autorizada" || n.situacao === "cancelada")) {
+        acoes.push(`<button class="botao pequeno" data-acao="email" data-i="${i}">E-mail</button>`);
+      }
       if (n.situacao === "autorizada") {
         acoes.push(`<button class="botao pequeno perigo" data-acao="cancelar" data-i="${i}">Cancelar</button>`);
       }
@@ -574,7 +579,9 @@ async function carregarNotas() {
         <td class="truncar" title="${esc(n.tomador)}">${esc(n.tomador ?? "—")}</td>
         <td class="truncar" title="${esc(n.descricao)}">${esc(n.descricao ?? "")}${erro}</td>
         <td class="num">${n.valor ? "R$ " + moeda(n.valor) : ""}</td>
-        <td><span class="selo ${esc(n.situacao)}">${esc(NOME_SITUACAO[n.situacao] ?? n.situacao)}</span></td>
+        <td><span class="selo ${esc(n.situacao)}">${esc(NOME_SITUACAO[n.situacao] ?? n.situacao)}</span>${
+          n.email_enviado_em ? `<div class="ajuda">E-mail enviado ${esc(dataHora(n.email_enviado_em))}</div>` : ""
+        }</td>
         <td><div class="acoes">${acoes.join("")}</div></td>
       </tr>`;
     })
@@ -608,6 +615,8 @@ $("#lista-notas").addEventListener("click", async (ev) => {
       return abrirNota(n.nfse_id, true);
     case "cancelar":
       return cancelarNota(n);
+    case "email":
+      return enviarEmailNota(n);
     case "refazer":
       return refazerNota(n);
     case "verificar":
@@ -646,6 +655,34 @@ async function refazerNota(n) {
   res.innerHTML = `<div class="aviso atencao">${avisos.map(esc).join("<br>")}
     <br>Corrija o que causou a rejeição e clique em Revisar. A nota sai com o próximo número da série.</div>`;
   res.hidden = false;
+}
+
+/** "2026-10-16T22:07:26Z" → "16/10/2026 19:07" (horário local). */
+function dataHora(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const dois = (x) => String(x).padStart(2, "0");
+  return `${dois(d.getDate())}/${dois(d.getMonth() + 1)}/${d.getFullYear()} ${dois(d.getHours())}:${dois(d.getMinutes())}`;
+}
+
+async function enviarEmailNota(n) {
+  let para = [];
+  try {
+    para = await chamar("destinatarios_email", { nfseId: n.nfse_id });
+  } catch (e) {
+    return toast(String(e), true);
+  }
+  const dlg = $("#dlg-email");
+  const form = $("form", dlg);
+  form.reset();
+  $("#email-nota").textContent = `NFS-e ${n.numero_nfse ?? ""} — ${n.tomador ?? "sem tomador"}${
+    n.situacao === "cancelada" ? " (CANCELADA: o e-mail avisa o cancelamento)" : ""
+  }`;
+  form.elements.para.value = para.join("; ");
+  abrirDialogo(dlg, $("#erro-email"), async (d) => {
+    toast(await chamar("enviar_email", { nfseId: n.nfse_id, para: d.para }));
+    await carregarNotas();
+  });
 }
 
 function cancelarNota(n) {
@@ -881,7 +918,9 @@ async function emitirEmSequencia({ itens, andamento, celulaDe, descrever, emitir
     }
     if (resultado.ok && resultado.res.autorizada) {
       contagem.autorizada++;
-      celula.innerHTML = `<span class="selo autorizada">Autorizada nº ${esc(resultado.res.numero ?? "")}</span>`;
+      celula.innerHTML = `<span class="selo autorizada">Autorizada nº ${esc(resultado.res.numero ?? "")}</span>${resultado.res.avisos
+        .map((a) => `<div class="ajuda">${esc(a)}</div>`)
+        .join("")}`;
     } else if (resultado.ok) {
       contagem.incerta++;
       celula.innerHTML = `<span class="selo incerta">Sem resposta</span><div class="ajuda">${esc(resultado.res.motivo)}</div>`;
@@ -1620,6 +1659,7 @@ function editarNumeracao(empresa) {
 
 async function carregarConfiguracoes() {
   $("#pasta-saida").value = await invoke("obter_pasta");
+  await carregarEmail();
   const venc = await invoke("certificados_vencendo", { dias: 60 });
   $("#lista-vencimentos").innerHTML = venc.length
     ? venc
@@ -1656,6 +1696,68 @@ $("#lista-pendentes").addEventListener("click", async (ev) => {
   } catch (e) {
     toast(String(e), true);
     b.disabled = false;
+  }
+});
+
+async function carregarEmail() {
+  const { config, tem_senha } = await invoke("obter_email");
+  const form = $("#form-email");
+  preencherForm(form, { ...config, senha: "", usuario: config.usuario ?? "", nome_remetente: config.nome_remetente ?? "" });
+  $("[data-senha-guardada]", form).hidden = !tem_senha;
+}
+
+$("#form-email").addEventListener("submit", (ev) => ev.preventDefault());
+
+$("#form-email").elements.seguranca.addEventListener("change", (ev) => {
+  const porta = $("#form-email").elements.porta;
+  porta.value = { start_tls: 587, ssl: 465, nenhuma: 25 }[ev.target.value] ?? porta.value;
+});
+
+function lerConfigEmail() {
+  const d = lerForm($("#form-email"));
+  return {
+    config: {
+      servidor: d.servidor.trim(),
+      porta: Number(d.porta),
+      seguranca: d.seguranca,
+      usuario: vazio(d.usuario),
+      remetente: d.remetente.trim(),
+      nome_remetente: vazio(d.nome_remetente),
+      assunto: d.assunto,
+      corpo: d.corpo,
+      enviar_ao_emitir: d.enviar_ao_emitir,
+    },
+    senha: d.senha || null,
+  };
+}
+
+$("#salvar-email").addEventListener("click", async () => {
+  try {
+    await chamar("salvar_email", lerConfigEmail());
+    toast("Configuração de e-mail salva.");
+    await carregarEmail();
+  } catch (e) {
+    toast(String(e), true);
+  }
+});
+
+$("#testar-email").addEventListener("click", async () => {
+  const para = $("#email-teste").value.trim();
+  if (!para) return toast("Informe para quem enviar o teste.", true);
+  const botao = $("#testar-email");
+  botao.disabled = true;
+  botao.textContent = "Enviando...";
+  try {
+    // Salva antes, para testar exatamente o que está na tela.
+    await chamar("salvar_email", lerConfigEmail());
+    await chamar("testar_email", { para });
+    toast(`Teste enviado para ${para}. Confira a caixa de entrada (e o spam).`);
+    await carregarEmail();
+  } catch (e) {
+    toast(String(e), true);
+  } finally {
+    botao.disabled = false;
+    botao.textContent = "Enviar teste";
   }
 });
 

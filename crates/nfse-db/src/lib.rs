@@ -6,6 +6,7 @@
 mod ajustes;
 pub mod cofre;
 pub mod dps;
+pub mod emails;
 pub mod empresas;
 pub mod importacoes;
 pub mod recorrencias;

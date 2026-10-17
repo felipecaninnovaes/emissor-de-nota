@@ -19,7 +19,7 @@ escritório: o contribuinte não está no CNC desse ambiente (rejeição E0084).
 | 5. Interface desktop Tauri 2 (`crates/app`) | feito (falta instalador MSI e CI) |
 | 6a. Notas recorrentes (`{mes_ref}`) e lote do mês | feito |
 | 6b. Importação de planilha para convênios (valores variáveis) | feito |
-| 7. Envio por e-mail ao tomador | pendente |
+| 7. Envio por e-mail ao tomador (SMTP do escritório, PDF + XML) | feito |
 
 ## Item 5 — o que falta
 

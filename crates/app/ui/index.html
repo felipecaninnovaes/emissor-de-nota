@@ -255,6 +255,35 @@
           </div>
         </div>
         <div class="cartao">
+          <h2>E-mail das notas</h2>
+          <p class="ajuda">A nota (PDF e XML) sai pela conta do escritório, com o nome da empresa emissora como remetente e
+            "responder para" o e-mail dela. Destinatários: os "E-mails de envio" do tomador ou, sem eles, o e-mail do cadastro.</p>
+          <form id="form-email" class="grade" style="margin-top:12px">
+            <div class="c5"><label>Servidor SMTP</label><input name="servidor" placeholder="smtp.gmail.com"></div>
+            <div class="c2"><label>Porta</label><input name="porta" type="number" min="1" max="65535"></div>
+            <div class="c5"><label>Segurança</label><select name="seguranca">
+              <option value="start_tls">STARTTLS (587)</option><option value="ssl">SSL/TLS (465)</option>
+              <option value="nenhuma">Nenhuma (só rede local)</option></select></div>
+            <div class="c6"><label>Usuário</label><input name="usuario" autocomplete="off" placeholder="notas@escritorio.com.br"></div>
+            <div class="c6"><label>Senha</label><input name="senha" type="password" autocomplete="new-password">
+              <p class="ajuda" data-senha-guardada hidden>Senha guardada (cifrada). Deixe em branco para manter.</p></div>
+            <div class="c6"><label>E-mail do remetente</label><input name="remetente" type="email"></div>
+            <div class="c6"><label>Nome do remetente (em branco = nome da empresa da nota)</label><input name="nome_remetente"></div>
+            <div class="c12"><label>Assunto</label><input name="assunto"></div>
+            <div class="c12"><label>Mensagem</label><textarea name="corpo" rows="7"></textarea>
+              <p class="ajuda">Variáveis: <code>{numero}</code> <code>{empresa}</code> <code>{tomador}</code> <code>{valor}</code>
+                <code>{competencia}</code> <code>{chave}</code> <code>{link}</code> (consulta pública da nota). Gmail e Microsoft 365
+                exigem uma "senha de app" em vez da senha normal da conta.</p></div>
+            <div class="c12"><label class="linha-check"><input type="checkbox" name="enviar_ao_emitir">
+              Enviar automaticamente depois de cada emissão autorizada (também no lote e na planilha)</label></div>
+          </form>
+          <div class="acoes" style="justify-content:space-between">
+            <div style="display:flex;gap:8px"><input id="email-teste" type="email" placeholder="enviar teste para..." style="width:260px">
+              <button class="botao" id="testar-email">Enviar teste</button></div>
+            <button class="botao primario" id="salvar-email">Salvar</button>
+          </div>
+        </div>
+        <div class="cartao">
           <h2>Certificados vencendo (60 dias)</h2>
           <table><tbody id="lista-vencimentos"></tbody></table>
         </div>
@@ -445,6 +474,19 @@
     <p class="ajuda">Se a Sefin rejeitar com E0120, desmarque a inscrição municipal do ambiente correspondente.</p>
     <div id="erro-numeracao" class="aviso erro" style="margin-top:12px" hidden></div>
     <div class="acoes"><button class="botao" value="cancelar" formnovalidate>Cancelar</button><button class="botao primario" value="salvar">Salvar</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-email">
+  <form method="dialog" id="form-enviar-email">
+    <h2>Enviar nota por e-mail</h2>
+    <p class="ajuda" id="email-nota"></p>
+    <div class="grade" style="margin-top:12px">
+      <div class="c12"><label>Para (separe com ;)</label><input name="para" required></div>
+    </div>
+    <p class="ajuda">Vão anexos o PDF (DANFSe) e o XML da nota.</p>
+    <div id="erro-email" class="aviso erro" style="margin-top:12px" hidden></div>
+    <div class="acoes"><button class="botao" value="cancelar" formnovalidate>Cancelar</button><button class="botao primario" value="salvar">Enviar</button></div>
   </form>
 </dialog>
 

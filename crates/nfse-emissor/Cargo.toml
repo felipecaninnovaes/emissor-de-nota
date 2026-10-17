@@ -10,12 +10,14 @@ calamine = { version = "0.35", features = ["dates"] }
 chrono = "0.4.45"
 csv = "1.4"
 encoding_rs = "0.8"
+lettre = { version = "0.11", default-features = false, features = ["builder", "smtp-transport", "hostname", "tokio1", "tokio1-native-tls"] }
 nfse-cert = { version = "0.1.0", path = "../nfse-cert" }
 nfse-core = { version = "0.1.0", path = "../nfse-core" }
 nfse-db = { version = "0.1.0", path = "../nfse-db" }
 nfse-nacional = { version = "0.1.0", path = "../nfse-nacional" }
 nfse-pdf = { version = "0.1.0", path = "../nfse-pdf" }
 nfse-xml = { version = "0.1.0", path = "../nfse-xml" }
+serde = { version = "1", features = ["derive"] }
 thiserror = "2.0.21"
 
 [dev-dependencies]

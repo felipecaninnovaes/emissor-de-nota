@@ -68,6 +68,11 @@ fn main() {
             comandos::ler_planilha,
             comandos::emitir_planilha,
             comandos::salvar_modelo_planilha,
+            comandos::obter_email,
+            comandos::salvar_email,
+            comandos::testar_email,
+            comandos::destinatarios_email,
+            comandos::enviar_email,
             comandos::consultar_cnpj,
         ])
         .run(tauri::generate_context!())
