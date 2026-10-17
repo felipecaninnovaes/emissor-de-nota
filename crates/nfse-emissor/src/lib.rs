@@ -411,7 +411,11 @@ impl<C: Conector> Emissor<C> {
     }
 
     /// O ambiente vem da DPS quando ela já existe: a empresa pode ter mudado de ambiente depois.
-    async fn conectar(&self, empresa: &Empresa, ambiente: Ambiente) -> Result<(std::sync::Arc<CertificadoA1>, C::S), ErroEmissao> {
+    async fn conectar(
+        &self,
+        empresa: &Empresa,
+        ambiente: Ambiente,
+    ) -> Result<(std::sync::Arc<CertificadoA1>, C::S), ErroEmissao> {
         let cert = self.banco.certificado_ativo(&self.cofre, empresa.id).await?;
         let sefin = self.conector.conectar(&cert, ambiente).map_err(ErroEmissao::Sefin)?;
         Ok((std::sync::Arc::new(cert), sefin))
@@ -922,7 +926,10 @@ impl<C: Conector> Emissor<C> {
                 nfse.numero.as_deref().unwrap_or("sem-numero"),
                 &nfse.chave,
             ));
-            if let Err(e) = self.gravar_pdf(&caminho_xml, &nfse.xml, nfse_pdf::Situacao::Cancelada).await {
+            if let Err(e) = self
+                .gravar_pdf(&caminho_xml, &nfse.xml, nfse_pdf::Situacao::Cancelada)
+                .await
+            {
                 let aviso = format!("cancelamento registrado, mas o PDF não foi atualizado: {e}");
                 self.banco.auditar("aviso", Some(empresa.id), Some(&aviso)).await?;
             }
