@@ -231,6 +231,24 @@ fn mes_ref_e_mes_anterior() {
 }
 
 #[test]
+fn variaveis_do_mes_e_do_valor() {
+    let mes = NaiveDate::from_ymd_opt(2026, 9, 1).unwrap();
+    assert_eq!(
+        aplicar_mes_ref("{mes_ref_extenso} / {ano_ref}", mes),
+        "setembro de 2026 / 2026"
+    );
+    assert_eq!(valor_br(Valor::de_centesimos(125_000)), "1.250,00");
+    assert_eq!(valor_br(Valor::de_centesimos(5)), "0,05");
+    assert_eq!(valor_br(Valor::de_centesimos(123_456_789)), "1.234.567,89");
+}
+
+#[test]
+fn variavel_desconhecida_e_apontada() {
+    assert_eq!(variaveis_desconhecidas("REF 09/2026 {tomadr} {tomadr}"), vec!["tomadr".to_string()]);
+    assert!(variaveis_desconhecidas("sem variável { espaço }").is_empty());
+}
+
+#[test]
 fn retencoes_percentuais_viram_valores() {
     let p = |v: &str| Some(Percentual::parse(v).unwrap());
     let t = Tributacao {

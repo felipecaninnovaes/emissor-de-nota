@@ -149,9 +149,76 @@ impl SemNanos for DateTime<FixedOffset> {
     }
 }
 
-/// Troca `{mes_ref}` por `MM/AAAA`.
+const MESES: [&str; 12] = [
+    "janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro",
+    "novembro", "dezembro",
+];
+
+/// Variáveis aceitas nas descrições, na ordem em que a tela as oferece.
+pub const VARIAVEIS_DESCRICAO: [&str; 8] = [
+    "mes_ref",
+    "mes_ref_extenso",
+    "ano_ref",
+    "competencia",
+    "data_emissao",
+    "tomador",
+    "empresa",
+    "valor",
+];
+
+/// Troca as variáveis do mês de referência: `{mes_ref}` (09/2026), `{mes_ref_extenso}` (setembro de
+/// 2026) e `{ano_ref}`. As demais ficam para `montar_dps`, que conhece a nota inteira.
 pub fn aplicar_mes_ref(texto: &str, mes: NaiveDate) -> String {
-    texto.replace("{mes_ref}", &format!("{:02}/{}", mes.month(), mes.year()))
+    texto
+        .replace("{mes_ref}", &format!("{:02}/{}", mes.month(), mes.year()))
+        .replace(
+            "{mes_ref_extenso}",
+            &format!("{} de {}", MESES[mes.month0() as usize], mes.year()),
+        )
+        .replace("{ano_ref}", &mes.year().to_string())
+}
+
+/// Mensagem para a descrição com variáveis que não existem.
+pub fn texto_variaveis_desconhecidas(nomes: &[String]) -> String {
+    let lista: Vec<String> = nomes.iter().map(|n| format!("{{{n}}}")).collect();
+    format!(
+        "a descrição tem variável desconhecida: {} (use {})",
+        lista.join(", "),
+        VARIAVEIS_DESCRICAO.map(|v| format!("{{{v}}}")).join(", ")
+    )
+}
+
+/// Valor no formato brasileiro, sem símbolo: `1.250,00`.
+fn valor_br(v: Valor) -> String {
+    let c = v.centesimos();
+    let inteiro = (c / 100).to_string();
+    let mut milhares = String::new();
+    for (i, d) in inteiro.chars().enumerate() {
+        if i > 0 && (inteiro.len() - i) % 3 == 0 {
+            milhares.push('.');
+        }
+        milhares.push(d);
+    }
+    format!("{milhares},{:02}", c % 100)
+}
+
+/// Variáveis `{nome}` que sobraram no texto (digitadas errado ou inexistentes).
+pub fn variaveis_desconhecidas(texto: &str) -> Vec<String> {
+    let mut achadas = Vec::new();
+    let mut resto = texto;
+    while let Some(ini) = resto.find('{') {
+        let depois = &resto[ini + 1..];
+        let Some(fim) = depois.find('}') else { break };
+        let nome = &depois[..fim];
+        if !nome.is_empty()
+            && nome.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+            && !achadas.iter().any(|a| a == nome)
+        {
+            achadas.push(nome.to_owned());
+        }
+        resto = depois;
+    }
+    achadas
 }
 
 fn mes_anterior(data: NaiveDate) -> NaiveDate {
@@ -232,7 +299,12 @@ pub fn montar_dps(
     let mes = pedido
         .mes_referencia
         .unwrap_or_else(|| mes_anterior(emissao.date_naive()));
-    let descricao = aplicar_mes_ref(pedido.descricao.as_deref().unwrap_or(&servico.descricao), mes);
+    let descricao = aplicar_mes_ref(pedido.descricao.as_deref().unwrap_or(&servico.descricao), mes)
+        .replace("{competencia}", &emissao.format("%m/%Y").to_string())
+        .replace("{data_emissao}", &emissao.format("%d/%m/%Y").to_string())
+        .replace("{tomador}", tomador.map_or("", |t| t.tomador.nome.as_str()))
+        .replace("{empresa}", &empresa.nome)
+        .replace("{valor}", &valor_br(pedido.valor));
     let t = &servico.tributacao;
     Dps {
         ambiente: empresa.ambiente,
@@ -461,6 +533,10 @@ impl<C: Conector> Emissor<C> {
 
         // Valida antes de reservar número: DPS inválida não gasta numeração.
         let mut modelo = montar_dps(&empresa, tomador.as_ref(), &servico, pedido, agora_brasilia());
+        let desconhecidas = variaveis_desconhecidas(&modelo.servico.descricao);
+        if !desconhecidas.is_empty() {
+            return Err(ErroEmissao::Regra(texto_variaveis_desconhecidas(&desconhecidas)));
+        }
         modelo.versao_aplicativo = self.versao_aplicativo.clone();
         nfse_xml::gerar_dps(&modelo)?;
         let (cert, sefin) = self.conectar(&empresa, empresa.ambiente).await?;

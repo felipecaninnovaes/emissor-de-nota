@@ -90,7 +90,8 @@
             <div class="c12">
               <label for="descricao">Descrição do serviço</label>
               <textarea id="descricao" rows="3"></textarea>
-              <p class="ajuda"><code>{mes_ref}</code> vira o mês de referência (ex.: 09/2026).</p>
+              <div class="variaveis" data-alvo="descricao"></div>
+              <p class="ajuda">Clique numa etiqueta para inserir a variável; ela é trocada ao emitir.</p>
             </div>
             <fieldset class="c12 bloco" id="bloco-obra" hidden>
               <legend>Dados da obra</legend>
@@ -209,7 +210,7 @@
             </div>
           </div>
           <p class="ajuda">Uma nota por linha. Colunas: <b>CNPJ/CPF tomador</b> e <b>Valor</b> (obrigatórias); CNPJ empresa,
-            Servico (nome ou código), Descricao (aceita <code>{mes_ref}</code>), Mes referencia e Informacoes complementares.
+            Servico (nome ou código), Descricao (aceita variáveis como <code>{mes_ref}</code> e <code>{tomador}</code>), Mes referencia e Informacoes complementares.
             Sem a coluna da empresa, vale a empresa selecionada no topo; sem mês, o mês padrão.
             Reimportar a mesma planilha não emite de novo as linhas já autorizadas.</p>
         </div>
@@ -237,7 +238,7 @@
       <section data-tela="recorrentes" hidden>
         <h1 tabindex="-1">Notas recorrentes</h1>
         <div class="cartao barra">
-          <p class="ajuda barra-texto">Mensalidades da empresa selecionada. <code>{mes_ref}</code> na descrição vira o mês do lote; valor com * vem do serviço.</p>
+          <p class="ajuda barra-texto">Mensalidades da empresa selecionada. variáveis como <code>{mes_ref}</code> na descrição são trocadas a cada nota; valor com * vem do serviço.</p>
           <div class="barra-acoes"><button class="botao primario" id="nova-recorrencia">Nova recorrência</button></div>
         </div>
         <div class="cartao tabela">
@@ -465,7 +466,8 @@
         <div class="c4"><label for="recorrencia-valor">Valor (R$)</label><input id="recorrencia-valor" name="valor" inputmode="decimal" data-formato="valor" class="campo-valor">
           <p class="ajuda">Em branco: o do serviço.</p></div>
         <div class="c12"><label for="recorrencia-descricao">Descrição</label><textarea id="recorrencia-descricao" name="descricao" rows="3"></textarea>
-          <p class="ajuda">Em branco: a descrição do serviço. <code>{mes_ref}</code> vira o mês de referência do lote (ex.: 09/2026).</p></div>
+          <div class="variaveis" data-alvo="recorrencia-descricao"></div>
+          <p class="ajuda">Em branco: a descrição do serviço. As variáveis são trocadas a cada nota (o mês é o do lote).</p></div>
         <div class="c12"><label for="recorrencia-info">Informações complementares</label><textarea id="recorrencia-info" name="info" rows="2"></textarea></div>
       </div>
       <div id="erro-recorrencia" class="aviso erro" role="alert" hidden></div>
@@ -491,7 +493,8 @@
             <div class="c3"><label for="servico-nbs">NBS</label><input id="servico-nbs" name="nbs" placeholder="113022100" data-formato="nbs" inputmode="numeric" maxlength="9">
               <p class="ajuda">9 dígitos.</p></div>
             <div class="c12"><label for="servico-descricao">Descrição padrão</label><textarea id="servico-descricao" name="descricao" required rows="2" placeholder="SERVIÇOS CONTÁBEIS REFERENTE A {mes_ref}"></textarea>
-              <p class="ajuda"><code>{mes_ref}</code> vira o mês de referência (ex.: 09/2026).</p></div>
+              <div class="variaveis" data-alvo="servico-descricao"></div>
+              <p class="ajuda">Clique numa etiqueta para inserir a variável; ela é trocada ao emitir.</p></div>
             <div class="c3"><label for="servico-codigo-trib-mun">Código municipal</label><input id="servico-codigo-trib-mun" name="codigo_trib_mun" maxlength="3" data-formato="ctm" inputmode="numeric"></div>
             <div class="c3"><label for="servico-valor-sugerido">Valor sugerido (R$)</label><input id="servico-valor-sugerido" name="valor_sugerido" inputmode="decimal" data-formato="valor" class="campo-valor"></div>
           </div>

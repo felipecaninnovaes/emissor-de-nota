@@ -225,6 +225,41 @@ function formatarDocumento(doc) {
   return "";
 }
 
+const VARIAVEIS_DESCRICAO = [
+  ["mes_ref", "Mês de referência (09/2026)"],
+  ["mes_ref_extenso", "Mês por extenso (setembro de 2026)"],
+  ["ano_ref", "Ano de referência"],
+  ["competencia", "Mês da emissão (10/2026)"],
+  ["data_emissao", "Data da emissão"],
+  ["tomador", "Nome do tomador"],
+  ["empresa", "Nome da empresa"],
+  ["valor", "Valor da nota (1.250,00)"],
+];
+
+/** Fileira de etiquetas sob cada descrição; o clique insere `{variável}` onde está o cursor. */
+function montarEtiquetasDeVariaveis() {
+  for (const caixa of $$(".variaveis[data-alvo]")) {
+    const campo = document.getElementById(caixa.dataset.alvo);
+    for (const [nome, ajuda] of VARIAVEIS_DESCRICAO) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "etiqueta-variavel";
+      b.textContent = `{${nome}}`;
+      b.title = ajuda;
+      b.addEventListener("click", () => {
+        const texto = `{${nome}}`;
+        const ini = campo.selectionStart ?? campo.value.length;
+        const fim = campo.selectionEnd ?? ini;
+        campo.setRangeText(texto, ini, fim, "end");
+        campo.focus();
+        campo.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      caixa.append(b);
+    }
+  }
+}
+montarEtiquetasDeVariaveis();
+
 function mesAnterior() {
   const d = new Date();
   d.setDate(1);

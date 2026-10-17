@@ -78,6 +78,10 @@ pub(crate) async fn validar_pedido(
         nfse_emissor::agora_brasilia(),
     );
     let mut erros = dps.validar();
+    let desconhecidas = nfse_emissor::variaveis_desconhecidas(&dps.servico.descricao);
+    if !desconhecidas.is_empty() {
+        erros.push(nfse_emissor::texto_variaveis_desconhecidas(&desconhecidas));
+    }
     if b.certificado_resumo(empresa.id).await.map_err(texto)?.is_none() {
         erros.push("a empresa não tem certificado digital importado".into());
     }
