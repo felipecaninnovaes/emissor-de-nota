@@ -14,6 +14,8 @@ pub struct TomadorDto {
     pessoa_id: i64,
     tomador: Tomador,
     emails: Option<String>,
+    retem_federais: bool,
+    retem_iss: bool,
 }
 
 impl From<TomadorVinculado> for TomadorDto {
@@ -22,6 +24,8 @@ impl From<TomadorVinculado> for TomadorDto {
             pessoa_id: t.pessoa_id,
             tomador: t.tomador,
             emails: t.emails,
+            retem_federais: t.retem_federais,
+            retem_iss: t.retem_iss,
         }
     }
 }
@@ -45,6 +49,8 @@ pub async fn salvar_tomador(
     empresa_id: i64,
     tomador: Tomador,
     emails: Option<String>,
+    retem_federais: Option<bool>,
+    retem_iss: Option<bool>,
 ) -> R<i64> {
     exigir_cofre(&estado).await?;
     let id = estado
@@ -55,6 +61,16 @@ pub async fn salvar_tomador(
     estado
         .banco
         .definir_emails_tomador(empresa_id, id, vazio_para_none(emails).as_deref(), None)
+        .await
+        .map_err(texto)?;
+    estado
+        .banco
+        .definir_retencao_tomador(
+            empresa_id,
+            id,
+            retem_federais.unwrap_or(false),
+            retem_iss.unwrap_or(false),
+        )
         .await
         .map_err(texto)?;
     Ok(id)

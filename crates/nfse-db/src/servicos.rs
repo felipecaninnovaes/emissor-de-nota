@@ -23,6 +23,25 @@ pub struct Tributacao {
     /// Percentuais aplicados sobre o valor de cada nota (as retenções variam com o valor).
     #[serde(default)]
     pub retencoes: RetencoesPercentuais,
+    /// Vale para `issqn.retencao` (ISS retido pelo tomador).
+    #[serde(default, skip_serializing_if = "is_sempre")]
+    pub aplicar_retencao_iss: AplicarRetencao,
+}
+
+/// Quando uma retenção do serviço vale: em toda nota ou só quando o tomador retém.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AplicarRetencao {
+    #[default]
+    Sempre,
+    SoTomadorQueRetem,
+}
+
+impl AplicarRetencao {
+    /// `tomador_retem`: o que o cadastro do tomador (ou a escolha na emissão) diz.
+    pub fn vale(self, tomador_retem: bool) -> bool {
+        self == Self::Sempre || tomador_retem
+    }
 }
 
 /// Alíquotas de retenção do serviço. Na emissão viram valores (`vRetIRRF`, `vRetCP` e `vRetCSLL`,
@@ -40,6 +59,13 @@ pub struct RetencoesPercentuais {
     pub pis: Option<Percentual>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cofins: Option<Percentual>,
+    /// Vale para as retenções federais (percentuais acima e os valores fixos de `federais`).
+    #[serde(default, skip_serializing_if = "is_sempre")]
+    pub aplicar: AplicarRetencao,
+}
+
+fn is_sempre(a: &AplicarRetencao) -> bool {
+    *a == AplicarRetencao::Sempre
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

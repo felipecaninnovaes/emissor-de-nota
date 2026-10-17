@@ -218,6 +218,7 @@ async fn cenario(respostas: Vec<Resposta>) -> Cenario {
             mes_referencia: Some(NaiveDate::from_ymd_opt(2026, 9, 1).unwrap()),
             obra: None,
             informacoes_complementares: None,
+            reter: Default::default(),
             origem: Origem::Manual,
         },
     }
@@ -244,8 +245,71 @@ fn variaveis_do_mes_e_do_valor() {
 
 #[test]
 fn variavel_desconhecida_e_apontada() {
-    assert_eq!(variaveis_desconhecidas("REF 09/2026 {tomadr} {tomadr}"), vec!["tomadr".to_string()]);
+    assert_eq!(
+        variaveis_desconhecidas("REF 09/2026 {tomadr} {tomadr}"),
+        vec!["tomadr".to_string()]
+    );
     assert!(variaveis_desconhecidas("sem variável { espaço }").is_empty());
+}
+
+#[test]
+fn retencao_so_vale_para_tomador_que_retem() {
+    use nfse_core::modelo::{Documento, RetencaoIssqn, Tomador};
+    use nfse_db::servicos::AplicarRetencao;
+    let p = |v: &str| Some(Percentual::parse(v).unwrap());
+    let mut servico = Servico {
+        id: None,
+        empresa_id: 1,
+        nome: "x".into(),
+        descricao: "x".into(),
+        codigo_trib_nac: "171901".into(),
+        codigo_trib_mun: None,
+        nbs: None,
+        tributacao: Tributacao {
+            retencoes: nfse_db::servicos::RetencoesPercentuais {
+                irrf: p("1.5"),
+                aplicar: AplicarRetencao::SoTomadorQueRetem,
+                ..Default::default()
+            },
+            aplicar_retencao_iss: AplicarRetencao::SoTomadorQueRetem,
+            ..Default::default()
+        },
+        valor_sugerido: None,
+    };
+    servico.tributacao.issqn.retencao = RetencaoIssqn::RetidoPeloTomador;
+    let tomador = |federais, iss| TomadorVinculado {
+        pessoa_id: 1,
+        tomador: Tomador {
+            documento: Documento::Cnpj(nfse_core::Cnpj::parse("12ABC34501DE35").unwrap()),
+            inscricao_municipal: None,
+            nome: "T".into(),
+            endereco: None,
+            telefone: None,
+            email: None,
+        },
+        emails: None,
+        observacao: None,
+        retem_federais: federais,
+        retem_iss: iss,
+    };
+    let nao = tributacao_da_nota(&servico, Some(&tomador(false, false)), ReterNota::default());
+    assert_eq!(nao.retencoes.irrf, None);
+    assert_eq!(nao.issqn.retencao, RetencaoIssqn::NaoRetido);
+    let sim = tributacao_da_nota(&servico, Some(&tomador(true, true)), ReterNota::default());
+    assert!(sim.retencoes.irrf.is_some());
+    assert_eq!(sim.issqn.retencao, RetencaoIssqn::RetidoPeloTomador);
+    // A escolha feita na emissão vale mais que o cadastro.
+    let so_iss = ReterNota {
+        federais: Some(false),
+        iss: Some(true),
+    };
+    let t = tributacao_da_nota(&servico, Some(&tomador(true, false)), so_iss);
+    assert_eq!(t.retencoes.irrf, None);
+    assert_eq!(t.issqn.retencao, RetencaoIssqn::RetidoPeloTomador);
+    // "Sempre" não muda nada, mesmo com tomador que não retém.
+    servico.tributacao.retencoes.aplicar = AplicarRetencao::Sempre;
+    let t = tributacao_da_nota(&servico, None, ReterNota::default());
+    assert!(t.retencoes.irrf.is_some());
 }
 
 #[test]
@@ -258,6 +322,7 @@ fn retencoes_percentuais_viram_valores() {
             cp: None,
             pis: p("0.65"),
             cofins: p("3"),
+            ..Default::default()
         },
         ..Default::default()
     };
@@ -286,6 +351,7 @@ fn retencoes_somam_no_valor_liquido() {
             cp: None,
             pis: p("0.65"),
             cofins: p("3"),
+            ..Default::default()
         },
         ..Default::default()
     };

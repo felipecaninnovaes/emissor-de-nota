@@ -17,6 +17,10 @@ pub struct TomadorVinculado {
     /// E-mails de envio da nota, específicos do vínculo com a empresa (separados por `;`).
     pub emails: Option<String>,
     pub observacao: Option<String>,
+    /// Este tomador retém IRRF, CSLL, PIS, COFINS e INSS nas notas da empresa.
+    pub retem_federais: bool,
+    /// Este tomador retém o ISS (`tpRetISSQN` = 2).
+    pub retem_iss: bool,
 }
 
 fn documento_de(tipo: &str, doc: &str) -> Resultado<Documento> {
@@ -36,7 +40,8 @@ fn tipo_e_numero(d: &Documento) -> (&'static str, &str) {
 }
 
 const SELECT_TOMADOR: &str = "SELECT p.id, p.tipo, p.documento, p.inscricao_municipal, p.nome, p.municipio, p.cep,
-    p.logradouro, p.numero, p.complemento, p.bairro, p.telefone, p.email, v.emails, v.observacao
+    p.logradouro, p.numero, p.complemento, p.bairro, p.telefone, p.email, v.emails, v.observacao,
+    v.retem_federais, v.retem_iss
     FROM empresa_tomador v JOIN pessoa p ON p.id = v.pessoa_id";
 
 fn tomador_de(r: &SqliteRow) -> Resultado<TomadorVinculado> {
@@ -64,6 +69,8 @@ fn tomador_de(r: &SqliteRow) -> Resultado<TomadorVinculado> {
         },
         emails: r.get(13),
         observacao: r.get(14),
+        retem_federais: r.get(15),
+        retem_iss: r.get(16),
     })
 }
 
@@ -130,6 +137,29 @@ impl Banco {
                 .execute(self.pool())
                 .await?
                 .rows_affected();
+        if afetadas == 0 {
+            return Err(ErroBanco::NaoEncontrado("vínculo do tomador com a empresa"));
+        }
+        Ok(())
+    }
+
+    pub async fn definir_retencao_tomador(
+        &self,
+        empresa_id: i64,
+        pessoa_id: i64,
+        retem_federais: bool,
+        retem_iss: bool,
+    ) -> Resultado<()> {
+        let afetadas = sqlx::query(
+            "UPDATE empresa_tomador SET retem_federais = ?, retem_iss = ? WHERE empresa_id = ? AND pessoa_id = ?",
+        )
+        .bind(retem_federais)
+        .bind(retem_iss)
+        .bind(empresa_id)
+        .bind(pessoa_id)
+        .execute(self.pool())
+        .await?
+        .rows_affected();
         if afetadas == 0 {
             return Err(ErroBanco::NaoEncontrado("vínculo do tomador com a empresa"));
         }
@@ -222,6 +252,15 @@ mod testes {
             "e-mail é do vínculo"
         );
         assert_eq!(banco.tomador(clinica1.id, id1).await.unwrap().tomador, convenio());
+
+        banco
+            .definir_retencao_tomador(clinica1.id, id1, true, false)
+            .await
+            .unwrap();
+        let c1 = banco.tomador(clinica1.id, id1).await.unwrap();
+        assert!(c1.retem_federais && !c1.retem_iss);
+        let c2 = banco.tomador(clinica2.id, id1).await.unwrap();
+        assert!(!c2.retem_federais && !c2.retem_iss, "retenção é do vínculo");
     }
 
     #[tokio::test]

@@ -13,6 +13,7 @@ const estado = {
   servicos: [],
   tomador: null, // TomadorDto escolhido na tela de emitir
   pedido: null, // último pedido revisado
+  reter: null, // { federais, iss } escolhido na revisão; null = cadastro do tomador
 };
 
 // ---------------------------------------------------------------- utilitários
@@ -1084,10 +1085,17 @@ function montarPedido() {
     mes_referencia: vazio($("#mes-ref").value),
     obra: obraDigitada(),
     informacoes_complementares: vazio($("#info-compl").value),
+    reter_federais: estado.reter?.federais ?? null,
+    reter_iss: estado.reter?.iss ?? null,
   };
 }
 
-$("#revisar").addEventListener("click", async () => {
+$("#revisar").addEventListener("click", () => {
+  estado.reter = null; // volta ao que o cadastro do tomador diz
+  return revisar();
+});
+
+async function revisar() {
   $("#resultado").hidden = true;
   const formulario = $('section[data-tela="emitir"] .cartao');
   limparErros(formulario);
@@ -1128,11 +1136,28 @@ $("#revisar").addEventListener("click", async () => {
   ];
   if (pedido.obra) linhas.push(["Obra", descreverObra(pedido.obra)]);
   if (pedido.informacoes_complementares) linhas.push(["Inf. complementares", pedido.informacoes_complementares]);
+  if (previa.retencao_federal) {
+    linhas.push(["Retenções federais", "R$ " + moeda(previa.retencao_federal)]);
+    linhas.push(["Valor líquido", "R$ " + moeda(previa.valor_liquido) + (previa.iss_retido ? " (antes do ISS retido)" : "")]);
+  }
+  if (previa.iss_retido) linhas.push(["ISS", "Retido pelo tomador"]);
   $("#revisao-dados").innerHTML = linhas.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
+  const reter = $("#revisao-reter");
+  reter.hidden = !previa.retencao_condicional;
+  $("#reter-federais").checked = previa.reter_federais;
+  $("#reter-iss").checked = previa.reter_iss;
   $("#confirmar-emissao").disabled = previa.erros.length > 0;
   $("#revisao").hidden = false;
   $("#revisao").scrollIntoView({ behavior: "smooth" });
-});
+}
+
+/** "Reter nesta nota": refaz a prévia com a escolha, que vale mais que o cadastro do tomador. */
+for (const id of ["#reter-federais", "#reter-iss"]) {
+  $(id).addEventListener("change", () => {
+    estado.reter = { federais: $("#reter-federais").checked, iss: $("#reter-iss").checked };
+    revisar();
+  });
+}
 
 $("#voltar-edicao").addEventListener("click", () => {
   $("#revisao").hidden = true;
@@ -2024,6 +2049,8 @@ function editarTomador(dto, depois, { empresaId = estado.empresa?.id, documento 
       telefone: t.telefone,
       email: t.email,
       emails: dto.emails,
+      retem_federais: dto.retem_federais,
+      retem_iss: dto.retem_iss,
     });
   }
   abrirDialogo(dlg, $("#erro-tomador"), async (d) => {
@@ -2049,9 +2076,11 @@ function editarTomador(dto, depois, { empresaId = estado.empresa?.id, documento 
       if (vazio(d.complemento)) tomador.endereco.complemento = vazio(d.complemento);
     }
     const emails = vazio(d.emails);
-    const pessoaId = await chamar("salvar_tomador", { empresaId, tomador, emails });
+    const retemFederais = !!d.retem_federais;
+    const retemIss = !!d.retem_iss;
+    const pessoaId = await chamar("salvar_tomador", { empresaId, tomador, emails, retemFederais, retemIss });
     toast("Tomador salvo.");
-    depois?.({ pessoa_id: pessoaId, tomador, emails });
+    depois?.({ pessoa_id: pessoaId, tomador, emails, retem_federais: retemFederais, retem_iss: retemIss });
   });
   if (!dto && documento) {
     // Vindo da planilha: já preenche o documento e, se for CNPJ, consulta os dados.
@@ -2303,6 +2332,8 @@ function editarServico(s) {
       r_cp: percentualTela(r.cp),
       r_pis: percentualTela(r.pis),
       r_cofins: percentualTela(r.cofins),
+      aplicar_fed: r.aplicar ?? "sempre",
+      aplicar_iss: t.aplicar_retencao_iss ?? "sempre",
       tot_tipo: "nao_informado",
       ibs_informar: ibs ? "sim" : "nao",
     };
@@ -2332,7 +2363,7 @@ function editarServico(s) {
   }
   mostrarCamposIbs(form);
   abrirDialogo(dlg, $("#erro-servico"), async (d) => {
-    const retencoes = {};
+    const retencoes = { aplicar: d.aplicar_fed };
     for (const k of ["irrf", "csll", "cp", "pis", "cofins"]) {
       const v = percentualDigitado(d["r_" + k]);
       if (v != null) retencoes[k] = v;
@@ -2381,6 +2412,7 @@ function editarServico(s) {
         },
         total_tributos,
         retencoes,
+        aplicar_retencao_iss: d.aplicar_iss,
         ibs_cbs,
       },
       valor_sugerido: valorDigitado(d.valor_sugerido),

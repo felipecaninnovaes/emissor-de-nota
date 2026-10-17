@@ -6,6 +6,7 @@ use tauri::State;
 
 use nfse_core::Valor;
 use nfse_core::modelo::Ambiente;
+use nfse_db::servicos::AplicarRetencao;
 use nfse_emissor::{ConectorSefin, Emissor, Origem, PedidoEmissao, ResultadoEmissao};
 
 use super::comum::{R, emissor, exigir_cofre, texto, vazio_para_none};
@@ -23,6 +24,11 @@ pub struct PedidoDto {
     #[serde(default)]
     obra: Option<nfse_core::modelo::Obra>,
     informacoes_complementares: Option<String>,
+    /// Marcados na revisão; ausente = o cadastro do tomador.
+    #[serde(default)]
+    reter_federais: Option<bool>,
+    #[serde(default)]
+    reter_iss: Option<bool>,
 }
 
 impl PedidoDto {
@@ -42,6 +48,10 @@ impl PedidoDto {
             mes_referencia,
             obra: self.obra,
             informacoes_complementares: vazio_para_none(self.informacoes_complementares),
+            reter: nfse_emissor::ReterNota {
+                federais: self.reter_federais,
+                iss: self.reter_iss,
+            },
             origem: Origem::Manual,
         })
     }
@@ -56,6 +66,15 @@ pub struct PreviaDto {
     descricao: String,
     valor: String,
     competencia: String,
+    /// Retenções federais (IRRF + CP + CSLL/PIS/COFINS retidos), já em centavos formatados.
+    retencao_federal: Option<String>,
+    /// Valor da nota menos as retenções federais (o ISS retido não entra: a Sefin o calcula).
+    valor_liquido: Option<String>,
+    iss_retido: bool,
+    /// O serviço tem retenção que depende do tomador: a tela mostra as caixas "Reter nesta nota".
+    retencao_condicional: bool,
+    reter_federais: bool,
+    reter_iss: bool,
     erros: Vec<String>,
 }
 
@@ -94,6 +113,21 @@ pub async fn previa_dps(estado: State<'_, Estado>, pedido: PedidoDto) -> R<Previ
     exigir_cofre(&estado).await?;
     let pedido = pedido.pedido()?;
     let (dps, empresa, erros) = validar_pedido(&estado.banco, &pedido).await?;
+    let servico = estado.banco.servico(pedido.servico_id).await.map_err(texto)?;
+    let tomador = match pedido.tomador {
+        Some(id) => Some(estado.banco.tomador(empresa.id, id).await.map_err(texto)?),
+        None => None,
+    };
+    let t = &servico.tributacao;
+    let retencao_condicional =
+        t.retencoes.aplicar != AplicarRetencao::Sempre || t.aplicar_retencao_iss != AplicarRetencao::Sempre;
+    let f = &dps.valores.federais;
+    let retido: i64 = [f.retencao_irrf, f.retencao_cp, f.retencao_csll]
+        .into_iter()
+        .flatten()
+        .map(|v| v.centesimos())
+        .sum();
+    let (reter_federais, reter_iss) = pedido.reter.efetiva(tomador.as_ref());
     Ok(PreviaDto {
         ambiente: dps.ambiente,
         serie: dps.serie,
@@ -102,6 +136,13 @@ pub async fn previa_dps(estado: State<'_, Estado>, pedido: PedidoDto) -> R<Previ
         descricao: dps.servico.descricao,
         valor: dps.valores.servico.to_string(),
         competencia: dps.competencia.format("%d/%m/%Y").to_string(),
+        retencao_federal: (retido > 0).then(|| Valor::de_centesimos(retido).to_string()),
+        valor_liquido: (retido > 0)
+            .then(|| Valor::de_centesimos(dps.valores.servico.centesimos() - retido).to_string()),
+        iss_retido: dps.valores.issqn.retencao != nfse_core::modelo::RetencaoIssqn::NaoRetido,
+        retencao_condicional,
+        reter_federais,
+        reter_iss,
         erros,
     })
 }

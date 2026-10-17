@@ -54,6 +54,7 @@ impl ItemImportado {
             mes_referencia: Some(self.mes),
             obra: None,
             informacoes_complementares: self.informacoes.clone(),
+            reter: Default::default(),
             origem: Origem::Planilha {
                 chave: self.chave.clone(),
                 arquivo: arquivo.map(str::to_owned),

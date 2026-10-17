@@ -215,6 +215,7 @@ fn linha(numero: usize, campos: &BTreeMap<ColunaServico, String>) -> LinhaServic
         cp: percentual(C::Inss),
         pis: percentual(C::Pis),
         cofins: percentual(C::Cofins),
+        ..Default::default()
     };
 
     let total_tributos = match (simples, federal, estadual, municipal) {
@@ -350,6 +351,7 @@ fn linha(numero: usize, campos: &BTreeMap<ColunaServico, String>) -> LinhaServic
             total_tributos,
             ibs_cbs,
             retencoes,
+            ..Default::default()
         },
         valor_sugerido,
     };

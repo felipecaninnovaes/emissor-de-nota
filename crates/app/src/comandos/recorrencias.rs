@@ -84,6 +84,7 @@ pub async fn listar_recorrencias(
                     mes_referencia: Some(data),
                     obra: None,
                     informacoes_complementares: r.informacoes_complementares.clone(),
+                    reter: Default::default(),
                     origem: r.id.map(Origem::Recorrencia).unwrap_or_default(),
                 };
                 match validar_pedido(b, &pedido).await {

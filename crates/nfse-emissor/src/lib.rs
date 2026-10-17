@@ -112,7 +112,50 @@ pub struct PedidoEmissao {
     /// Grupo de obra (construção civil, E0370); vai só nesta nota.
     pub obra: Option<Obra>,
     pub informacoes_complementares: Option<String>,
+    /// Retenções desta nota; o que não for dito vem do cadastro do tomador.
+    pub reter: ReterNota,
     pub origem: Origem,
+}
+
+/// Escolha de retenção feita na emissão. `None` = o que o cadastro do tomador diz.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ReterNota {
+    pub federais: Option<bool>,
+    pub iss: Option<bool>,
+}
+
+impl ReterNota {
+    /// `(retém federais, retém ISS)` desta nota.
+    pub fn efetiva(self, tomador: Option<&TomadorVinculado>) -> (bool, bool) {
+        (
+            self.federais
+                .unwrap_or_else(|| tomador.is_some_and(|t| t.retem_federais)),
+            self.iss.unwrap_or_else(|| tomador.is_some_and(|t| t.retem_iss)),
+        )
+    }
+}
+
+/// Tributação da nota: tira do serviço as retenções que só valem para tomador que retém.
+pub fn tributacao_da_nota(
+    servico: &Servico,
+    tomador: Option<&TomadorVinculado>,
+    reter: ReterNota,
+) -> nfse_db::servicos::Tributacao {
+    let (federais, iss) = reter.efetiva(tomador);
+    let mut t = servico.tributacao.clone();
+    if !t.retencoes.aplicar.vale(federais) {
+        t.retencoes = Default::default();
+        t.federais.retencao_irrf = None;
+        t.federais.retencao_csll = None;
+        t.federais.retencao_cp = None;
+        if let Some(pc) = t.federais.pis_cofins.as_mut() {
+            pc.tipo_retencao = pc.tipo_retencao.map(|_| 0);
+        }
+    }
+    if !t.aplicar_retencao_iss.vale(iss) {
+        t.issqn.retencao = nfse_core::modelo::RetencaoIssqn::NaoRetido;
+    }
+    t
 }
 
 /// De onde vem o pedido. Recorrência e planilha ficam ligadas à DPS desde a reserva do número
@@ -150,8 +193,18 @@ impl SemNanos for DateTime<FixedOffset> {
 }
 
 const MESES: [&str; 12] = [
-    "janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro",
-    "novembro", "dezembro",
+    "janeiro",
+    "fevereiro",
+    "março",
+    "abril",
+    "maio",
+    "junho",
+    "julho",
+    "agosto",
+    "setembro",
+    "outubro",
+    "novembro",
+    "dezembro",
 ];
 
 /// Variáveis aceitas nas descrições, na ordem em que a tela as oferece.
@@ -194,7 +247,7 @@ fn valor_br(v: Valor) -> String {
     let inteiro = (c / 100).to_string();
     let mut milhares = String::new();
     for (i, d) in inteiro.chars().enumerate() {
-        if i > 0 && (inteiro.len() - i) % 3 == 0 {
+        if i > 0 && (inteiro.len() - i).is_multiple_of(3) {
             milhares.push('.');
         }
         milhares.push(d);
@@ -211,7 +264,9 @@ pub fn variaveis_desconhecidas(texto: &str) -> Vec<String> {
         let Some(fim) = depois.find('}') else { break };
         let nome = &depois[..fim];
         if !nome.is_empty()
-            && nome.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+            && nome
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
             && !achadas.iter().any(|a| a == nome)
         {
             achadas.push(nome.to_owned());
@@ -305,7 +360,7 @@ pub fn montar_dps(
         .replace("{tomador}", tomador.map_or("", |t| t.tomador.nome.as_str()))
         .replace("{empresa}", &empresa.nome)
         .replace("{valor}", &valor_br(pedido.valor));
-    let t = &servico.tributacao;
+    let t = &tributacao_da_nota(servico, tomador, pedido.reter);
     Dps {
         ambiente: empresa.ambiente,
         emissao,
@@ -784,6 +839,7 @@ impl<C: Conector> Emissor<C> {
             mes_referencia: Some(mes.with_day(1).expect("dia 1 existe")),
             obra: None,
             informacoes_complementares: r.informacoes_complementares,
+            reter: Default::default(),
             origem: Origem::Recorrencia(recorrencia_id),
         })
         .await

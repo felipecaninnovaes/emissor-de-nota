@@ -135,6 +135,12 @@
           <h2>Conferência antes de emitir</h2>
           <div id="revisao-aviso"></div>
           <dl id="revisao-dados"></dl>
+          <fieldset class="reter-nota" id="revisao-reter" hidden>
+            <legend>Reter nesta nota</legend>
+            <label class="linha-check"><input type="checkbox" id="reter-federais"> Impostos federais</label>
+            <label class="linha-check"><input type="checkbox" id="reter-iss"> ISS</label>
+            <p class="ajuda">Já marcado conforme o cadastro do tomador; vale só para esta nota.</p>
+          </fieldset>
           <div class="acoes">
             <button class="botao" id="voltar-edicao">Corrigir</button>
             <button class="botao primario" id="confirmar-emissao">Emitir nota</button>
@@ -437,6 +443,12 @@
             <p class="ajuda">Para onde esta empresa manda a nota; separe vários com ponto e vírgula.</p></div>
         </div>
       </fieldset>
+      <fieldset class="bloco">
+        <legend>Retenções (nas notas desta empresa)</legend>
+        <label class="linha-check"><input type="checkbox" id="tomador-retem-federais" name="retem_federais"> Retém impostos federais (IRRF, CSLL, PIS, COFINS, INSS)</label>
+        <label class="linha-check"><input type="checkbox" id="tomador-retem-iss" name="retem_iss"> Retém ISS</label>
+        <p class="ajuda">Vale para os serviços configurados como "só para tomador que retém". Na emissão dá para mudar nota a nota.</p>
+      </fieldset>
       <div class="aviso atencao" data-aviso-cnpj hidden></div>
       <div id="erro-tomador" class="aviso erro" role="alert" hidden></div>
     </div>
@@ -508,6 +520,8 @@
             <div class="c6"><label for="servico-ret-issqn">Retenção</label><select id="servico-ret-issqn" name="ret_issqn">
               <option value="nao_retido">Não retido</option><option value="retido_pelo_tomador">Retido pelo tomador</option>
               <option value="retido_pelo_intermediario">Retido pelo intermediário</option></select></div>
+            <div class="c6"><label for="servico-aplicar-iss">Aplicar a retenção do ISS</label><select id="servico-aplicar-iss" name="aplicar_iss">
+              <option value="sempre">Em toda nota</option><option value="so_tomador_que_retem">Só para tomador que retém ISS</option></select></div>
             <div class="c6"><label for="servico-aliq-issqn">Alíquota ISS (%)</label><input id="servico-aliq-issqn" name="aliq_issqn" inputmode="decimal" data-formato="pct" class="campo-pct">
               <p class="ajuda">Só se o município exigir.</p></div>
           </div>
@@ -541,6 +555,10 @@
             <div class="c2 c-pct"><label for="servico-r-cp">INSS %</label><input id="servico-r-cp" name="r_cp" inputmode="decimal" data-formato="pct" class="campo-pct"></div>
             <div class="c2 c-pct"><label for="servico-r-pis">PIS %</label><input id="servico-r-pis" name="r_pis" inputmode="decimal" data-formato="pct" class="campo-pct"></div>
             <div class="c2 c-pct"><label for="servico-r-cofins">COFINS %</label><input id="servico-r-cofins" name="r_cofins" inputmode="decimal" data-formato="pct" class="campo-pct"></div>
+          </div>
+          <div class="grade">
+            <div class="c6"><label for="servico-aplicar-fed">Aplicar as retenções federais</label><select id="servico-aplicar-fed" name="aplicar_fed">
+              <option value="sempre">Em toda nota</option><option value="so_tomador_que_retem">Só para tomador que retém impostos federais</option></select></div>
           </div>
           <p class="ajuda">Percentuais sobre o valor de cada nota; os valores são calculados na emissão.</p>
         </fieldset>

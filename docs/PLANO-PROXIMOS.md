@@ -19,7 +19,7 @@ Hoje só existe `{mes_ref}`, trocado em `aplicar_mes_ref` (`crates/nfse-emissor/
 Hoje o usuário cria dois serviços (com e sem retenção). As alíquotas dependem do serviço (IR 1,5% ou 1%...), mas quem decide se retém é o tomador.
 
 - **Serviço**: as retenções ganham "aplicar: sempre / só para tomador que retém". Os existentes ficam em "sempre" (nada muda no que funciona). Fica no JSON da tributação, sem mudar a tabela.
-- **Tomador** (vínculo com a empresa, `empresa_tomador`): "Retém impostos federais" e "Retém ISS". Precisa da migração `0005`.
+- **Tomador** (vínculo com a empresa, `empresa_tomador`): "Retém impostos federais" e "Retém ISS". Precisa da migração `0006`.
 - **Emissão**: ao escolher o tomador, aparece "Reter nesta nota" já marcado conforme o cadastro; a revisão mostra as retenções e o valor líquido.
 - Depois o usuário junta os dois serviços duplicados em um.
 
