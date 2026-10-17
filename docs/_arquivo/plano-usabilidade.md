@@ -1,5 +1,7 @@
 # Plano de usabilidade — responsividade, densidade, formulários e acessibilidade
 
+> **Arquivado em 17/10/2026.** Plano concluído; fica como histórico. O estado atual está em [docs/](../).
+
 Criado em 16/10/2026, depois da troca para a identidade "documento fiscal" (commit `e607490`).
 Escopo: só a interface (`crates/app/ui/` e a janela em `tauri.conf.json`). Nada muda no núcleo fiscal.
 

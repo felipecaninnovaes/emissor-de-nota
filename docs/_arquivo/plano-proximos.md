@@ -1,5 +1,7 @@
 # Próximos itens — variáveis na descrição, tomador que retém e copiar nota
 
+> **Arquivado em 17/10/2026.** Plano concluído; fica como histórico. O estado atual está em [docs/](../).
+
 Criado em 17/10/2026. Ordem proposta: item 3, depois 1, depois 2 (do mais simples ao que mexe no banco), um commit por item.
 
 ## 1. Variáveis na descrição

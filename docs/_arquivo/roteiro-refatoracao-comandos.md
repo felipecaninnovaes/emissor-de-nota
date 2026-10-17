@@ -1,5 +1,7 @@
 # Roteiro: dividir `crates/app/src/comandos.rs` em módulos
 
+> **Arquivado em 17/10/2026.** Plano concluído; fica como histórico. O estado atual está em [docs/](../).
+
 Ponto de partida: 1.437 linhas e 52 comandos `#[tauri::command]` em um arquivo só. O arquivo só é
 referenciado pela lista `generate_handler!` do `main.rs`. O único teste do crate está em `cnpj.rs`.
 
