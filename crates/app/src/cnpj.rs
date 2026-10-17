@@ -1,12 +1,12 @@
-//! Consulta pública de CNPJ (publica.cnpj.ws) para preencher cadastros de tomador e empresa.
-//! A API gratuita aceita 3 consultas por minuto; o resultado só sugere dados, o operador confere.
+//! Consulta pública de CNPJ (BrasilAPI, dados da Receita) para preencher cadastros de tomador e empresa.
+//! O resultado só sugere dados, o operador confere.
 
 use std::time::Duration;
 
 use serde::Serialize;
 use serde_json::Value;
 
-const URL: &str = "https://publica.cnpj.ws/cnpj/";
+const URL: &str = "https://brasilapi.com.br/api/cnpj/v1/";
 
 #[derive(Debug, Default, PartialEq, Eq, Serialize)]
 pub struct DadosCnpj {
@@ -48,10 +48,10 @@ pub async fn consultar(cnpj: &str) -> Result<DadosCnpj, String> {
         .await
         .map_err(|e| format!("resposta inválida da consulta de CNPJ: {e}"))?;
     if !status.is_success() {
-        let detalhe = texto(&corpo, &["detalhes"]).or_else(|| texto(&corpo, &["titulo"]));
+        let detalhe = texto(&corpo, &["message"]);
         return Err(match status.as_u16() {
             404 => "CNPJ não encontrado na base da Receita".into(),
-            429 => "limite de 3 consultas por minuto atingido; aguarde um pouco e tente de novo".into(),
+            429 => "limite de consultas atingido; aguarde um pouco e tente de novo".into(),
             _ => format!(
                 "consulta de CNPJ falhou (HTTP {status}){}",
                 detalhe.map(|d| format!(": {d}")).unwrap_or_default()
@@ -74,38 +74,33 @@ fn texto(v: &Value, caminho: &[&str]) -> Option<String> {
     (!s.is_empty()).then_some(s)
 }
 
-fn sim_nao(v: &Value, caminho: &[&str]) -> Option<bool> {
-    texto(v, caminho).map(|s| s.eq_ignore_ascii_case("sim"))
+fn booleano(v: &Value, chave: &str) -> Option<bool> {
+    v.get(chave)?.as_bool()
 }
 
 pub fn interpretar(v: &Value) -> DadosCnpj {
-    let e = |c: &str| texto(v, &["estabelecimento", c]);
-    let logradouro = match (e("tipo_logradouro"), e("logradouro")) {
+    let t = |c: &str| texto(v, &[c]);
+    let logradouro = match (t("descricao_tipo_de_logradouro"), t("logradouro")) {
         (Some(tipo), Some(l)) if !l.to_uppercase().starts_with(&tipo.to_uppercase()) => Some(format!("{tipo} {l}")),
         (_, l) => l,
     };
-    let telefone = match (e("ddd1"), e("telefone1")) {
-        (Some(ddd), Some(tel)) => Some(format!("{ddd}{tel}")),
-        (None, tel) => tel,
-        _ => None,
-    };
     DadosCnpj {
-        cnpj: e("cnpj").unwrap_or_default(),
-        razao_social: texto(v, &["razao_social"]).unwrap_or_default(),
-        nome_fantasia: e("nome_fantasia"),
-        situacao: e("situacao_cadastral"),
+        cnpj: t("cnpj").unwrap_or_default(),
+        razao_social: t("razao_social").unwrap_or_default(),
+        nome_fantasia: t("nome_fantasia"),
+        situacao: t("descricao_situacao_cadastral"),
         logradouro,
-        numero: e("numero"),
-        complemento: e("complemento"),
-        bairro: e("bairro"),
-        cep: e("cep"),
-        municipio: texto(v, &["estabelecimento", "cidade", "ibge_id"]),
-        municipio_nome: texto(v, &["estabelecimento", "cidade", "nome"]),
-        uf: texto(v, &["estabelecimento", "estado", "sigla"]),
-        telefone,
-        email: e("email").map(|m| m.to_lowercase()),
-        optante_simples: sim_nao(v, &["simples", "simples"]),
-        mei: sim_nao(v, &["simples", "mei"]),
+        numero: t("numero"),
+        complemento: t("complemento"),
+        bairro: t("bairro"),
+        cep: t("cep"),
+        municipio: t("codigo_municipio_ibge"),
+        municipio_nome: t("municipio"),
+        uf: t("uf"),
+        telefone: t("ddd_telefone_1"),
+        email: t("email").map(|m| m.to_lowercase()),
+        optante_simples: booleano(v, "opcao_pelo_simples"),
+        mei: booleano(v, "opcao_pelo_mei"),
     }
 }
 
@@ -115,19 +110,15 @@ mod testes {
 
     #[test]
     fn interpreta_resposta() {
-        // Formato da publica.cnpj.ws com dados fictícios.
+        // Formato da BrasilAPI com dados fictícios.
         let v: Value = serde_json::from_str(
             r#"{
-              "razao_social": "EMPRESA EXEMPLO LTDA",
-              "simples": { "simples": "Sim", "mei": "Não" },
-              "estabelecimento": {
-                "cnpj": "11222333000181", "nome_fantasia": null, "situacao_cadastral": "Ativa",
-                "tipo_logradouro": "RUA", "logradouro": "EXEMPLO", "numero": "100",
-                "complemento": "SALA   2   ", "bairro": "CENTRO", "cep": "15800000",
-                "ddd1": "17", "telefone1": "35220000", "email": "CONTATO@EXEMPLO.COM",
-                "cidade": { "nome": "Catanduva", "ibge_id": 3511102 },
-                "estado": { "sigla": "SP" }
-              }
+              "cnpj": "11222333000181", "razao_social": "EMPRESA EXEMPLO LTDA", "nome_fantasia": "",
+              "descricao_situacao_cadastral": "ATIVA", "descricao_tipo_de_logradouro": "RUA",
+              "logradouro": "EXEMPLO", "numero": "100", "complemento": "SALA   2   ",
+              "bairro": "CENTRO", "cep": "15800000", "uf": "SP", "municipio": "CATANDUVA",
+              "codigo_municipio_ibge": 3511102, "ddd_telefone_1": "1735220000",
+              "email": "CONTATO@EXEMPLO.COM", "opcao_pelo_simples": true, "opcao_pelo_mei": false
             }"#,
         )
         .unwrap();
@@ -139,11 +130,12 @@ mod testes {
         assert_eq!(d.telefone.as_deref(), Some("1735220000"));
         assert_eq!(d.email.as_deref(), Some("contato@exemplo.com"));
         assert_eq!(d.nome_fantasia, None);
+        assert_eq!(d.situacao.as_deref(), Some("ATIVA"));
         assert_eq!(d.optante_simples, Some(true));
         assert_eq!(d.mei, Some(false));
     }
 
-    /// Consulta de verdade (rede; limite de 3 por minuto): `cargo test -p emissor-nfse -- --ignored`.
+    /// Consulta de verdade (rede): `cargo test -p emissor-nfse -- --ignored`.
     #[tokio::test]
     #[ignore]
     async fn consulta_real() {
@@ -155,8 +147,8 @@ mod testes {
     #[test]
     fn nao_repete_tipo_do_logradouro() {
         let v: Value = serde_json::from_str(
-            r#"{"razao_social": "X", "simples": null,
-               "estabelecimento": {"tipo_logradouro": "QUADRA", "logradouro": "QUADRA 5 BLOCO B"}}"#,
+            r#"{"razao_social": "X", "opcao_pelo_simples": null,
+               "descricao_tipo_de_logradouro": "QUADRA", "logradouro": "QUADRA 5 BLOCO B"}"#,
         )
         .unwrap();
         let d = interpretar(&v);
