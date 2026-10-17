@@ -11,6 +11,7 @@ pub mod arquivo;
 pub mod email;
 pub mod importacao;
 pub mod planilha;
+pub mod planilha_servicos;
 
 use std::path::PathBuf;
 

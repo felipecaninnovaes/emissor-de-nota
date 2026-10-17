@@ -87,7 +87,7 @@ impl LinhaPlanilha {
 }
 
 /// Sem acento, minúsculo e só letras e dígitos.
-fn normalizar(texto: &str) -> String {
+pub(crate) fn normalizar(texto: &str) -> String {
     texto
         .chars()
         .map(|c| match c {
@@ -105,6 +105,11 @@ fn normalizar(texto: &str) -> String {
 
 /// Lê a planilha pelo nome do arquivo (extensão) e conteúdo.
 pub fn ler(nome_arquivo: &str, bytes: &[u8]) -> Result<Vec<LinhaPlanilha>, String> {
+    montar_linhas(ler_tabela(nome_arquivo, bytes)?)
+}
+
+/// Células da primeira aba (ou do CSV) como texto, linha a linha, cabeçalho incluído.
+pub(crate) fn ler_tabela(nome_arquivo: &str, bytes: &[u8]) -> Result<Vec<Vec<String>>, String> {
     let extensao = nome_arquivo
         .rsplit_once('.')
         .map(|(_, e)| e.to_ascii_lowercase())
@@ -114,7 +119,7 @@ pub fn ler(nome_arquivo: &str, bytes: &[u8]) -> Result<Vec<LinhaPlanilha>, Strin
         "xlsx" | "xlsm" | "xls" | "ods" => ler_excel(bytes)?,
         _ => return Err("use uma planilha .xlsx, .xls, .ods ou .csv".into()),
     };
-    montar_linhas(tabela)
+    Ok(tabela)
 }
 
 fn montar_linhas(tabela: Vec<Vec<String>>) -> Result<Vec<LinhaPlanilha>, String> {

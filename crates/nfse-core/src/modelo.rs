@@ -329,6 +329,23 @@ pub struct Substituicao {
     pub descricao_motivo: Option<String>,
 }
 
+/// Anexo I, regras E0710/E0712/E0713: a forma do total de tributos depende do Simples.
+/// Devolve o motivo da rejeição, se a combinação não for aceita.
+pub fn conferir_total_tributos(simples: SituacaoSimples, total: &TotalTributos) -> Option<&'static str> {
+    match (simples, total) {
+        (SituacaoSimples::MeEpp, TotalTributos::NaoInformado) => {
+            Some("ME/EPP do Simples deve informar o % do Simples Nacional (E0712); ajuste o serviço")
+        }
+        (SituacaoSimples::NaoOptante, TotalTributos::NaoInformado | TotalTributos::PercentualSimples(_)) => Some(
+            "não optante do Simples deve informar os percentuais federal, estadual e municipal (E0713); ajuste o serviço",
+        ),
+        (SituacaoSimples::Mei, TotalTributos::PercentualSimples(_)) => {
+            Some("MEI não pode informar o % do Simples Nacional (E0710); ajuste o serviço")
+        }
+        _ => None,
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Dps {
     pub ambiente: Ambiente,
@@ -439,21 +456,8 @@ impl Dps {
         v.valor15("valores.servico", val.servico);
         v.opcional_valor15("valores.desconto_incondicionado", val.desconto_incondicionado);
         v.opcional_valor15("valores.desconto_condicionado", val.desconto_condicionado);
-        // Anexo I, regras E0710/E0712/E0713: a forma do total de tributos depende do Simples.
-        match (p.regime.simples, &val.total_tributos) {
-            (SituacaoSimples::MeEpp, TotalTributos::NaoInformado) => v.erro(
-                "valores.total_tributos",
-                "ME/EPP do Simples deve informar o % do Simples Nacional (E0712); ajuste o serviço",
-            ),
-            (SituacaoSimples::NaoOptante, TotalTributos::NaoInformado | TotalTributos::PercentualSimples(_)) => v.erro(
-                "valores.total_tributos",
-                "não optante do Simples deve informar os percentuais federal, estadual e municipal (E0713); ajuste o serviço",
-            ),
-            (SituacaoSimples::Mei, TotalTributos::PercentualSimples(_)) => v.erro(
-                "valores.total_tributos",
-                "MEI não pode informar o % do Simples Nacional (E0710); ajuste o serviço",
-            ),
-            _ => {}
+        if let Some(erro) = conferir_total_tributos(p.regime.simples, &val.total_tributos) {
+            v.erro("valores.total_tributos", erro);
         }
         if let Some(a) = val.issqn.aliquota {
             v.percentual("valores.issqn.aliquota", a, 1);

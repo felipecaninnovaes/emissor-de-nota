@@ -75,21 +75,41 @@ fn servico_de(r: &SqliteRow) -> Resultado<Servico> {
     })
 }
 
-impl Banco {
-    /// Insere (sem `id`) ou atualiza o serviço. Devolve o id.
-    pub async fn salvar_servico(&self, s: &Servico) -> Resultado<i64> {
+impl Servico {
+    /// Regras de cadastro (as da emissão ficam na validação da DPS).
+    pub fn validar(&self) -> Resultado<()> {
         let digitos = |v: &str, n: usize| v.len() == n && v.bytes().all(|b| b.is_ascii_digit());
-        if !digitos(&s.codigo_trib_nac, 6) {
+        if !digitos(&self.codigo_trib_nac, 6) {
             return Err(ErroBanco::Regra(
                 "código de tributação nacional deve ter 6 dígitos (ex.: 171901)".into(),
             ));
         }
-        if s.nbs.as_deref().is_some_and(|n| !digitos(n, 9)) {
+        if self.nbs.as_deref().is_some_and(|n| !digitos(n, 9)) {
             return Err(ErroBanco::Regra("NBS deve ter 9 dígitos".into()));
         }
-        if s.nome.trim().is_empty() || s.descricao.trim().is_empty() {
+        if self.nome.trim().is_empty() || self.descricao.trim().is_empty() {
             return Err(ErroBanco::Regra("nome e descrição do serviço são obrigatórios".into()));
         }
+        Ok(())
+    }
+}
+
+/// Quantos serviços a importação criou e quantos atualizou (mesmo nome já cadastrado).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+pub struct ResumoImportacaoServicos {
+    pub novos: usize,
+    pub atualizados: usize,
+}
+
+/// Chave de comparação de nomes: sem diferença de maiúsculas e espaços nas pontas.
+fn chave_nome(nome: &str) -> String {
+    nome.trim().to_lowercase()
+}
+
+impl Banco {
+    /// Insere (sem `id`) ou atualiza o serviço. Devolve o id.
+    pub async fn salvar_servico(&self, s: &Servico) -> Resultado<i64> {
+        s.validar()?;
         let consulta = match s.id {
             None => sqlx::query(
                 "INSERT INTO servico (empresa_id, nome, descricao, codigo_trib_nac, codigo_trib_mun, nbs,
@@ -118,6 +138,45 @@ impl Banco {
             .ok_or(ErroBanco::NaoEncontrado("serviço"))?
             .get(0);
         Ok(id)
+    }
+
+    /// Grava os serviços na empresa (o `id` e o `empresa_id` de cada um são ignorados). Um serviço
+    /// ativo com o mesmo nome é atualizado; os demais são criados. Nada é gravado se algum for
+    /// inválido.
+    pub async fn importar_servicos(
+        &self,
+        empresa_id: i64,
+        servicos: &[Servico],
+    ) -> Resultado<ResumoImportacaoServicos> {
+        for s in servicos {
+            s.validar()
+                .map_err(|e| ErroBanco::Regra(format!("serviço \"{}\": {e}", s.nome.trim())))?;
+        }
+        let mut existentes: std::collections::HashMap<String, i64> = self
+            .servicos(empresa_id)
+            .await?
+            .into_iter()
+            .filter_map(|s| Some((chave_nome(&s.nome), s.id?)))
+            .collect();
+        let mut resumo = ResumoImportacaoServicos::default();
+        for s in servicos {
+            let chave = chave_nome(&s.nome);
+            let id = existentes.get(&chave).copied();
+            let novo = Servico {
+                id,
+                empresa_id,
+                ..s.clone()
+            };
+            let gravado = self.salvar_servico(&novo).await?;
+            match id {
+                Some(_) => resumo.atualizados += 1,
+                None => {
+                    resumo.novos += 1;
+                    existentes.insert(chave, gravado);
+                }
+            }
+        }
+        Ok(resumo)
     }
 
     pub async fn servicos(&self, empresa_id: i64) -> Resultado<Vec<Servico>> {
@@ -200,6 +259,42 @@ mod testes {
 
         banco.desativar_servico(id).await.unwrap();
         assert!(banco.servicos(empresa.id).await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn importa_atualizando_pelo_nome() {
+        let (banco, _, empresa) = banco_com_empresa().await;
+        let existente = banco.salvar_servico(&honorarios(empresa.id)).await.unwrap();
+
+        // De outra empresa (id e empresa_id são ignorados), com o nome em maiúsculas.
+        let mut mesmo = honorarios(999);
+        mesmo.id = Some(12345);
+        mesmo.nome = "  HONORÁRIOS MENSAIS ".into();
+        mesmo.valor_sugerido = Some(Valor::parse("990").unwrap());
+        let mut outro = honorarios(999);
+        outro.nome = "Consulta".into();
+        let resumo = banco.importar_servicos(empresa.id, &[mesmo, outro]).await.unwrap();
+        assert_eq!(
+            resumo,
+            ResumoImportacaoServicos {
+                novos: 1,
+                atualizados: 1
+            }
+        );
+
+        let lista = banco.servicos(empresa.id).await.unwrap();
+        assert_eq!(lista.len(), 2);
+        let atualizado = lista.iter().find(|s| s.id == Some(existente)).unwrap();
+        assert_eq!(atualizado.valor_sugerido, Some(Valor::parse("990").unwrap()));
+        assert!(lista.iter().all(|s| s.empresa_id == empresa.id));
+
+        // Um inválido impede a importação inteira.
+        let mut novo = honorarios(empresa.id);
+        novo.nome = "Exame".into();
+        let mut ruim = honorarios(empresa.id);
+        ruim.codigo_trib_nac = "123".into();
+        assert!(banco.importar_servicos(empresa.id, &[novo, ruim]).await.is_err());
+        assert_eq!(banco.servicos(empresa.id).await.unwrap().len(), 2);
     }
 
     #[tokio::test]
