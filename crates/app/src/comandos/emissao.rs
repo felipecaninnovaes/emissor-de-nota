@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use nfse_core::Valor;
-use nfse_core::modelo::Ambiente;
+use nfse_core::modelo::{Ambiente, SituacaoSimples};
 use nfse_db::servicos::AplicarRetencao;
 use nfse_emissor::{ConectorSefin, Emissor, Origem, PedidoEmissao, ResultadoEmissao};
 
@@ -76,6 +76,32 @@ pub struct PreviaDto {
     reter_federais: bool,
     reter_iss: bool,
     erros: Vec<String>,
+    /// Alertas que não impedem a emissão (retenção possivelmente indevida).
+    avisos: Vec<String>,
+}
+
+/// Dispensa de retenção de PIS/COFINS/CSLL para pagamentos até este valor (Lei 10.833/2003, art. 31), em centavos.
+const LIMITE_RETENCAO_CSLL: i64 = 21_505;
+
+/// Avisos de retenção federal que parece indevida; o operador decide, nada é bloqueado.
+fn avisos_retencao(simples: SituacaoSimples, f: &nfse_core::modelo::TributosFederais, valor_nota: i64) -> Vec<String> {
+    let mut avisos = Vec::new();
+    let retem_csll = f.retencao_csll.is_some_and(|v| v.centesimos() > 0);
+    let retem_federal = retem_csll
+        || [f.retencao_irrf, f.retencao_cp]
+            .into_iter()
+            .flatten()
+            .any(|v| v.centesimos() > 0);
+    if simples != SituacaoSimples::NaoOptante && retem_federal {
+        avisos.push(
+            "A empresa é optante pelo Simples Nacional: em regra não sofre retenção federal. Confira antes de emitir."
+                .into(),
+        );
+    }
+    if retem_csll && valor_nota <= LIMITE_RETENCAO_CSLL {
+        avisos.push("PIS/COFINS/CSLL costumam ser dispensados de retenção em pagamentos até R$ 215,05.".into());
+    }
+    avisos
 }
 
 /// Monta a DPS do pedido como ela sairia agora e lista os erros que impedem a emissão.
@@ -128,6 +154,7 @@ pub async fn previa_dps(estado: State<'_, Estado>, pedido: PedidoDto) -> R<Previ
         .map(|v| v.centesimos())
         .sum();
     let (reter_federais, reter_iss) = pedido.reter.efetiva(tomador.as_ref());
+    let avisos = avisos_retencao(empresa.regime.simples, f, dps.valores.servico.centesimos());
     Ok(PreviaDto {
         ambiente: dps.ambiente,
         serie: dps.serie,
@@ -144,6 +171,7 @@ pub async fn previa_dps(estado: State<'_, Estado>, pedido: PedidoDto) -> R<Previ
         reter_federais,
         reter_iss,
         erros,
+        avisos,
     })
 }
 
@@ -208,4 +236,27 @@ pub async fn emitir(estado: State<'_, Estado>, pedido: PedidoDto) -> R<Resultado
     let emissor = guarda.as_ref().expect("verificado");
     let resultado = emissor.emitir(&pedido).await.map_err(texto)?;
     Ok(concluir(emissor, resultado).await)
+}
+
+#[cfg(test)]
+mod testes {
+    use super::*;
+    use nfse_core::modelo::TributosFederais;
+
+    fn csll(centavos: i64) -> TributosFederais {
+        TributosFederais {
+            retencao_csll: Some(Valor::de_centesimos(centavos)),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn avisa_retencao_no_simples_e_abaixo_do_limite() {
+        let f = csll(1_000);
+        assert!(avisos_retencao(SituacaoSimples::NaoOptante, &f, 100_000).is_empty());
+        assert_eq!(avisos_retencao(SituacaoSimples::MeEpp, &f, 100_000).len(), 1);
+        assert_eq!(avisos_retencao(SituacaoSimples::NaoOptante, &f, 21_505).len(), 1);
+        assert_eq!(avisos_retencao(SituacaoSimples::Mei, &f, 10_000).len(), 2);
+        assert!(avisos_retencao(SituacaoSimples::Mei, &TributosFederais::default(), 10_000).is_empty());
+    }
 }

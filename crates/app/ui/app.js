@@ -1168,6 +1168,7 @@ async function revisar() {
   reter.hidden = !previa.retencao_condicional;
   $("#reter-federais").checked = previa.reter_federais;
   $("#reter-iss").checked = previa.reter_iss;
+  for (const texto of previa.avisos) partes.push(`<div class="aviso atencao">${esc(texto)}</div>`);
   $("#confirmar-emissao").disabled = previa.erros.length > 0;
   $("#revisao").hidden = false;
   $("#revisao").scrollIntoView({ behavior: "smooth" });
