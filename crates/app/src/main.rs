@@ -64,14 +64,14 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            comandos::situacao_cofre,
-            comandos::criar_cofre,
-            comandos::abrir_cofre,
-            comandos::bloquear_cofre,
-            comandos::obter_pasta,
-            comandos::definir_pasta,
-            comandos::obter_aparencia,
-            comandos::salvar_aparencia,
+            comandos::cofre::situacao_cofre,
+            comandos::cofre::criar_cofre,
+            comandos::cofre::abrir_cofre,
+            comandos::cofre::bloquear_cofre,
+            comandos::cofre::obter_pasta,
+            comandos::cofre::definir_pasta,
+            comandos::aparencia::obter_aparencia,
+            comandos::aparencia::salvar_aparencia,
             comandos::listar_empresas,
             comandos::cadastrar_empresa,
             comandos::atualizar_empresa,
