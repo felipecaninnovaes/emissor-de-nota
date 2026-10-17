@@ -8,6 +8,8 @@
 //! - a NFS-e é gravada exatamente como a Sefin devolveu.
 
 pub mod arquivo;
+pub mod importacao;
+pub mod planilha;
 
 use std::path::PathBuf;
 
@@ -104,9 +106,23 @@ pub struct PedidoEmissao {
     /// Mês usado em `{mes_ref}`; padrão: mês anterior ao da emissão.
     pub mes_referencia: Option<NaiveDate>,
     pub informacoes_complementares: Option<String>,
-    /// Emissão de uma nota recorrente: o mês (`mes_referencia`, obrigatório) fica reservado
-    /// para ela a partir da reserva do número, antes do envio.
-    pub recorrencia_id: Option<i64>,
+    pub origem: Origem,
+}
+
+/// De onde vem o pedido. Recorrência e planilha ficam ligadas à DPS desde a reserva do número
+/// (antes do envio), para que o mesmo item nunca gere duas notas.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum Origem {
+    #[default]
+    Manual,
+    /// Nota recorrente: uma por mês de referência (`mes_referencia` obrigatório).
+    Recorrencia(i64),
+    /// Linha de planilha; `chave` identifica o conteúdo da linha.
+    Planilha {
+        chave: String,
+        arquivo: Option<String>,
+        linha: Option<i64>,
+    },
 }
 
 /// Brasília (sem horário de verão desde 2019), um minuto atrás: `dhEmi` no futuro é rejeitado.
@@ -343,24 +359,32 @@ impl<C: Conector> Emissor<C> {
             None => None,
         };
 
-        let recorrencia = match pedido.recorrencia_id {
-            Some(id) => {
-                let mes = pedido
+        // Recorrência e planilha: não emite de novo o que já tem nota autorizada ou em andamento.
+        let mes_recorrencia = match &pedido.origem {
+            Origem::Recorrencia(_) => Some(
+                pedido
                     .mes_referencia
                     .ok_or_else(|| ErroEmissao::Regra("nota recorrente exige o mês de referência".into()))?
                     .format("%Y-%m")
-                    .to_string();
-                let anterior = self.banco.tentativa_no_mes(id, &mes).await?;
-                if let Some(t) = anterior.filter(|t| !t.libera_o_mes()) {
-                    return Err(ErroEmissao::Regra(format!(
-                        "esta recorrência já tem nota {} em {mes}",
-                        t.situacao.texto()
-                    )));
-                }
-                Some((id, mes))
-            }
-            None => None,
+                    .to_string(),
+            ),
+            _ => None,
         };
+        let anterior = match (&pedido.origem, &mes_recorrencia) {
+            (Origem::Recorrencia(id), Some(mes)) => self.banco.tentativa_no_mes(*id, mes).await?,
+            (Origem::Planilha { chave, .. }, _) => self.banco.tentativa_importada(chave).await?,
+            _ => None,
+        };
+        if let Some(t) = anterior.filter(|t| !t.libera_o_mes()) {
+            return Err(ErroEmissao::Regra(format!(
+                "já existe nota {} para esta {}",
+                t.situacao.texto(),
+                match pedido.origem {
+                    Origem::Recorrencia(_) => "recorrência neste mês",
+                    _ => "linha da planilha",
+                }
+            )));
+        }
 
         // Valida antes de reservar número: DPS inválida não gasta numeração.
         let mut modelo = montar_dps(&empresa, tomador.as_ref(), &servico, pedido, agora_brasilia());
@@ -368,14 +392,21 @@ impl<C: Conector> Emissor<C> {
         let (cert, sefin) = self.conectar(&empresa, empresa.ambiente).await?;
 
         let reserva = self.banco.reservar_dps(empresa.id).await?;
-        if let Some((id, mes)) = &recorrencia {
-            if let Err(e) = self.banco.registrar_emissao_recorrente(*id, mes, reserva.id).await {
-                // Outra emissão do mesmo mês começou entre a conferência e a reserva.
+        let vinculo = match (&pedido.origem, &mes_recorrencia) {
+            (Origem::Recorrencia(id), Some(mes)) => self.banco.registrar_emissao_recorrente(*id, mes, reserva.id).await,
+            (Origem::Planilha { chave, arquivo, linha }, _) => {
                 self.banco
-                    .registrar_rejeicao(reserva.id, &format!("não enviada: {e}"))
-                    .await?;
-                return Err(e.into());
+                    .registrar_emissao_importada(chave, arquivo.as_deref(), *linha, reserva.id)
+                    .await
             }
+            _ => Ok(()),
+        };
+        if let Err(e) = vinculo {
+            // Outra emissão do mesmo item começou entre a conferência e a reserva.
+            self.banco
+                .registrar_rejeicao(reserva.id, &format!("não enviada: {e}"))
+                .await?;
+            return Err(e.into());
         }
         modelo.serie = reserva.serie.clone();
         modelo.numero = reserva.numero;
@@ -602,9 +633,29 @@ impl<C: Conector> Emissor<C> {
             descricao: r.descricao,
             mes_referencia: Some(mes.with_day(1).expect("dia 1 existe")),
             informacoes_complementares: r.informacoes_complementares,
-            recorrencia_id: Some(recorrencia_id),
+            origem: Origem::Recorrencia(recorrencia_id),
         })
         .await
+    }
+
+    /// Emite uma linha de planilha já resolvida (vincula o tomador à empresa, se preciso).
+    pub async fn emitir_importado(
+        &self,
+        item: &importacao::ItemImportado,
+        arquivo: Option<&str>,
+    ) -> Result<ResultadoEmissao, ErroEmissao> {
+        if let Some(erro) = item.erros.first() {
+            return Err(ErroEmissao::Regra(format!("linha {}: {erro}", item.linha)));
+        }
+        let pedido = item
+            .pedido(arquivo)
+            .ok_or_else(|| ErroEmissao::Regra(format!("linha {} incompleta", item.linha)))?;
+        if item.vincular_tomador
+            && let Some(pessoa) = item.pessoa_id
+        {
+            self.banco.vincular_tomador(pedido.empresa_id, pessoa).await?;
+        }
+        self.emitir(&pedido).await
     }
 
     /// Lê uma DPS rejeitada (pela Sefin ou não enviada por falta de conexão) para emitir de novo.

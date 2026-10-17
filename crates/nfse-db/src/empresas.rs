@@ -326,6 +326,10 @@ impl Banco {
             return Ok(Exclusao::Arquivada { notas });
         }
         let mut tx = self.pool().begin().await?;
+        sqlx::query("DELETE FROM emissao_importada WHERE dps_id IN (SELECT id FROM dps WHERE empresa_id = ?)")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
         sqlx::query(
             "DELETE FROM emissao_recorrente WHERE recorrencia_id IN (SELECT id FROM recorrencia WHERE empresa_id = ?)",
         )

@@ -65,6 +65,9 @@ fn main() {
             comandos::salvar_recorrencia,
             comandos::desativar_recorrencia,
             comandos::emitir_recorrencia,
+            comandos::ler_planilha,
+            comandos::emitir_planilha,
+            comandos::salvar_modelo_planilha,
             comandos::consultar_cnpj,
         ])
         .run(tauri::generate_context!())

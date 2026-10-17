@@ -201,6 +201,7 @@ async function entrar(pendencias) {
   $("#mes-ref").value = mesAnterior();
   $("#mes-notas").value = mesAtual();
   $("#mes-lote").value = mesAnterior();
+  $("#mes-planilha").value = mesAnterior();
   await carregarEmpresas();
   await avisarVencimentos();
   if (!estado.empresas.length) {
@@ -230,6 +231,7 @@ function irPara(tela) {
     notas: carregarNotas,
     lote: carregarLote,
     recorrentes: carregarRecorrencias,
+    planilha: async () => desenharPlanilha(),
     tomadores: carregarTomadores,
     servicos: carregarServicos,
     empresas: renderizarEmpresas,
@@ -851,46 +853,32 @@ $("#lote-todos").addEventListener("change", (ev) => marcarPendentes(ev.target.ch
 $("#mes-lote").addEventListener("change", () => carregarLote().catch((e) => toast(String(e), true)));
 $("#lote-so-empresa").addEventListener("change", () => carregarLote().catch((e) => toast(String(e), true)));
 
-/** Emite um item; com limite de requisições da Sefin, espera e tenta mais uma vez. */
-async function emitirItemDoLote(r, mes, celula) {
-  for (let tentativa = 1; ; tentativa++) {
-    try {
-      return { ok: true, res: await invoke("emitir_recorrencia", { recorrenciaId: r.id, mes }) };
-    } catch (e) {
-      if (tentativa === 1 && /limite|429|too many/i.test(String(e))) {
-        celula.innerHTML = `<span class="selo enviando">Aguardando a Sefin...</span>`;
-        await esperar(15000);
-        continue;
-      }
-      return { ok: false, erro: String(e) };
-    }
-  }
-}
-
-$("#lote-emitir").addEventListener("click", async () => {
-  const itens = marcadosLote();
-  const mes = $("#mes-lote").value;
-  if (!itens.length || !mes) return;
-  const [ano, m] = mes.split("-");
-  const producao = itens.filter((r) => ambienteDe(r.empresa_id) === "producao").length;
-  const total = itens.reduce((soma, r) => soma + Number(r.valor_efetivo ?? 0), 0);
-  const pergunta =
-    `Emitir ${itens.length} nota(s) com referência ${m}/${ano}, total R$ ${moeda(total.toFixed(2))}?` +
-    (producao ? `\n\n${producao} em PRODUÇÃO (valor fiscal).` : "");
-  if (!confirm(pergunta)) return;
-
-  loteEmAndamento = true;
-  atualizarBotaoLote();
-  for (const c of $$("#lista-lote input[type=checkbox]")) c.disabled = true;
-  const andamento = $("#lote-andamento");
+/**
+ * Emite os itens em sequência, mostrando o andamento em `andamento` e o resultado na célula de
+ * cada linha (`celulaDe(item)`). `emitirUm(item)` chama o comando; com limite de requisições da
+ * Sefin, espera e tenta mais uma vez. Devolve o resumo em HTML.
+ */
+async function emitirEmSequencia({ itens, andamento, celulaDe, descrever, emitirUm }) {
   const contagem = { autorizada: 0, falha: 0, incerta: 0 };
-  for (const [n, r] of itens.entries()) {
-    andamento.innerHTML = `<div class="aviso atencao">Emitindo ${n + 1} de ${itens.length}: ${esc(r.empresa)} → ${esc(
-      r.tomador ?? "sem tomador",
+  for (const [n, item] of itens.entries()) {
+    andamento.innerHTML = `<div class="aviso atencao">Emitindo ${n + 1} de ${itens.length}: ${esc(
+      descrever(item),
     )}... Não feche o programa.</div>`;
-    const celula = $(`#lista-lote tr[data-i="${loteCarregado.indexOf(r)}"] [data-situacao]`);
+    const celula = celulaDe(item);
     celula.innerHTML = `<span class="selo enviando">Enviando...</span>`;
-    const resultado = await emitirItemDoLote(r, mes, celula);
+    let resultado;
+    for (let tentativa = 1; !resultado; tentativa++) {
+      try {
+        resultado = { ok: true, res: await emitirUm(item) };
+      } catch (e) {
+        if (tentativa === 1 && /limite|429|too many/i.test(String(e))) {
+          celula.innerHTML = `<span class="selo enviando">Aguardando a Sefin...</span>`;
+          await esperar(15000);
+          continue;
+        }
+        resultado = { ok: false, erro: String(e) };
+      }
+    }
     if (resultado.ok && resultado.res.autorizada) {
       contagem.autorizada++;
       celula.innerHTML = `<span class="selo autorizada">Autorizada nº ${esc(resultado.res.numero ?? "")}</span>`;
@@ -903,17 +891,183 @@ $("#lote-emitir").addEventListener("click", async () => {
         <div class="ajuda" style="color:var(--vermelho)">${esc(resultado.erro)}</div>`;
     }
   }
-  loteEmAndamento = false;
-  const resumo =
-    `<div class="aviso ${contagem.falha || contagem.incerta ? "atencao" : "ok"}">Lote concluído: ` +
+  toast(`Concluído: ${contagem.autorizada} autorizada(s).`);
+  return (
+    `<div class="aviso ${contagem.falha || contagem.incerta ? "atencao" : "ok"}">Concluído: ` +
     `${contagem.autorizada} autorizada(s)` +
     (contagem.falha ? `, ${contagem.falha} não emitida(s) — o motivo está em cada linha` : "") +
     (contagem.incerta ? `, ${contagem.incerta} sem resposta — confira em "Notas emitidas" (Verificar)` : "") +
-    ".</div>";
-  toast(`Lote concluído: ${contagem.autorizada} autorizada(s).`);
+    ".</div>"
+  );
+}
+
+/** Confirmação antes de emitir em lote: quantidade, total e quantas em Produção. */
+function confirmarEmissao(quantidade, total, producao, referencia) {
+  return confirm(
+    `Emitir ${quantidade} nota(s)${referencia ? ` com referência ${referencia}` : ""}, total R$ ${moeda(
+      total.toFixed(2),
+    )}?` + (producao ? `\n\n${producao} em PRODUÇÃO (valor fiscal).` : ""),
+  );
+}
+
+$("#lote-emitir").addEventListener("click", async () => {
+  const itens = marcadosLote();
+  const mes = $("#mes-lote").value;
+  if (!itens.length || !mes) return;
+  const [ano, m] = mes.split("-");
+  const producao = itens.filter((r) => ambienteDe(r.empresa_id) === "producao").length;
+  const total = itens.reduce((soma, r) => soma + Number(r.valor_efetivo ?? 0), 0);
+  if (!confirmarEmissao(itens.length, total, producao, `${m}/${ano}`)) return;
+
+  loteEmAndamento = true;
+  atualizarBotaoLote();
+  for (const c of $$("#lista-lote input[type=checkbox]")) c.disabled = true;
+  const resumo = await emitirEmSequencia({
+    itens,
+    andamento: $("#lote-andamento"),
+    celulaDe: (r) => $(`#lista-lote tr[data-i="${loteCarregado.indexOf(r)}"] [data-situacao]`),
+    descrever: (r) => `${r.empresa} → ${r.tomador ?? "sem tomador"}`,
+    emitirUm: (r) => invoke("emitir_recorrencia", { recorrenciaId: r.id, mes }),
+  });
+  loteEmAndamento = false;
   // Recarrega para mostrar a situação gravada (as rejeitadas voltam a ficar pendentes).
   await carregarLote().catch((e) => toast(String(e), true));
-  andamento.innerHTML = resumo;
+  $("#lote-andamento").innerHTML = resumo;
+});
+
+// ---------------------------------------------------------------- importar planilha
+
+let planilhaLida = [];
+let planilhaArquivo = null; // { nome, bytes }
+let planilhaEmAndamento = false;
+
+const podeEmitirDaPlanilha = (it) => !it.erros.length && (!it.anterior || it.anterior.libera);
+const marcadosPlanilha = () =>
+  $$("#lista-planilha input[type=checkbox]:checked").map((c) => planilhaLida[Number(c.dataset.i)]);
+
+$("#modelo-planilha").addEventListener("click", async () => {
+  try {
+    toast(`Modelo salvo em ${await chamar("salvar_modelo_planilha")}`);
+  } catch (e) {
+    toast(String(e), true);
+  }
+});
+
+$("#arquivo-planilha").addEventListener("change", async (ev) => {
+  const arquivo = ev.target.files[0];
+  if (!arquivo) return;
+  planilhaArquivo = { nome: arquivo.name, bytes: Array.from(new Uint8Array(await arquivo.arrayBuffer())) };
+  await lerPlanilha();
+});
+
+$("#mes-planilha").addEventListener("change", () => planilhaArquivo && lerPlanilha());
+$("#reler-planilha").addEventListener("click", () => planilhaArquivo && lerPlanilha());
+
+async function lerPlanilha() {
+  $("#planilha-andamento").innerHTML = "";
+  try {
+    planilhaLida = await chamar("ler_planilha", {
+      nome: planilhaArquivo.nome,
+      bytes: planilhaArquivo.bytes,
+      empresaId: estado.empresa?.id ?? null,
+      mes: $("#mes-planilha").value,
+    });
+  } catch (e) {
+    planilhaLida = [];
+    $("#planilha-andamento").innerHTML = `<div class="aviso erro">${esc(e)}</div>`;
+  }
+  desenharPlanilha();
+}
+
+function situacaoPlanilha(it) {
+  const t = it.anterior;
+  if (t && !t.libera) {
+    const nota = t.numero_nfse ? ` nº ${esc(t.numero_nfse)}` : "";
+    return `<span class="selo ${esc(t.situacao)}">Já ${esc((NOME_SITUACAO[t.situacao] ?? t.situacao).toLowerCase())}${nota}</span>`;
+  }
+  if (it.erros.length) {
+    return `<span class="selo rejeitada">Não pode emitir</span>
+      <div class="ajuda" style="color:var(--vermelho)">${it.erros.map(esc).join("<br>")}</div>`;
+  }
+  const aviso = it.vincular_tomador ? `<div class="ajuda">O tomador será vinculado a esta empresa.</div>` : "";
+  const antes = t
+    ? `<div class="ajuda">Antes: ${esc(NOME_SITUACAO[t.situacao] ?? t.situacao)} — ${esc(t.erro ?? "")}</div>`
+    : "";
+  return `<span class="selo pendente">Pronta</span>${aviso}${antes}`;
+}
+
+function desenharPlanilha() {
+  const corpo = $("#lista-planilha");
+  $("#planilha-todos").checked = false;
+  if (!planilhaLida.length) {
+    corpo.innerHTML = `<tr><td colspan="7" class="vazio">${
+      planilhaArquivo ? "Nenhuma linha com dados na planilha." : "Escolha a planilha (.xlsx, .xls, .ods ou .csv)."
+    }</td></tr>`;
+    $("#planilha-resumo").textContent = "";
+    atualizarBotaoPlanilha();
+    return;
+  }
+  corpo.innerHTML = planilhaLida
+    .map(
+      (it, i) => `<tr data-i="${i}">
+        <td><input type="checkbox" data-i="${i}" ${podeEmitirDaPlanilha(it) ? "" : "disabled"}></td>
+        <td class="num">${it.linha}</td>
+        <td>${esc(it.empresa ?? "—")}</td>
+        <td>${esc(it.tomador ?? it.documento_tomador)}</td>
+        <td class="truncar" title="${esc(it.descricao)}">${esc(it.descricao)}</td>
+        <td class="num">${it.valor ? "R$ " + moeda(it.valor) : ""}</td>
+        <td data-situacao>${situacaoPlanilha(it)}</td>
+      </tr>`,
+    )
+    .join("");
+  const prontas = planilhaLida.filter(podeEmitirDaPlanilha);
+  const total = prontas.reduce((soma, it) => soma + Number(it.valor ?? 0), 0);
+  const jaEmitidas = planilhaLida.filter((it) => it.anterior && !it.anterior.libera).length;
+  const comErro = planilhaLida.length - prontas.length - jaEmitidas;
+  $("#planilha-resumo").textContent =
+    `${planilhaLida.length} linha(s): ${prontas.length} pronta(s) para emitir (R$ ${moeda(total.toFixed(2))})` +
+    (jaEmitidas ? `, ${jaEmitidas} já emitida(s)` : "") +
+    (comErro ? `, ${comErro} com erro` : "") +
+    ".";
+  atualizarBotaoPlanilha();
+}
+
+function atualizarBotaoPlanilha() {
+  const n = marcadosPlanilha().length;
+  const botao = $("#planilha-emitir");
+  botao.textContent = n ? `Emitir selecionadas (${n})` : "Emitir selecionadas";
+  botao.disabled = planilhaEmAndamento || !n;
+}
+
+function marcarProntas(marcar) {
+  for (const c of $$("#lista-planilha input[type=checkbox]")) if (!c.disabled) c.checked = marcar;
+  atualizarBotaoPlanilha();
+}
+
+$("#lista-planilha").addEventListener("change", atualizarBotaoPlanilha);
+$("#planilha-todos").addEventListener("change", (ev) => marcarProntas(ev.target.checked));
+$("#planilha-marcar").addEventListener("click", () => marcarProntas(true));
+
+$("#planilha-emitir").addEventListener("click", async () => {
+  const itens = marcadosPlanilha();
+  if (!itens.length) return;
+  const producao = itens.filter((it) => ambienteDe(it.empresa_id) === "producao").length;
+  const total = itens.reduce((soma, it) => soma + Number(it.valor ?? 0), 0);
+  if (!confirmarEmissao(itens.length, total, producao, null)) return;
+
+  planilhaEmAndamento = true;
+  atualizarBotaoPlanilha();
+  for (const c of $$("#lista-planilha input[type=checkbox]")) c.disabled = true;
+  const resumo = await emitirEmSequencia({
+    itens,
+    andamento: $("#planilha-andamento"),
+    celulaDe: (it) => $(`#lista-planilha tr[data-i="${planilhaLida.indexOf(it)}"] [data-situacao]`),
+    descrever: (it) => `linha ${it.linha}: ${it.tomador ?? it.documento_tomador}`,
+    emitirUm: (it) => invoke("emitir_planilha", { item: it, arquivo: planilhaArquivo?.nome ?? null }),
+  });
+  planilhaEmAndamento = false;
+  await lerPlanilha();
+  $("#planilha-andamento").innerHTML = resumo;
 });
 
 // ---------------------------------------------------------------- tomadores

@@ -18,7 +18,7 @@ escritório: o contribuinte não está no CNC desse ambiente (rejeição E0084).
 | 4. DANFSe v2.0 em PDF (`nfse-pdf`, NT 008/2026) | feito |
 | 5. Interface desktop Tauri 2 (`crates/app`) | feito (falta instalador MSI e CI) |
 | 6a. Notas recorrentes (`{mes_ref}`) e lote do mês | feito |
-| 6b. Importação de planilha para convênios (valores variáveis) | pendente |
+| 6b. Importação de planilha para convênios (valores variáveis) | feito |
 | 7. Envio por e-mail ao tomador | pendente |
 
 ## Item 5 — o que falta
@@ -45,7 +45,7 @@ escritório: o contribuinte não está no CNC desse ambiente (rejeição E0084).
 ## Decisões já tomadas
 
 - Interface em HTML/CSS/JS puro (sem Node/bundler), para manutenção por uma pessoa.
-- `rust-version = 1.85` no workspace limita versões (krilla 0.6, sqlx 0.8); subir se precisar.
+- `rust-version = 1.88` no workspace (subiu de 1.85 pelo `zip` do calamine, leitor de XLSX).
 - Competência (`dCompet`) = data da emissão; o mês de referência vai só na descrição.
 - Série própria (padrão `1`); a `70000` é do Emissor Web nacional. Pelo Anexo I (v1.01-20260209),
   a faixa 00001–49999 é de aplicativo próprio.

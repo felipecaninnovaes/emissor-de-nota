@@ -217,7 +217,7 @@ async fn cenario(respostas: Vec<Resposta>) -> Cenario {
             descricao: None,
             mes_referencia: Some(NaiveDate::from_ymd_opt(2026, 9, 1).unwrap()),
             informacoes_complementares: None,
-            recorrencia_id: None,
+            origem: Origem::Manual,
         },
     }
 }
@@ -633,4 +633,63 @@ async fn recorrencia_rejeitada_libera_o_mes() {
         c.emissor.emitir_recorrencia(rec, setembro).await.unwrap(),
         ResultadoEmissao::Autorizada { .. }
     ));
+}
+
+#[tokio::test]
+async fn planilha_emite_e_nao_repete_ao_reimportar() {
+    let c = cenario(vec![
+        Resposta::Emitir(Ok(nfse_autorizada())),
+        Resposta::Emitir(Err(rejeicao("E0116"))),
+    ])
+    .await;
+    // Duas linhas idênticas (duas guias iguais) e uma com tomador desconhecido.
+    let csv = "Tomador;Valor;Descricao\r\n\
+               12.ABC.345/01DE-35;150,00;CONSULTAS {mes_ref}\r\n\
+               12.ABC.345/01DE-35;150,00;CONSULTAS {mes_ref}\r\n\
+               529.982.247-25;80,00;CONSULTAS\r\n";
+    let linhas = crate::planilha::ler("convenio.csv", csv.as_bytes()).unwrap();
+    let setembro = NaiveDate::from_ymd_opt(2026, 9, 1).unwrap();
+    let banco = c.emissor.banco();
+    let itens = importacao::resolver(banco, &linhas, Some(c.pedido.empresa_id), setembro)
+        .await
+        .unwrap();
+    assert_eq!(itens.len(), 3);
+    assert!(itens[0].emitivel() && itens[1].emitivel(), "{:?}", itens[0].erros);
+    assert_ne!(itens[0].chave, itens[1].chave, "linhas iguais contam como duas notas");
+    assert_eq!(itens[0].descricao, "CONSULTAS 09/2026");
+    assert_eq!(
+        itens[0].servico_id,
+        Some(c.pedido.servico_id),
+        "empresa com um serviço só"
+    );
+    assert!(itens[2].erros[0].contains("não cadastrado"), "{:?}", itens[2].erros);
+    assert!(c.emissor.emitir_importado(&itens[2], None).await.is_err());
+
+    assert!(matches!(
+        c.emissor
+            .emitir_importado(&itens[0], Some("convenio.csv"))
+            .await
+            .unwrap(),
+        ResultadoEmissao::Autorizada { .. }
+    ));
+    assert!(
+        c.emissor
+            .emitir_importado(&itens[1], Some("convenio.csv"))
+            .await
+            .is_err()
+    );
+
+    // Reimportar a mesma planilha: a primeira já foi emitida, a segunda (rejeitada) pode de novo.
+    let de_novo = importacao::resolver(banco, &linhas, Some(c.pedido.empresa_id), setembro)
+        .await
+        .unwrap();
+    assert!(!de_novo[0].emitivel());
+    assert_eq!(de_novo[0].anterior.as_ref().unwrap().situacao, SituacaoDps::Autorizada);
+    assert!(de_novo[1].emitivel());
+    let erro = c.emissor.emitir_importado(&de_novo[0], None).await.unwrap_err();
+    assert!(
+        matches!(&erro, ErroEmissao::Regra(m) if m.contains("linha da planilha")),
+        "{erro:?}"
+    );
+    assert_eq!(c.sefin.recebidos().len(), 2);
 }

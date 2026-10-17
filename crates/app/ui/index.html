@@ -36,6 +36,7 @@
     <button data-tela="emitir" class="ativo">Emitir nota</button>
     <button data-tela="notas">Notas emitidas</button>
     <button data-tela="lote">Lote do mês</button>
+    <button data-tela="planilha">Importar planilha</button>
     <button data-tela="recorrentes">Recorrentes</button>
     <button data-tela="tomadores">Tomadores</button>
     <button data-tela="servicos">Serviços</button>
@@ -147,6 +148,39 @@
         </div>
         <p class="ajuda">Cada recorrência é emitida uma vez por mês: as já emitidas ou em andamento não podem ser marcadas.
           Rejeitadas e canceladas voltam a ficar pendentes. Cadastre as recorrências em "Recorrentes".</p>
+      </section>
+
+      <!-- ---------- importar planilha ---------- -->
+      <section data-tela="planilha" hidden>
+        <h1>Importar planilha</h1>
+        <div class="cartao">
+          <div class="grade">
+            <div class="c5"><label for="arquivo-planilha">Planilha (.xlsx, .xls, .ods ou .csv)</label>
+              <input id="arquivo-planilha" type="file" accept=".xlsx,.xlsm,.xls,.ods,.csv"></div>
+            <div class="c3"><label for="mes-planilha">Mês padrão</label><input id="mes-planilha" type="month"></div>
+            <div class="c4" style="align-self:end;display:flex;gap:8px;white-space:nowrap">
+              <button class="botao" id="reler-planilha" title="Ler de novo (depois de cadastrar um tomador, por exemplo)">Ler de novo</button>
+              <button class="botao" id="modelo-planilha">Baixar modelo</button>
+            </div>
+          </div>
+          <p class="ajuda">Uma nota por linha. Colunas: <b>CNPJ/CPF tomador</b> e <b>Valor</b> (obrigatórias); CNPJ empresa,
+            Servico (nome ou código), Descricao (aceita <code>{mes_ref}</code>), Mes referencia e Informacoes complementares.
+            Sem a coluna da empresa, vale a empresa selecionada no topo; sem mês, o mês padrão.
+            Reimportar a mesma planilha não emite de novo as linhas já autorizadas.</p>
+        </div>
+        <div class="cartao" style="display:flex;gap:12px;align-items:center">
+          <span id="planilha-resumo" class="ajuda" style="flex:1;margin:0"></span>
+          <button class="botao" id="planilha-marcar">Marcar prontas</button>
+          <button class="botao primario" id="planilha-emitir" disabled>Emitir selecionadas</button>
+        </div>
+        <div id="planilha-andamento"></div>
+        <div class="cartao" style="padding:0">
+          <table>
+            <thead><tr><th style="width:28px"><input type="checkbox" id="planilha-todos" title="Marcar todas as prontas"></th>
+              <th>Linha</th><th>Empresa</th><th>Tomador</th><th>Descrição</th><th>Valor</th><th>Situação</th></tr></thead>
+            <tbody id="lista-planilha"></tbody>
+          </table>
+        </div>
       </section>
 
       <!-- ---------- recorrentes ---------- -->
