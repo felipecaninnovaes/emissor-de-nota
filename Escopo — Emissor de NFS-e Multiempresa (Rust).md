@@ -110,12 +110,14 @@ Cada empresa tem um e-CNPJ A1 (.pfx), que assina a DPS/eventos e autentica a con
 - **Feito** — **Cadastro global reutilizável** (`pessoa`) com vínculo por empresa (`empresa_tomador`: e-mails de envio, observação). Um tomador cadastrado por uma empresa é vinculado a outra automaticamente na importação de planilha.
 - **Feito** — PJ com consulta pública de CNPJ (publica.cnpj.ws, 3 consultas/minuto; avisa situação cadastral diferente de "Ativa"). PF com CPF validado pelo dígito verificador.
 - **Feito** — Nota sem tomador identificado.
-- **Pendente** — Cache e fallback entre provedores de CNPJ; autocompletar CEP; nome do município pela tabela IBGE (hoje só vem pela consulta de CNPJ).
+- **Feito** — Busca de CEP no endereço do tomador e da obra.
+- **Pendente** — Cache e fallback entre provedores de CNPJ; nome do município pela tabela IBGE (hoje só vem pela consulta de CNPJ).
 - **Pendente** — Tomador estrangeiro (NIF, país) e intermediário do serviço.
 
 **3. Catálogo de serviços por empresa**
 
 - **Feito** — Descrição padrão com `{mes_ref}`, `cTribNac`, NBS, código municipal, ISSQN (tributação, retenção, alíquota), PIS/COFINS (CST, tipo de retenção), retenções em percentual (IRRF, CSLL, INSS, PIS, COFINS — valores calculados sobre cada nota), total aproximado de tributos e valor sugerido.
+- **Feito** — Importação e exportação do catálogo de serviços por planilha (Excel, ODS ou CSV), com modelo para download.
 - **Pendente** — Tabela nacional de códigos (Anexo B) e validação contra a parametrização do município; classificação IBS/CBS na tela.
 
 **4. Emissão**
@@ -324,7 +326,7 @@ O banco concentra os certificados de todos os clientes: quem copia o arquivo e d
 
 **Fase 2 — Instalação e operação** · próxima
 
-- **Feito** — Instalador MSI (pt-BR) e CI que gera o instalador (manual ou por tag). **Pendente** — assinatura de código; atualização automática.
+- **Feito** — Instalador MSI (pt-BR) e CI que gera o instalador (manual ou por tag). Atualização automática pelo `tauri-plugin-updater`. **Pendente** — assinatura de código.
 - Backup automático diário do banco, com teste de restauração.
 - Log de erros exportável para suporte.
 - Logomarca oficial da NFS-e no DANFSe; tabela de municípios IBGE (nome do município do tomador).
