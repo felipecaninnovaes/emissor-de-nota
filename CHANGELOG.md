@@ -2,6 +2,21 @@
 
 Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. Todas as versões até aqui saíram em 17/10/2026; a versão vem de `crates/app/Cargo.toml`.
 
+## 0.2.7
+
+- **Banco cifrado em repouso** (SQLCipher): o `emissor.db` inteiro passa a ser cifrado com a chave da senha mestra. O sal e o verificador ficam em `emissor.cofre`, ao lado do banco ([ADR 0013](docs/decisoes/0013-banco-cifrado-sqlcipher.md)).
+- **Atualização de bancos existentes:** na primeira abertura com a senha mestra o banco é convertido sem perder dados nem reimportar certificados. O original em claro fica como `emissor.db.legado`; **apague-o depois de conferir**, porque ele continua legível.
+- Copiar o banco para outra máquina exige copiar `emissor.db` e `emissor.cofre` juntos. O backup `.nfbk` leva o cabeçalho e a restauração gera os dois arquivos.
+- A aparência (zoom e densidade) passa a ficar em `aparencia.json`, fora do banco; volta ao padrão uma vez.
+
+## 0.2.6
+
+- **Backup cifrado do banco** (`.nfbk`), automático ao abrir o sistema e manual, com teste de restauração; guarda as 10 cópias mais recentes.
+- Tomador pessoa física não retém tributos federais: a emissão com essa retenção é bloqueada na validação.
+- Revisão avisa de retenção federal para optante do Simples Nacional e em nota de até R$ 215,05.
+- Vincular um tomador já cadastrado por outra empresa, sem recadastrar.
+- Documentação reorganizada (README, guia do operador, ADRs) e aviso de responsabilidade fiscal.
+
 ## 0.2.5
 
 - Consulta de CNPJ passa a usar a BrasilAPI.
