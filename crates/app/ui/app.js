@@ -176,10 +176,12 @@ function definirMotivo(tr, html, { erro = false, abrir = false } = {}) {
 /** Chama um comando mostrando o cursor de espera; o erro volta como texto. */
 async function chamar(comando, args) {
   document.body.classList.add("ocupado");
+  $("main")?.setAttribute("aria-busy", "true");
   try {
     return await invoke(comando, args);
   } finally {
     document.body.classList.remove("ocupado");
+    $("main")?.removeAttribute("aria-busy");
   }
 }
 
@@ -833,24 +835,45 @@ $("#trocar-tomador").addEventListener("click", () => {
 });
 
 /**
- * Busca de tomador com lista de sugestões (setas, Enter, Esc, clique). Usada na emissão e no
- * diálogo de recorrência; `aoEscolher(tomadorDto)` recebe o escolhido.
+ * Busca de tomador no padrão combobox (ARIA 1.2): o foco fica no campo e a opção ativa é indicada
+ * por aria-activedescendant; setas, Home/End, Enter, Esc e clique. Usada na emissão e no diálogo de
+ * recorrência; `aoEscolher(tomadorDto)` recebe o escolhido.
  */
 function ligarBuscaTomador(input, caixa, aoEscolher) {
   let pendente = 0;
   let resultados = [];
   let foco = -1;
+  caixa.id ||= `${input.id}-lista`;
+  caixa.setAttribute("role", "listbox");
+  caixa.setAttribute("aria-label", "Tomadores encontrados");
+  input.setAttribute("role", "combobox");
+  input.setAttribute("aria-autocomplete", "list");
+  input.setAttribute("aria-controls", caixa.id);
+  input.setAttribute("aria-expanded", "false");
+
+  // a lista também é escondida por quem escolhe/troca o tomador: aria-expanded acompanha o atributo hidden
+  new MutationObserver(() => {
+    input.setAttribute("aria-expanded", String(!caixa.hidden));
+    if (caixa.hidden) input.removeAttribute("aria-activedescendant");
+  }).observe(caixa, { attributes: true, attributeFilter: ["hidden"] });
 
   function desenhar() {
     caixa.hidden = false;
     caixa.innerHTML = resultados.length
       ? resultados
           .map(
-            (t, i) => `<div data-i="${i}" class="${i === foco ? "foco" : ""}">${esc(t.tomador.nome)}
+            (t, i) => `<div role="option" id="${caixa.id}-${i}" data-i="${i}" aria-selected="${i === foco}"
+              class="${i === foco ? "foco" : ""}">${esc(t.tomador.nome)}
               <small>${esc(formatarDocumento(t.tomador.documento))}</small></div>`,
           )
           .join("")
-      : `<div class="vazio">Nenhum tomador encontrado.</div>`;
+      : `<div class="vazio" role="option" aria-disabled="true" aria-selected="false">Nenhum tomador encontrado.</div>`;
+    if (foco >= 0) {
+      input.setAttribute("aria-activedescendant", `${caixa.id}-${foco}`);
+      document.getElementById(`${caixa.id}-${foco}`)?.scrollIntoView({ block: "nearest" });
+    } else {
+      input.removeAttribute("aria-activedescendant");
+    }
   }
 
   input.addEventListener("input", () => {
@@ -868,14 +891,24 @@ function ligarBuscaTomador(input, caixa, aoEscolher) {
       }
       foco = resultados.length ? 0 : -1;
       desenhar();
+      anunciar(resultados.length ? `${resultados.length} tomador(es) encontrado(s).` : "Nenhum tomador encontrado.");
     }, 200);
   });
 
   input.addEventListener("keydown", (ev) => {
-    if (caixa.hidden || !resultados.length) return;
-    if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+    if (!resultados.length) return;
+    if (caixa.hidden) {
+      // seta para baixo reabre a última lista
+      if (ev.key === "ArrowDown" && input.value.trim()) {
+        ev.preventDefault();
+        desenhar();
+      }
+      return;
+    }
+    const destino = { ArrowDown: foco + 1, ArrowUp: foco - 1, Home: 0, End: resultados.length - 1 }[ev.key];
+    if (destino !== undefined) {
       ev.preventDefault();
-      foco = (foco + (ev.key === "ArrowDown" ? 1 : -1) + resultados.length) % resultados.length;
+      foco = (destino + resultados.length) % resultados.length;
       desenhar();
     } else if (ev.key === "Enter") {
       ev.preventDefault();
@@ -886,12 +919,23 @@ function ligarBuscaTomador(input, caixa, aoEscolher) {
     }
   });
 
+  // mousedown com preventDefault: o clique escolhe sem tirar o foco do campo antes da hora
   caixa.addEventListener("mousedown", (ev) => {
+    ev.preventDefault();
     const item = ev.target.closest("[data-i]");
     if (item) aoEscolher(resultados[Number(item.dataset.i)]);
   });
 
-  input.addEventListener("blur", () => setTimeout(() => (caixa.hidden = true), 150));
+  input.addEventListener("blur", () => {
+    caixa.hidden = true;
+  });
+}
+
+/** Anuncia um texto curto no leitor de tela sem mostrar nada (região viva escondida). */
+function anunciar(texto) {
+  const el = $("#anuncio");
+  el.textContent = "";
+  setTimeout(() => (el.textContent = texto), 50);
 }
 
 ligarBuscaTomador($("#termo-tomador"), $("#resultados-tomador"), (t) => escolherTomador(t));
@@ -1434,16 +1478,46 @@ $("#mes-lote").addEventListener("change", () => carregarLote().catch((e) => toas
 $("#lote-so-empresa").addEventListener("change", () => carregarLote().catch((e) => toast(String(e), true)));
 
 /**
+ * Andamento do lote/planilha: contagem, um segmento por nota na ordem da fila e o total por
+ * situação em carimbos (a barra sozinha diria só por cor). É uma progressbar para o leitor de tela.
+ */
+function desenharAndamento(el, total, situacoes, atual) {
+  const feitas = situacoes.length;
+  const conta = (s) => situacoes.filter((x) => x === s).length;
+  const segmentos = Array.from({ length: total }, (_, i) => {
+    const s = situacoes[i];
+    const classe = s === "ok" ? "ok" : s === "erro" ? "erro" : s === "incerta" ? "incerta" : i === feitas ? "atual" : "";
+    return `<span class="${classe}"></span>`;
+  }).join("");
+  const carimbos = [
+    [conta("ok"), "autorizada", "autorizada(s)"],
+    [conta("erro"), "rejeitada", "não emitida(s)"],
+    [conta("incerta"), "incerta", "sem resposta"],
+    [total - feitas - 1, "pendente", "na fila"],
+  ]
+    .filter(([n]) => n > 0)
+    .map(([n, classe, texto]) => `<span class="selo ${classe}">${n} ${texto}</span>`)
+    .join("");
+  el.innerHTML = `<div class="cartao andamento" role="progressbar" aria-label="Andamento da emissão"
+      aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${feitas}"
+      aria-valuetext="${feitas} de ${total} concluídas; emitindo ${esc(atual)}">
+    <div class="contagem"><span>Emitindo <b>${esc(atual)}</b>. Não feche o programa.</span>
+      <span class="dado">${feitas + 1} / ${total}</span></div>
+    <div class="barra${total > 60 ? " continua" : ""}" aria-hidden="true">${segmentos}</div>
+    <div class="legenda-lote">${carimbos}</div>
+  </div>`;
+}
+
+/**
  * Emite os itens em sequência, mostrando o andamento em `andamento` e o resultado na célula de
  * cada linha (`celulaDe(item)`). `emitirUm(item)` chama o comando; com limite de requisições da
  * Sefin, espera e tenta mais uma vez. Devolve o resumo em HTML.
  */
 async function emitirEmSequencia({ itens, andamento, celulaDe, descrever, emitirUm }) {
   const contagem = { autorizada: 0, falha: 0, incerta: 0 };
-  for (const [n, item] of itens.entries()) {
-    andamento.innerHTML = `<div class="aviso atencao">Emitindo ${n + 1} de ${itens.length}: ${esc(
-      descrever(item),
-    )}... Não feche o programa.</div>`;
+  const situacoes = []; // "ok" | "erro" | "incerta", na ordem da fila
+  for (const item of itens) {
+    desenharAndamento(andamento, itens.length, situacoes, descrever(item));
     const celula = celulaDe(item);
     celula.innerHTML = `<span class="selo enviando">Enviando...</span>`;
     let resultado;
@@ -1463,18 +1537,24 @@ async function emitirEmSequencia({ itens, andamento, celulaDe, descrever, emitir
     const linha = celula.closest("tr");
     if (resultado.ok && resultado.res.autorizada) {
       contagem.autorizada++;
+      situacoes.push("ok");
       celula.innerHTML = `<span class="selo autorizada">Autorizada nº ${esc(resultado.res.numero ?? "")}</span>`;
       definirMotivo(linha, resultado.res.avisos.map((a) => `<p>${esc(a)}</p>`).join(""));
     } else if (resultado.ok) {
       contagem.incerta++;
+      situacoes.push("incerta");
       celula.innerHTML = `<span class="selo incerta">Sem resposta</span>`;
       definirMotivo(linha, `<p>${esc(resultado.res.motivo)}</p>`, { abrir: true });
+      anunciar(`${descrever(item)}: sem resposta da Sefin.`);
     } else {
       contagem.falha++;
+      situacoes.push("erro");
       celula.innerHTML = `<span class="selo rejeitada">Não emitida</span>`;
       definirMotivo(linha, `<p>${esc(resultado.erro)}</p>`, { erro: true, abrir: true });
+      anunciar(`${descrever(item)}: não emitida.`);
     }
   }
+  andamento.innerHTML = "";
   toast(`Concluído: ${contagem.autorizada} autorizada(s).`);
   return (
     `<div class="aviso ${contagem.falha || contagem.incerta ? "atencao" : "ok"}">Concluído: ` +

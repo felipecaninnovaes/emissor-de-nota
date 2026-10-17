@@ -94,7 +94,7 @@ Cada etapa é um commit separado, testado no app real por você antes do próxim
 - Máscaras leves e tolerantes (formatam ao sair do campo, aceitam colar com ou sem pontuação): CNPJ/CPF (detecta pelo tamanho), CEP, telefone, valor (R$ com milhar), percentual.
 - Teclado: Enter salva (exceto em textarea), Esc fecha pedindo confirmação se houver alteração, foco inicial no primeiro campo vazio, "Consultar" CNPJ também por Enter no campo.
 
-### Etapa 5 — Acessibilidade
+### Etapa 5 — Acessibilidade · feita em 17/10/2026 (5a com a etapa 1; 5b em seguida)
 - Associar os 66 rótulos (`for`/`id`), dar `aria-labelledby` aos diálogos e `<caption>` (visualmente oculto) às tabelas; `scope="col"` nos cabeçalhos.
 - Busca de tomador no padrão **combobox ARIA** (`role="combobox"`, `aria-expanded`, `aria-controls`, `role="listbox"`/`option`, `aria-activedescendant`); trocar o `blur` com `setTimeout` por fechamento ao perder o foco do grupo.
 - Região viva única: `role="status"` para confirmações, `role="alert"` para erros; erros não somem sozinhos (botão fechar).

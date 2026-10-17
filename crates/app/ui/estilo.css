@@ -284,9 +284,10 @@ td .acoes { margin: 0; padding: 0; border: 0; justify-content: flex-start; flex-
 .tabela th.num { text-align: right; }
 .tabela td { vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tabela td:has(.menu, .acoes-linha) { overflow: visible; }
-.tabela thead th { position: sticky; top: 0; z-index: 2; }
+/* fixos colados às bordas da área que rola (o padding do .conteudo não deixa linhas aparecendo por fora) */
+.tabela thead th { position: sticky; top: calc(-1 * var(--espaco-6)); z-index: 2; }
 .tabela tfoot td {
-  position: sticky; bottom: 0; z-index: 2; background: var(--papel-escuro); border-top: 1px solid var(--fio-forte);
+  position: sticky; bottom: calc(-1 * var(--espaco-6)); z-index: 2; background: var(--papel-escuro); border-top: 1px solid var(--fio-forte);
   border-bottom: 0; font-size: 0.7812rem; color: var(--tinta-suave); white-space: normal;
 }
 .tabela tfoot .dado { color: var(--tinta); }
@@ -519,3 +520,37 @@ h1[tabindex="-1"]:focus { outline: none; }
 .revisao dt, .revisao dd { padding: var(--espaco-2) var(--espaco-3); border-right: 1px solid var(--fio-forte); border-bottom: 1px solid var(--fio-forte); margin: 0; }
 .revisao dt { font-family: var(--font-condensed); font-size: 0.6875rem; line-height: 1.25rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tinta-suave); background: var(--papel); }
 .revisao dd { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* ---------- andamento: segmento "sem resposta" e barra contínua em lotes grandes ---------- */
+.andamento .barra span.incerta { background: var(--amarelo-claro); border: 1px dashed var(--amarelo); }
+.andamento .barra.continua { gap: 0; }
+.andamento .barra.continua span { border: 0; }
+#lote-andamento .andamento, #planilha-andamento .andamento { margin-bottom: var(--espaco-4); }
+
+/* ---------- alvos de clique de pelo menos 24px (WCAG 2.5.8), também na densidade compacta ---------- */
+button.pequeno { min-height: 1.5rem; }
+input[type="checkbox"] { width: 1rem; height: 1rem; accent-color: var(--caneta); }
+.tabela td:has(> input[type="checkbox"]) { cursor: pointer; }
+
+/* ---------- modo de alto contraste do Windows ----------
+   O sistema troca as cores e apaga fundos: o que hoje se distingue só por fundo ou sombra ganha borda
+   ou contorno nas cores do sistema. */
+@media (forced-colors: active) {
+  :focus-visible { outline: 2px solid Highlight; }
+  nav button.ativo { outline: 2px solid CanvasText; outline-offset: -2px; box-shadow: none; }
+  .resultados [aria-selected="true"], .menu button:focus-visible { outline: 2px solid Highlight; outline-offset: -2px; }
+  tbody tr.marcada { outline: 2px solid Highlight; outline-offset: -2px; }
+  .selo { border-color: CanvasText; }
+  .selo.producao { border-width: 3px; }
+  [aria-invalid="true"] { border: 2px dashed CanvasText; box-shadow: none; }
+  .erro-campo::before { content: "Erro: "; }
+  .andamento .barra span { border: 1px solid CanvasText; forced-color-adjust: none; background: Canvas; }
+  .andamento .barra span.ok { background: CanvasText; }
+  .andamento .barra span.erro { background: repeating-linear-gradient(45deg, CanvasText 0 2px, Canvas 2px 5px); }
+  .andamento .barra span.incerta, .andamento .barra span.atual { border: 1px dashed CanvasText; background: Canvas; }
+  .validade .trilho span { background: CanvasText; }
+  .ver-detalhe { border: 1px solid ButtonText; }
+  dialog { border: 2px solid CanvasText; }
+  .toast { border: 2px solid CanvasText; }
+  button.primario, button.perigo.primario { border: 2px solid ButtonText; }
+}

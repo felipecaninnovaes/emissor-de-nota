@@ -126,8 +126,8 @@
           <div class="rolagem">
           <table>
             <caption class="sr">Notas emitidas da empresa selecionada</caption>
-            <thead><tr><th class="w-detalhe"><span class="sr">Detalhes</span></th><th class="w-nfse">NFS-e</th><th class="w-dps sec-2">DPS</th><th>Tomador</th><th class="sec-1">Descrição</th>
-              <th class="w-valor num">Valor</th><th class="w-situacao">Situação</th><th class="w-acoes larga"><span class="sr">Ações</span></th></tr></thead>
+            <thead><tr><th scope="col" class="w-detalhe"><span class="sr">Detalhes</span></th><th scope="col" class="w-nfse">NFS-e</th><th scope="col" class="w-dps sec-2">DPS</th><th scope="col">Tomador</th><th scope="col" class="sec-1">Descrição</th>
+              <th scope="col" class="w-valor num">Valor</th><th scope="col" class="w-situacao">Situação</th><th scope="col" class="w-acoes larga"><span class="sr">Ações</span></th></tr></thead>
             <tbody id="lista-notas"></tbody>
             <tfoot id="rodape-notas"></tfoot>
           </table>
@@ -153,8 +153,8 @@
           <div class="rolagem">
           <table>
             <caption class="sr">Recorrências do mês de referência</caption>
-            <thead><tr><th class="w-check"><input type="checkbox" id="lote-todos" title="Marcar todas as pendentes" aria-label="Marcar todas as pendentes"></th>
-              <th class="w-detalhe"><span class="sr">Detalhes</span></th><th>Empresa</th><th>Tomador</th><th class="sec-1">Descrição</th><th class="w-valor num">Valor</th><th class="w-situacao larga">Situação</th></tr></thead>
+            <thead><tr><th scope="col" class="w-check"><input type="checkbox" id="lote-todos" title="Marcar todas as pendentes" aria-label="Marcar todas as pendentes"></th>
+              <th scope="col" class="w-detalhe"><span class="sr">Detalhes</span></th><th scope="col">Empresa</th><th scope="col">Tomador</th><th scope="col" class="sec-1">Descrição</th><th scope="col" class="w-valor num">Valor</th><th scope="col" class="w-situacao larga">Situação</th></tr></thead>
             <tbody id="lista-lote"></tbody>
             <tfoot id="rodape-lote"></tfoot>
           </table>
@@ -194,8 +194,8 @@
           <div class="rolagem">
           <table>
             <caption class="sr">Linhas da planilha</caption>
-            <thead><tr><th class="w-check"><input type="checkbox" id="planilha-todos" title="Marcar todas as prontas" aria-label="Marcar todas as prontas"></th>
-              <th class="w-detalhe"><span class="sr">Detalhes</span></th><th class="w-linha num">Linha</th><th class="sec-2">Empresa</th><th>Tomador</th><th class="sec-1">Descrição</th><th class="w-valor num">Valor</th><th class="w-situacao larga">Situação</th></tr></thead>
+            <thead><tr><th scope="col" class="w-check"><input type="checkbox" id="planilha-todos" title="Marcar todas as prontas" aria-label="Marcar todas as prontas"></th>
+              <th scope="col" class="w-detalhe"><span class="sr">Detalhes</span></th><th scope="col" class="w-linha num">Linha</th><th scope="col" class="sec-2">Empresa</th><th scope="col">Tomador</th><th scope="col" class="sec-1">Descrição</th><th scope="col" class="w-valor num">Valor</th><th scope="col" class="w-situacao larga">Situação</th></tr></thead>
             <tbody id="lista-planilha"></tbody>
           </table>
           </div>
@@ -213,7 +213,7 @@
           <div class="rolagem">
           <table>
             <caption class="sr">Recorrências da empresa selecionada</caption>
-            <thead><tr><th>Tomador</th><th class="sec-2">Serviço</th><th class="sec-1">Descrição</th><th class="w-valor num">Valor</th><th class="w-acoes"><span class="sr">Ações</span></th></tr></thead>
+            <thead><tr><th scope="col">Tomador</th><th scope="col" class="sec-2">Serviço</th><th scope="col" class="sec-1">Descrição</th><th scope="col" class="w-valor num">Valor</th><th scope="col" class="w-acoes"><span class="sr">Ações</span></th></tr></thead>
             <tbody id="lista-recorrencias"></tbody>
           </table>
           </div>
@@ -233,7 +233,7 @@
           <div class="rolagem">
           <table>
             <caption class="sr">Tomadores da empresa selecionada</caption>
-            <thead><tr><th class="w-documento">Documento</th><th>Nome</th><th class="w-municipio sec-1">Município</th><th class="sec-2">E-mails de envio</th><th class="w-acoes estreita"><span class="sr">Ações</span></th></tr></thead>
+            <thead><tr><th scope="col" class="w-documento">Documento</th><th scope="col">Nome</th><th scope="col" class="w-municipio sec-1">Município</th><th scope="col" class="sec-2">E-mails de envio</th><th scope="col" class="w-acoes estreita"><span class="sr">Ações</span></th></tr></thead>
             <tbody id="lista-tomadores"></tbody>
           </table>
           </div>
@@ -251,7 +251,7 @@
           <div class="rolagem">
           <table>
             <caption class="sr">Serviços da empresa selecionada</caption>
-            <thead><tr><th>Nome</th><th class="w-codigo">Cód. nacional</th><th class="w-codigo sec-2">NBS</th><th class="w-valor num">Valor sugerido</th><th class="sec-1">Retenções</th><th class="w-acoes"><span class="sr">Ações</span></th></tr></thead>
+            <thead><tr><th scope="col">Nome</th><th scope="col" class="w-codigo">Cód. nacional</th><th scope="col" class="w-codigo sec-2">NBS</th><th scope="col" class="w-valor num">Valor sugerido</th><th scope="col" class="sec-1">Retenções</th><th scope="col" class="w-acoes"><span class="sr">Ações</span></th></tr></thead>
             <tbody id="lista-servicos"></tbody>
           </table>
           </div>
@@ -268,7 +268,7 @@
           <div class="rolagem">
           <table>
             <caption class="sr">Empresas cadastradas</caption>
-            <thead><tr><th class="w-documento sec-2">CNPJ</th><th>Razão social</th><th class="w-ambiente">Ambiente</th><th class="w-serie sec-1">Série</th><th class="w-certificado">Certificado</th><th class="w-acoes"><span class="sr">Ações</span></th></tr></thead>
+            <thead><tr><th scope="col" class="w-documento sec-2">CNPJ</th><th scope="col">Razão social</th><th scope="col" class="w-ambiente">Ambiente</th><th scope="col" class="w-serie sec-1">Série</th><th scope="col" class="w-certificado">Certificado</th><th scope="col" class="w-acoes"><span class="sr">Ações</span></th></tr></thead>
             <tbody id="lista-empresas"></tbody>
           </table>
           </div>
@@ -620,5 +620,6 @@
 </dialog>
 
 <div id="toasts" aria-live="polite"></div>
+<div id="anuncio" class="sr" aria-live="polite"></div>
 </body>
 </html>
