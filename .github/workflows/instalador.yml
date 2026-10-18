@@ -1,11 +1,12 @@
 name: Instalador
 
-# Gera o instalador MSI do Windows.
-# - Manual (Actions → Instalador → Run workflow): o MSI fica como artefato da execução.
-# - Tag `vX.Y.Z` (igual à versão de crates/app/Cargo.toml): cria a Release no GitHub com o MSI,
-#   a assinatura (.sig) e o `latest.json` que o atualizador do sistema consulta.
+# Gera os instaladores do Windows (MSI), macOS (DMG e .app, Apple Silicon e Intel) e Linux
+# (AppImage e DEB).
+# - Manual (Actions → Instalador → Run workflow): os instaladores ficam como artefatos da execução.
+# - Tag `vX.Y.Z` (igual à versão de crates/app/Cargo.toml): cria a Release no GitHub com os
+#   instaladores, as assinaturas (.sig) e o `latest.json` (todas as plataformas) que o atualizador consulta.
 # Segredos do repositório: TAURI_SIGNING_PRIVATE_KEY (conteúdo de ~/.tauri/emissor-nfse.key) e
-# TAURI_SIGNING_PRIVATE_KEY_PASSWORD. Sem eles o MSI não é assinado e o build falha.
+# TAURI_SIGNING_PRIVATE_KEY_PASSWORD. Sem eles o build falha.
 on:
   push:
     tags: ["v*"]
@@ -18,71 +19,147 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  msi:
-    name: MSI (Windows)
-    runs-on: windows-latest
+  build:
+    name: ${{ matrix.nome }}
+    runs-on: ${{ matrix.so }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # `atualizador`: pacote que o atualizador baixa (tem .sig); `extras`: só para instalar à mão.
+          - nome: Windows (MSI)
+            so: windows-latest
+            chave: windows-x86_64
+            arch: x64_pt-BR
+            alvo: ""
+            bundles: msi
+            atualizador: target/release/bundle/msi/*.msi
+            extras: ""
+          - nome: macOS Apple Silicon
+            so: macos-latest
+            chave: darwin-aarch64
+            arch: aarch64
+            alvo: aarch64-apple-darwin
+            bundles: app,dmg
+            atualizador: target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz
+            extras: target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+          - nome: macOS Intel
+            so: macos-latest
+            chave: darwin-x86_64
+            arch: x64
+            alvo: x86_64-apple-darwin
+            bundles: app,dmg
+            atualizador: target/x86_64-apple-darwin/release/bundle/macos/*.app.tar.gz
+            extras: target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
+          # 22.04 para o AppImage rodar também em distribuições com glibc mais antiga.
+          - nome: Linux (AppImage e DEB)
+            so: ubuntu-22.04
+            chave: linux-x86_64
+            arch: amd64
+            alvo: ""
+            bundles: appimage,deb
+            atualizador: target/release/bundle/appimage/*.AppImage
+            extras: target/release/bundle/deb/*.deb
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.alvo }}
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.chave }}
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-binstall
       - name: Instalar tauri-cli
         run: cargo binstall tauri-cli@^2 --no-confirm
 
+      - name: Dependências do Linux (WebKitGTK)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential file patchelf libssl-dev libgtk-3-dev \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev
+
       - name: Conferir a versão da tag
         if: startsWith(github.ref, 'refs/tags/v')
-        shell: pwsh
         run: |
-          $versao = (Select-String -Path crates/app/Cargo.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
-          if ("v$versao" -ne "${{ github.ref_name }}") {
-            throw "A tag ${{ github.ref_name }} não confere com a versão $versao de crates/app/Cargo.toml"
-          }
+          versao=$(grep -m1 '^version = ' crates/app/Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+          if [ "v$versao" != "${{ github.ref_name }}" ]; then
+            echo "A tag ${{ github.ref_name }} não confere com a versão $versao de crates/app/Cargo.toml"
+            exit 1
+          fi
 
+      # O teste de mTLS com .pfx legado só passa no Windows (OpenSSL 3); o CI cobre o resto.
       - name: Testes
+        if: runner.os == 'Windows'
         run: cargo test --workspace
 
-      - name: Gerar o MSI (assinado para o atualizador)
+      - name: Gerar os pacotes (assinados para o atualizador)
         working-directory: crates/app
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: cargo tauri build --config tauri.release.conf.json
-
-      # Nome sem espaços (o GitHub troca espaço por ponto nos anexos) e o latest.json apontando
-      # para o MSI desta Release.
-      - name: Preparar os arquivos da Release
-        shell: pwsh
         run: |
-          $msi = Get-ChildItem target/release/bundle/msi/*.msi | Select-Object -First 1
-          $versao = (Select-String -Path crates/app/Cargo.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
-          $nome = "Emissor-NFS-e_${versao}_x64_pt-BR.msi"
-          New-Item -ItemType Directory -Force publicar | Out-Null
-          Copy-Item $msi.FullName "publicar/$nome"
-          Copy-Item "$($msi.FullName).sig" "publicar/$nome.sig"
-          $latest = [ordered]@{
-            version  = $versao
-            notes    = "Versão $versao"
-            pub_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-            platforms = @{
-              "windows-x86_64" = [ordered]@{
-                signature = (Get-Content "$($msi.FullName).sig" -Raw).Trim()
-                url       = "https://github.com/${{ github.repository }}/releases/download/v$versao/$nome"
-              }
-            }
-          }
-          $latest | ConvertTo-Json -Depth 5 | Set-Content publicar/latest.json -Encoding utf8NoBOM
+          alvo=""
+          if [ -n "${{ matrix.alvo }}" ]; then alvo="--target ${{ matrix.alvo }}"; fi
+          cargo tauri build --config tauri.release.conf.json --bundles ${{ matrix.bundles }} $alvo
+
+      # Nomes sem espaços (o GitHub troca espaço por ponto nos anexos). Cada plataforma deixa um
+      # fragmento com a assinatura e o endereço; a publicação junta tudo no latest.json.
+      - name: Preparar os arquivos da Release
+        run: |
+          versao=$(grep -m1 '^version = ' crates/app/Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+          mkdir -p publicar
+          pacote=$(ls ${{ matrix.atualizador }} | head -n1)
+          nome="Emissor-NFS-e_${versao}_${{ matrix.arch }}"
+          case "$pacote" in
+            *.app.tar.gz) final="$nome.app.tar.gz" ;;
+            *) final="$nome.${pacote##*.}" ;;
+          esac
+          cp "$pacote" "publicar/$final"
+          cp "$pacote.sig" "publicar/$final.sig"
+          for extra in ${{ matrix.extras }}; do
+            cp "$extra" "publicar/$nome.${extra##*.}"
+          done
+          jq -n --arg chave "${{ matrix.chave }}" \
+            --arg assinatura "$(tr -d '\n' < "publicar/$final.sig")" \
+            --arg url "https://github.com/${{ github.repository }}/releases/download/v$versao/$final" \
+            '{chave: $chave, signature: $assinatura, url: $url}' > "publicar/plataforma-${{ matrix.chave }}.json"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: instalador-msi
+          name: instalador-${{ matrix.chave }}
           path: publicar/*
           if-no-files-found: error
 
-      - name: Publicar a Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+  publicar:
+    name: Publicar a Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: instalador-*
+          path: publicar
+          merge-multiple: true
+
+      - name: Montar o latest.json
+        run: |
+          versao="${GITHUB_REF_NAME#v}"
+          jq -n --arg versao "$versao" --arg data "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{version: $versao, notes: "Versão \($versao)", pub_date: $data,
+              platforms: (reduce inputs as $p ({}; .[$p.chave] = {signature: $p.signature, url: $p.url}))}' \
+            publicar/plataforma-*.json > publicar/latest.json
+          rm publicar/plataforma-*.json
+          cat publicar/latest.json
+          ls publicar
+
+      - uses: softprops/action-gh-release@v2
         with:
           files: publicar/*
           generate_release_notes: true
