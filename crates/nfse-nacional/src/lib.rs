@@ -196,7 +196,11 @@ impl ClienteSefin {
             s if s.is_success() => {
                 let corpo: CorpoResposta =
                     serde_json::from_str(&texto).map_err(|e| ErroSefin::Formato(e.to_string()))?;
-                Ok(corpo.chave_acesso)
+                // Só o 404 prova que a NFS-e não existe: sucesso sem chave é resposta inesperada.
+                corpo
+                    .chave_acesso
+                    .map(Some)
+                    .ok_or_else(|| ErroSefin::Formato("consulta da DPS sem chaveAcesso".into()))
             }
             s => Err(erro_http(s, texto)),
         }

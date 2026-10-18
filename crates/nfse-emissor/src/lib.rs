@@ -21,7 +21,7 @@ use chrono::{DateTime, Datelike, FixedOffset, NaiveDate, Utc};
 use nfse_cert::CertificadoA1;
 use nfse_core::modelo::{Ambiente, Documento, Obra, Prestador, Servico as ServicoDps, Valores};
 use nfse_core::{Dps, Valor};
-use nfse_db::dps::{NfseGravada, NfseRecebida, SituacaoDps};
+use nfse_db::dps::{NfseGravada, NfseRecebida, RegistroDps, SituacaoDps};
 use nfse_db::empresas::Empresa;
 use nfse_db::servicos::Servico;
 use nfse_db::tomadores::TomadorVinculado;
@@ -457,7 +457,14 @@ pub struct Emissor<C: Conector> {
     logo: Option<Vec<u8>>,
     /// Identifica o aplicativo nos XML (`verAplic`); o app informa a própria versão.
     versao_aplicativo: String,
+    /// Ver [`JANELA_RECONCILIACAO`]; os testes zeram.
+    janela_reconciliacao: chrono::Duration,
 }
+
+/// Depois de um envio, a consulta da Sefin pode ainda não enxergar a DPS (ou o envio pode estar em
+/// curso, até o timeout de 90 s do cliente): antes desta janela, um 404 não prova que a nota não
+/// existe, e a DPS continua `incerta` em vez de ser liberada para reenvio.
+pub const JANELA_RECONCILIACAO: chrono::Duration = chrono::Duration::minutes(5);
 
 impl<C: Conector> Emissor<C> {
     pub fn novo(banco: Banco, cofre: Cofre, conector: C) -> Self {
@@ -469,6 +476,7 @@ impl<C: Conector> Emissor<C> {
             fontes: None,
             logo: None,
             versao_aplicativo: VERSAO_APLICATIVO.into(),
+            janela_reconciliacao: JANELA_RECONCILIACAO,
         }
     }
 
@@ -644,15 +652,39 @@ impl<C: Conector> Emissor<C> {
         }
         modelo.serie = reserva.serie.clone();
         modelo.numero = reserva.numero;
-        let (xml, id) = nfse_xml::gerar_dps(&modelo)?;
-        let assinado = assinar_em_thread(xml, id.as_str().to_owned(), cert.clone()).await?;
-        self.banco.registrar_envio(reserva.id, &modelo, &assinado).await?;
+        let preparo = async {
+            let (xml, id) = nfse_xml::gerar_dps(&modelo)?;
+            let assinado = assinar_em_thread(xml, id.as_str().to_owned(), cert.clone()).await?;
+            self.banco.registrar_envio(reserva.id, &modelo, &assinado).await?;
+            Ok::<_, ErroEmissao>(assinado)
+        };
+        let assinado = match preparo.await {
+            Ok(assinado) => assinado,
+            Err(e) => {
+                // Não chegou à Sefin: a reserva não pode ficar presa (bloquearia a recorrência ou a linha).
+                self.banco
+                    .registrar_rejeicao(reserva.id, &format!("não enviada: {e}"))
+                    .await?;
+                return Err(e);
+            }
+        };
 
         match sefin.emitir(&assinado).await {
-            Ok(nfse) => {
-                let (nfse, avisos) = self.gravar(reserva.id, &nfse.chave_acesso, &nfse.xml).await?;
-                Ok(ResultadoEmissao::Autorizada { nfse, avisos })
-            }
+            Ok(nfse) => match self.gravar(reserva.id, &nfse.chave_acesso, &nfse.xml).await {
+                Ok((nfse, avisos)) => Ok(ResultadoEmissao::Autorizada { nfse, avisos }),
+                // A nota existe na Sefin: fica incerta para a reconciliação buscá-la de novo.
+                Err(e) => {
+                    let motivo = format!(
+                        "a Sefin autorizou a NFS-e {}, mas ela não foi gravada: {e}",
+                        nfse.chave_acesso
+                    );
+                    self.banco.registrar_incerta(reserva.id, &motivo).await?;
+                    Ok(ResultadoEmissao::Incerta {
+                        dps_id: reserva.id,
+                        motivo,
+                    })
+                }
+            },
             Err(ErroSefin::Rejeitada { erros, .. }) => {
                 let mensagem = mensagem_rejeicao(&erros);
                 self.banco.registrar_rejeicao(reserva.id, &mensagem).await?;
@@ -688,7 +720,9 @@ impl<C: Conector> Emissor<C> {
     }
 
     /// Grava a NFS-e no banco e depois confere a assinatura da Sefin e arquiva o XML na pasta.
+    /// Erro só antes da gravação; o que falhar depois vira aviso (a nota já está registrada).
     async fn gravar(&self, dps_id: i64, chave: &str, xml: &str) -> Result<(NfseGravada, Vec<String>), ErroEmissao> {
+        let empresa_id = self.banco.dps(dps_id).await?.empresa_id;
         let dados = nfse_xml::ler_nfse(xml)?;
         if dados.chave != chave {
             return Err(ErroEmissao::Regra(format!(
@@ -715,30 +749,48 @@ impl<C: Conector> Emissor<C> {
         };
         let gravada = self.banco.registrar_autorizacao(dps_id, &recebida).await?;
 
-        let empresa_id = self.banco.dps(dps_id).await?.empresa_id;
         let mut avisos = Vec::new();
         if let Err(e) = nfse_xml::verificar(xml) {
             avisos.push(format!("a assinatura da Sefin na NFS-e {chave} não conferiu: {e}"));
         }
         if let Some(raiz) = &self.pasta {
-            let empresa = self.banco.empresa(empresa_id).await?;
-            let caminho = arquivo::pasta_mes(raiz, &empresa, competencia).join(arquivo::nome_xml_nfse(
-                gravada.numero.as_deref().unwrap_or("sem-numero"),
-                chave,
-            ));
-            if let Err(e) = arquivo::gravar(&caminho, xml) {
-                avisos.push(format!(
-                    "a nota foi autorizada, mas não foi gravada em {}: {e}",
-                    caminho.display()
-                ));
-            } else if let Err(e) = self.gravar_pdf(&caminho, xml, nfse_pdf::Situacao::Normal).await {
-                avisos.push(format!("a nota foi autorizada, mas o PDF não foi gerado: {e}"));
+            match self.banco.empresa(empresa_id).await {
+                Err(e) => avisos.push(format!("a nota foi autorizada, mas não foi arquivada na pasta: {e}")),
+                Ok(empresa) => avisos.extend(self.arquivar(raiz, &empresa, competencia, &gravada).await),
             }
         }
         for aviso in &avisos {
-            self.banco.auditar("aviso", Some(empresa_id), Some(aviso)).await?;
+            // A nota já está gravada: falha na auditoria não pode virar erro da emissão.
+            let _ = self.banco.auditar("aviso", Some(empresa_id), Some(aviso)).await;
         }
         Ok((gravada, avisos))
+    }
+
+    /// Grava o XML e o DANFSe na pasta do mês. Devolve o aviso se algo falhar.
+    async fn arquivar(
+        &self,
+        raiz: &std::path::Path,
+        empresa: &Empresa,
+        competencia: NaiveDate,
+        gravada: &NfseGravada,
+    ) -> Option<String> {
+        let caminho = arquivo::pasta_mes(raiz, empresa, competencia).join(arquivo::nome_xml_nfse(
+            gravada.numero.as_deref().unwrap_or("sem-numero"),
+            &gravada.chave,
+        ));
+        if let Err(e) = arquivo::gravar(&caminho, &gravada.xml) {
+            Some(format!(
+                "a nota foi autorizada, mas não foi gravada em {}: {e}",
+                caminho.display()
+            ))
+        } else if let Err(e) = self
+            .gravar_pdf(&caminho, &gravada.xml, nfse_pdf::Situacao::Normal)
+            .await
+        {
+            Some(format!("a nota foi autorizada, mas o PDF não foi gerado: {e}"))
+        } else {
+            None
+        }
     }
 
     /// Consulta a Sefin pelo Id da DPS: grava a NFS-e se existir, ou libera para reenvio se não.
@@ -757,22 +809,44 @@ impl<C: Conector> Emissor<C> {
                 dps.situacao.texto()
             )));
         }
+        // `enviando` recente é um envio em curso (ex.: num lote): a resposta dele decide.
+        if dps.situacao == SituacaoDps::Enviando && self.liberacao_em(&dps).is_some() {
+            return Err(ErroEmissao::Regra(
+                "a DPS ainda está sendo enviada à Sefin; aguarde a resposta".into(),
+            ));
+        }
         match sefin.consultar_dps(&dps.id_dps).await.map_err(ErroEmissao::Sefin)? {
             Some(chave) => {
                 let nfse = sefin.consultar_nfse(&chave).await.map_err(ErroEmissao::Sefin)?;
                 Ok(Some(self.gravar(dps_id, &nfse.chave_acesso, &nfse.xml).await?.0))
             }
             None => {
+                if let Some(quando) = self.liberacao_em(&dps) {
+                    return Err(ErroEmissao::Regra(format!(
+                        "a Sefin ainda não mostra esta DPS, mas ela foi enviada há pouco; verifique de novo a partir das {}",
+                        quando
+                            .with_timezone(&FixedOffset::west_opt(3 * 3600).expect("fuso fixo"))
+                            .format("%H:%M")
+                    )));
+                }
                 self.banco.liberar_para_reenvio(dps_id).await?;
                 Ok(None)
             }
         }
     }
 
+    /// Quando a DPS sai da [`JANELA_RECONCILIACAO`], se ainda estiver dentro dela.
+    fn liberacao_em(&self, dps: &RegistroDps) -> Option<DateTime<Utc>> {
+        let enviada = DateTime::parse_from_rfc3339(dps.enviado_em.as_deref()?).ok()?;
+        let fim = enviada.with_timezone(&Utc) + self.janela_reconciliacao;
+        (Utc::now() < fim).then_some(fim)
+    }
+
     /// Ao abrir o sistema: resolve DPS que ficaram sem desfecho. Devolve o resultado de cada uma.
     pub async fn reconciliar_pendentes(
         &self,
     ) -> Result<Vec<(i64, Result<Option<NfseGravada>, ErroEmissao>)>, ErroEmissao> {
+        self.banco.liberar_reservadas().await?;
         let mut resultados = Vec::new();
         for dps in self.banco.dps_pendentes().await? {
             if dps.situacao == SituacaoDps::Enviando {
@@ -1082,6 +1156,12 @@ impl<C: Conector> Emissor<C> {
                     dps_id: None,
                     mensagem: mensagem_rejeicao(&erros),
                 },
+                e @ (ErroSefin::Incerto(_) | ErroSefin::Http { .. } | ErroSefin::Formato(_)) => {
+                    ErroEmissao::Regra(format!(
+                        "a Sefin não confirmou o cancelamento ({e}); ele pode ter sido registrado. \
+                         Tente cancelar de novo: o pedido repetido não duplica o evento"
+                    ))
+                }
                 outro => ErroEmissao::Sefin(outro),
             })?;
         self.banco.registrar_cancelamento(nfse_id, &evento).await?;
@@ -1124,6 +1204,7 @@ mod testes;
 async fn assinar_em_thread(xml: String, id: String, cert: Arc<CertificadoA1>) -> Result<String, ErroEmissao> {
     match tokio::task::spawn_blocking(move || nfse_xml::assinar(&xml, &id, cert.as_ref())).await {
         Ok(assinado) => Ok(assinado?),
-        Err(e) => std::panic::resume_unwind(e.into_panic()),
+        Err(e) if e.is_panic() => std::panic::resume_unwind(e.into_panic()),
+        Err(e) => Err(ErroEmissao::Regra(format!("a assinatura foi interrompida: {e}"))),
     }
 }

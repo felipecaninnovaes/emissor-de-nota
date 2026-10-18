@@ -8,7 +8,26 @@ use sqlx::{Row, SqlitePool};
 use crate::{ErroBanco, Resultado};
 
 pub(crate) async fn aplicar(pool: &SqlitePool) -> Resultado<()> {
-    dps_unica_por_ambiente(pool).await
+    dps_unica_por_ambiente(pool).await?;
+    dps_enviado_em(pool).await
+}
+
+/// Coluna `dps.enviado_em` e o índice da migração 0005. Ficam aqui, e não numa migração, porque
+/// [`dps_unica_por_ambiente`] recria a tabela depois das migrações num banco novo e perderia os dois.
+async fn dps_enviado_em(pool: &SqlitePool) -> Resultado<()> {
+    let tem_coluna = sqlx::query("SELECT 1 FROM pragma_table_info('dps') WHERE name = 'enviado_em'")
+        .fetch_optional(pool)
+        .await?
+        .is_some();
+    if !tem_coluna {
+        sqlx::query("ALTER TABLE dps ADD COLUMN enviado_em TEXT")
+            .execute(pool)
+            .await?;
+    }
+    sqlx::query("CREATE INDEX IF NOT EXISTS dps_empresa_id ON dps (empresa_id, id DESC)")
+        .execute(pool)
+        .await?;
+    Ok(())
 }
 
 /// `dps.id_dps` deixa de ser único no banco todo e passa a ser único por ambiente.
@@ -131,5 +150,14 @@ mod testes {
                 .await
                 .is_err()
         );
+    }
+    #[tokio::test]
+    async fn banco_novo_tem_enviado_em_e_indice_por_empresa() {
+        let banco = crate::Banco::em_memoria().await.unwrap();
+        let pool = banco.pool();
+        aplicar(pool).await.unwrap(); // idempotente
+        let tem = |sql: &'static str| async move { sqlx::query(sql).fetch_optional(pool).await.unwrap().is_some() };
+        assert!(tem("SELECT 1 FROM pragma_table_info('dps') WHERE name = 'enviado_em'").await);
+        assert!(tem("SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'dps_empresa_id'").await);
     }
 }

@@ -71,6 +71,8 @@ pub struct RegistroDps {
     pub xml_assinado: Option<String>,
     pub tentativas: i64,
     pub ultimo_erro: Option<String>,
+    /// Último envio à Sefin (RFC 3339, UTC); `None` se nunca enviada ou gravada antes da migração 0007.
+    pub enviado_em: Option<String>,
 }
 
 /// Dados da NFS-e autorizada a gravar (o XML é guardado exatamente como veio).
@@ -113,8 +115,7 @@ pub struct NfseGravada {
     pub xml_sha256: String,
 }
 
-const SELECT_DPS: &str =
-    "SELECT id, empresa_id, ambiente, serie, numero, id_dps, situacao, xml_assinado, tentativas, ultimo_erro FROM dps";
+const SELECT_DPS: &str = "SELECT id, empresa_id, ambiente, serie, numero, id_dps, situacao, xml_assinado, tentativas, ultimo_erro, enviado_em FROM dps";
 
 fn dps_de(r: &SqliteRow) -> Resultado<RegistroDps> {
     Ok(RegistroDps {
@@ -128,6 +129,7 @@ fn dps_de(r: &SqliteRow) -> Resultado<RegistroDps> {
         xml_assinado: r.get(7),
         tentativas: r.get(8),
         ultimo_erro: r.get(9),
+        enviado_em: r.get(10),
     })
 }
 
@@ -313,9 +315,9 @@ impl Banco {
             ));
         }
         let afetadas = sqlx::query(
-            "UPDATE dps SET situacao = 'enviando', modelo_json = ?, xml_assinado = ?, tentativas = tentativas + 1,
-                 atualizado_em = ?
-             WHERE id = ? AND situacao IN ('reservada', 'rejeitada')",
+            "UPDATE dps SET situacao = 'enviando', modelo_json = ?1, xml_assinado = ?2, tentativas = tentativas + 1,
+                 atualizado_em = ?3, enviado_em = ?3
+             WHERE id = ?4 AND situacao IN ('reservada', 'rejeitada')",
         )
         .bind(json(modelo))
         .bind(xml_assinado)
@@ -369,22 +371,21 @@ impl Banco {
         .await
     }
 
-    /// Grava a NFS-e e marca a DPS como autorizada, na mesma transação.
+    /// Grava a NFS-e, marca a DPS como autorizada e audita, na mesma transação: depois do commit
+    /// nada mais pode falhar (a nota já existe na Sefin).
     pub async fn registrar_autorizacao(&self, dps_id: i64, nfse: &NfseRecebida) -> Resultado<NfseGravada> {
         let mut tx = self.pool().begin().await?;
         let agora = agora();
-        let afetadas = sqlx::query(
+        let empresa_id: i64 = sqlx::query(
             "UPDATE dps SET situacao = 'autorizada', ultimo_erro = NULL, atualizado_em = ?
-             WHERE id = ? AND situacao IN ('enviando', 'incerta')",
+             WHERE id = ? AND situacao IN ('enviando', 'incerta') RETURNING empresa_id",
         )
         .bind(&agora)
         .bind(dps_id)
-        .execute(&mut *tx)
+        .fetch_optional(&mut *tx)
         .await?
-        .rows_affected();
-        if afetadas == 0 {
-            return Err(ErroBanco::Regra("a DPS não estava aguardando autorização".into()));
-        }
+        .ok_or_else(|| ErroBanco::Regra("a DPS não estava aguardando autorização".into()))?
+        .get(0);
         let sha = sha256_hex(nfse.xml.as_bytes());
         let id: i64 = sqlx::query(
             "INSERT INTO nfse (dps_id, chave, numero, xml, xml_sha256, valor_servico, competencia, autorizada_em)
@@ -401,11 +402,16 @@ impl Banco {
         .fetch_one(&mut *tx)
         .await?
         .get(0);
+        auditar_em(&mut tx, "nfse_autorizada", empresa_id, &nfse.chave).await?;
         tx.commit().await?;
-        let empresa_id = self.dps(dps_id).await?.empresa_id;
-        self.auditar("nfse_autorizada", Some(empresa_id), Some(&nfse.chave))
-            .await?;
-        self.nfse(id).await
+        Ok(NfseGravada {
+            id,
+            dps_id,
+            chave: nfse.chave.clone(),
+            numero: nfse.numero.clone(),
+            xml: nfse.xml.clone(),
+            xml_sha256: sha,
+        })
     }
 
     pub async fn nfse(&self, id: i64) -> Resultado<NfseGravada> {
@@ -478,21 +484,68 @@ impl Banco {
             .collect()
     }
 
-    /// Registra o evento de cancelamento homologado e marca a DPS como cancelada.
+    /// Registra o evento de cancelamento homologado e marca a DPS como cancelada, na mesma transação.
     pub async fn registrar_cancelamento(&self, nfse_id: i64, xml_evento: &str) -> Resultado<()> {
         let nfse = self.nfse(nfse_id).await?;
-        self.mudar_situacao(nfse.dps_id, &[SituacaoDps::Autorizada], SituacaoDps::Cancelada, None)
-            .await?;
+        let mut tx = self.pool().begin().await?;
+        let agora = agora();
+        let Some(linha) = sqlx::query(
+            "UPDATE dps SET situacao = 'cancelada', atualizado_em = ?
+             WHERE id = ? AND situacao = 'autorizada' RETURNING empresa_id",
+        )
+        .bind(&agora)
+        .bind(nfse.dps_id)
+        .fetch_optional(&mut *tx)
+        .await?
+        else {
+            let atual = self.dps(nfse.dps_id).await?.situacao;
+            return Err(ErroBanco::Regra(format!(
+                "DPS em situação \"{}\" não pode passar para \"cancelada\"",
+                atual.texto()
+            )));
+        };
+        let empresa_id: i64 = linha.get(0);
         sqlx::query("INSERT INTO evento (nfse_id, tipo, xml, criado_em) VALUES (?, 'cancelamento', ?, ?)")
             .bind(nfse_id)
             .bind(xml_evento)
-            .bind(agora())
-            .execute(self.pool())
+            .bind(&agora)
+            .execute(&mut *tx)
             .await?;
-        let empresa_id = self.dps(nfse.dps_id).await?.empresa_id;
-        self.auditar("nfse_cancelada", Some(empresa_id), Some(&nfse.chave))
-            .await
+        auditar_em(&mut tx, "nfse_cancelada", empresa_id, &nfse.chave).await?;
+        tx.commit().await?;
+        Ok(())
     }
+
+    /// Ao abrir o sistema: DPS que ficaram `reservada` (o programa caiu, ou a geração ou a assinatura
+    /// falharam, entre a reserva e o envio) nunca chegaram à Sefin. Passam a `rejeitada` para não
+    /// bloquear a recorrência ou a linha da planilha. Devolve quantas foram liberadas.
+    pub async fn liberar_reservadas(&self) -> Resultado<u64> {
+        Ok(sqlx::query(
+            "UPDATE dps SET situacao = 'rejeitada', atualizado_em = ?,
+                 ultimo_erro = COALESCE(ultimo_erro, 'não enviada: o programa foi fechado antes do envio')
+             WHERE situacao = 'reservada'",
+        )
+        .bind(agora())
+        .execute(self.pool())
+        .await?
+        .rows_affected())
+    }
+}
+
+async fn auditar_em(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    acao: &str,
+    empresa_id: i64,
+    detalhe: &str,
+) -> Resultado<()> {
+    sqlx::query("INSERT INTO auditoria (quando, acao, empresa_id, detalhe) VALUES (?, ?, ?, ?)")
+        .bind(agora())
+        .bind(acao)
+        .bind(empresa_id)
+        .bind(detalhe)
+        .execute(&mut **tx)
+        .await?;
+    Ok(())
 }
 
 #[cfg(test)]

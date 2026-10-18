@@ -442,14 +442,14 @@ impl Dps {
                 v.erro("substituicao.motivo", "deve ser 01, 02, 03, 04, 05 ou 99");
             }
             if let Some(d) = &s.descricao_motivo {
-                v.texto("substituicao.descricao_motivo", d, 15, 255);
+                v.texto_xsd("substituicao.descricao_motivo", d, 15, 255);
             }
         }
 
         let p = &self.prestador;
         v.opcional_texto("prestador.inscricao_municipal", &p.inscricao_municipal, 1, 15);
         v.opcional_telefone("prestador.telefone", &p.telefone);
-        v.opcional_texto("prestador.email", &p.email, 1, 80);
+        v.opcional_texto_xsd("prestador.email", &p.email, 1, 80);
         if p.regime.apuracao_simples.is_some() && p.regime.simples != SituacaoSimples::MeEpp {
             v.erro(
                 "prestador.regime.apuracao_simples",
@@ -464,7 +464,7 @@ impl Dps {
             v.opcional_texto("tomador.inscricao_municipal", &t.inscricao_municipal, 1, 15);
             v.texto("tomador.nome", &t.nome, 1, 300);
             v.opcional_telefone("tomador.telefone", &t.telefone);
-            v.opcional_texto("tomador.email", &t.email, 1, 80);
+            v.opcional_texto_xsd("tomador.email", &t.email, 1, 80);
             let f = &self.valores.federais;
             let retem_federal = [f.retencao_irrf, f.retencao_cp, f.retencao_csll]
                 .into_iter()
@@ -479,10 +479,10 @@ impl Dps {
             if let Some(e) = &t.endereco {
                 v.digitos("tomador.endereco.municipio", &e.municipio, 7, 7);
                 v.digitos("tomador.endereco.cep", &e.cep, 8, 8);
-                v.texto("tomador.endereco.logradouro", &e.logradouro, 1, 255);
-                v.texto("tomador.endereco.numero", &e.numero, 1, 60);
-                v.opcional_texto("tomador.endereco.complemento", &e.complemento, 1, 156);
-                v.texto("tomador.endereco.bairro", &e.bairro, 1, 60);
+                v.texto_xsd("tomador.endereco.logradouro", &e.logradouro, 1, 255);
+                v.texto_xsd("tomador.endereco.numero", &e.numero, 1, 60);
+                v.opcional_texto_xsd("tomador.endereco.complemento", &e.complemento, 1, 156);
+                v.texto_xsd("tomador.endereco.bairro", &e.bairro, 1, 60);
             }
         }
 
@@ -518,15 +518,15 @@ impl Dps {
                     }
                     IdentificacaoObra::Endereco(e) => {
                         v.digitos("servico.obra.endereco.cep", &e.cep, 8, 8);
-                        v.texto("servico.obra.endereco.logradouro", &e.logradouro, 1, 255);
-                        v.texto("servico.obra.endereco.numero", &e.numero, 1, 60);
-                        v.opcional_texto("servico.obra.endereco.complemento", &e.complemento, 1, 156);
-                        v.texto("servico.obra.endereco.bairro", &e.bairro, 1, 60);
+                        v.texto_xsd("servico.obra.endereco.logradouro", &e.logradouro, 1, 255);
+                        v.texto_xsd("servico.obra.endereco.numero", &e.numero, 1, 60);
+                        v.opcional_texto_xsd("servico.obra.endereco.complemento", &e.complemento, 1, 156);
+                        v.texto_xsd("servico.obra.endereco.bairro", &e.bairro, 1, 60);
                     }
                 }
             }
         }
-        v.opcional_texto(
+        v.opcional_texto_xsd(
             "servico.informacoes_complementares",
             &s.informacoes_complementares,
             1,
@@ -630,6 +630,22 @@ impl Validador {
         }
     }
 
+    /// Campo de tipo `TSString` no XSD: além do tamanho, a faixa de caracteres e as pontas.
+    fn texto_xsd(&mut self, campo: &str, s: &str, min: usize, max: usize) {
+        self.texto(campo, s, min, max);
+        if !s.trim().is_empty()
+            && let Err(e) = conferir_tsstring(s)
+        {
+            self.erro(campo, e);
+        }
+    }
+
+    fn opcional_texto_xsd(&mut self, campo: &str, s: &Option<String>, min: usize, max: usize) {
+        if let Some(s) = s {
+            self.texto_xsd(campo, s, min, max);
+        }
+    }
+
     fn digitos(&mut self, campo: &str, s: &str, min: usize, max: usize) {
         if s.len() < min || s.len() > max || !s.bytes().all(|b| b.is_ascii_digit()) {
             let tamanho = if min == max {
@@ -678,6 +694,26 @@ impl Validador {
             self.erro(campo, format!("deve estar entre 0 e {max}.99"));
         }
     }
+}
+
+/// Confere o padrão do tipo `TSString` do XSD (`[!-ÿ]{1}[ -ÿ]{0,}[!-ÿ]{1}|[!-ÿ]{1}`): só caracteres
+/// de U+0020 a U+00FF, sem quebra de linha nem tabulação, e sem espaço no começo ou no fim. A Sefin
+/// recusa por schema o que foge disso, depois de o número da DPS já ter sido reservado.
+pub fn conferir_tsstring(s: &str) -> Result<(), String> {
+    if let Some(c) = s.chars().find(|c| !matches!(c, ' '..='\u{FF}')) {
+        return Err(match c {
+            '\n' | '\r' => "não aceita quebra de linha".into(),
+            '\t' => "não aceita tabulação".into(),
+            _ => format!(
+                "contém o caractere \"{c}\" (U+{:04X}), que a Sefin não aceita",
+                c as u32
+            ),
+        });
+    }
+    if s.starts_with(' ') || s.ends_with(' ') {
+        return Err("não pode começar nem terminar com espaço".into());
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -794,5 +830,44 @@ pub(crate) mod testes {
         let dps = dps_exemplo();
         let json = serde_json::to_string_pretty(&dps).unwrap();
         assert_eq!(serde_json::from_str::<Dps>(&json).unwrap(), dps);
+    }
+    #[test]
+    fn texto_fora_do_tsstring_e_recusado_antes_de_reservar() {
+        assert_eq!(conferir_tsstring("Rua São João, nº 5"), Ok(()));
+        assert_eq!(conferir_tsstring("x"), Ok(()));
+        assert!(
+            conferir_tsstring("Contrato 5 – renovação")
+                .unwrap_err()
+                .contains("U+2013")
+        );
+        assert!(conferir_tsstring("CENTRO ").is_err());
+        assert!(conferir_tsstring(" CENTRO").is_err());
+        assert!(
+            conferir_tsstring("linha1\nlinha2")
+                .unwrap_err()
+                .contains("quebra de linha")
+        );
+
+        let mut dps = dps_exemplo();
+        dps.servico.informacoes_complementares = Some("Pedido “123”".into());
+        if let Some(e) = dps.tomador.as_mut().and_then(|t| t.endereco.as_mut()) {
+            e.bairro = "CENTRO ".into();
+        }
+        let erros = dps.validar();
+        assert!(
+            erros
+                .iter()
+                .any(|e| e.starts_with("servico.informacoes_complementares")),
+            "{erros:?}"
+        );
+        assert!(
+            erros.iter().any(|e| e.starts_with("tomador.endereco.bairro")),
+            "{erros:?}"
+        );
+
+        // A descrição do serviço (TSDesc2000) aceita quebra de linha.
+        let mut dps = dps_exemplo();
+        dps.servico.descricao = "Linha 1\nLinha 2".into();
+        assert_eq!(dps.validar(), Vec::<String>::new());
     }
 }

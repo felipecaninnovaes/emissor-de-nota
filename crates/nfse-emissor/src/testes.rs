@@ -600,7 +600,7 @@ async fn timeout_reconcilia_sem_reenviar() {
 
 #[tokio::test]
 async fn timeout_sem_consulta_fica_pendente_ate_reconciliar() {
-    let c = cenario(vec![
+    let mut c = cenario(vec![
         Resposta::Emitir(Err(ErroSefin::Incerto("timeout".into()))),
         Resposta::ConsultarDps(Err(ErroSefin::SemConexao("rede caiu".into()))),
         // Ao reabrir o sistema:
@@ -610,10 +610,15 @@ async fn timeout_sem_consulta_fica_pendente_ate_reconciliar() {
     let ResultadoEmissao::Incerta { dps_id, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
         panic!()
     };
-    let banco = c.emissor.banco();
-    assert_eq!(banco.dps(dps_id).await.unwrap().situacao, SituacaoDps::Incerta);
-    assert_eq!(banco.dps_pendentes().await.unwrap().len(), 1);
+    assert_eq!(
+        c.emissor.banco().dps(dps_id).await.unwrap().situacao,
+        SituacaoDps::Incerta
+    );
+    assert_eq!(c.emissor.banco().dps_pendentes().await.unwrap().len(), 1);
 
+    // Passada a janela de reconciliação, o 404 libera a DPS.
+    c.emissor.janela_reconciliacao = chrono::Duration::zero();
+    let banco = c.emissor.banco();
     let resultados = c.emissor.reconciliar_pendentes().await.unwrap();
     assert!(matches!(resultados.as_slice(), [(id, Ok(None))] if *id == dps_id));
     assert_eq!(
@@ -989,4 +994,109 @@ async fn envia_a_nota_por_email_e_registra() {
     );
     let aviso = c.emissor.enviar_email_apos_emissao(nfse.id, &carteiro).await.unwrap();
     assert!(aviso.starts_with("E-mail enviado"), "{aviso}");
+}
+
+#[tokio::test]
+async fn nao_encontrada_logo_apos_timeout_continua_incerta() {
+    let c = cenario(vec![
+        Resposta::Emitir(Err(ErroSefin::Incerto("timeout".into()))),
+        // A Sefin ainda não enxerga a DPS que acabou de processar.
+        Resposta::ConsultarDps(Ok(None)),
+        // O operador verifica depois e a nota apareceu.
+        Resposta::ConsultarDps(Ok(Some(CHAVE.into()))),
+        Resposta::ConsultarNfse(Ok(nfse_autorizada())),
+    ])
+    .await;
+    let ResultadoEmissao::Incerta { dps_id, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+        panic!("404 dentro da janela não pode liberar para reenvio")
+    };
+    let banco = c.emissor.banco();
+    assert_eq!(banco.dps(dps_id).await.unwrap().situacao, SituacaoDps::Incerta);
+
+    let nfse = c.emissor.reconciliar(dps_id).await.unwrap().expect("nota gravada");
+    assert_eq!(nfse.chave, CHAVE);
+    assert_eq!(banco.dps(dps_id).await.unwrap().situacao, SituacaoDps::Autorizada);
+    assert!(c.sefin.roteiro_vazio());
+}
+
+#[tokio::test]
+async fn verificar_envio_em_curso_nao_consulta_a_sefin() {
+    let c = cenario(vec![]).await;
+    let banco = c.emissor.banco();
+    let reserva = banco.reservar_dps(c.pedido.empresa_id).await.unwrap();
+    let mut modelo: Dps = serde_json::from_str(include_str!("../../../exemplos/dps-exemplo.json")).unwrap();
+    modelo.numero = reserva.numero;
+    banco.registrar_envio(reserva.id, &modelo, "<DPS/>").await.unwrap();
+
+    assert!(matches!(
+        c.emissor.reconciliar(reserva.id).await,
+        Err(ErroEmissao::Regra(_))
+    ));
+    assert_eq!(banco.dps(reserva.id).await.unwrap().situacao, SituacaoDps::Enviando);
+    assert!(c.sefin.recebidos().is_empty());
+}
+
+#[tokio::test]
+async fn autorizada_e_nao_gravada_fica_incerta() {
+    let mut ilegivel = nfse_autorizada();
+    ilegivel.xml = "<NFSe>truncado".into();
+    let c = cenario(vec![
+        Resposta::Emitir(Ok(ilegivel)),
+        // Reconciliação: a Sefin devolve o XML íntegro.
+        Resposta::ConsultarDps(Ok(Some(CHAVE.into()))),
+        Resposta::ConsultarNfse(Ok(nfse_autorizada())),
+    ])
+    .await;
+    let ResultadoEmissao::Incerta { dps_id, motivo } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+        panic!("a nota existe na Sefin: não pode virar erro de emissão")
+    };
+    assert!(motivo.contains(CHAVE), "{motivo}");
+    let banco = c.emissor.banco();
+    assert_eq!(banco.dps(dps_id).await.unwrap().situacao, SituacaoDps::Incerta);
+
+    let nfse = c.emissor.reconciliar(dps_id).await.unwrap().expect("nota gravada");
+    assert_eq!(nfse.chave, CHAVE);
+    assert_eq!(banco.dps(dps_id).await.unwrap().situacao, SituacaoDps::Autorizada);
+}
+
+#[tokio::test]
+async fn reserva_sem_envio_e_liberada_ao_abrir() {
+    let c = cenario(vec![]).await;
+    let banco = c.emissor.banco();
+    // Simula o programa fechando entre a reserva do número e o envio.
+    let reserva = banco.reservar_dps(c.pedido.empresa_id).await.unwrap();
+
+    assert!(c.emissor.reconciliar_pendentes().await.unwrap().is_empty());
+    let dps = banco.dps(reserva.id).await.unwrap();
+    assert_eq!(dps.situacao, SituacaoDps::Rejeitada);
+    assert!(dps.ultimo_erro.unwrap().starts_with("não enviada"));
+    assert!(c.sefin.recebidos().is_empty());
+}
+
+#[tokio::test]
+async fn cancelamento_sem_resposta_mantem_autorizada() {
+    let c = cenario(vec![
+        Resposta::Emitir(Ok(nfse_autorizada())),
+        Resposta::Evento(Err(ErroSefin::Incerto("timeout".into()))),
+    ])
+    .await;
+    let ResultadoEmissao::Autorizada { nfse, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+        panic!()
+    };
+    let Err(ErroEmissao::Regra(mensagem)) = c
+        .emissor
+        .cancelar(
+            nfse.id,
+            MotivoCancelamento::ErroNaEmissao,
+            "Valor informado errado na emissão",
+        )
+        .await
+    else {
+        panic!("esperava aviso de cancelamento incerto")
+    };
+    assert!(mensagem.contains("Tente cancelar de novo"), "{mensagem}");
+    assert_eq!(
+        c.emissor.banco().dps(nfse.dps_id).await.unwrap().situacao,
+        SituacaoDps::Autorizada
+    );
 }

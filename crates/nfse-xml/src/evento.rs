@@ -44,6 +44,8 @@ pub enum PedidoInvalido {
     Chave(usize),
     #[error("a justificativa do cancelamento deve ter de 15 a 255 caracteres (tem {0})")]
     Descricao(usize),
+    #[error("a justificativa do cancelamento {0}")]
+    Caractere(String),
 }
 
 fn escapar(texto: &str) -> String {
@@ -61,6 +63,7 @@ pub fn gerar_pedido_cancelamento(p: &PedidoCancelamento) -> Result<(String, Stri
     if !(15..=255).contains(&n) {
         return Err(PedidoInvalido::Descricao(n));
     }
+    nfse_core::modelo::conferir_tsstring(descricao).map_err(PedidoInvalido::Caractere)?;
     let id = format!("PRE{}101101", p.chave);
     let autor = match &p.autor {
         Documento::Cnpj(c) => format!("<CNPJAutor>{}</CNPJAutor>", c.as_str()),
@@ -143,5 +146,11 @@ pub(crate) mod testes {
         let mut p = pedido();
         p.chave.pop();
         assert_eq!(gerar_pedido_cancelamento(&p), Err(PedidoInvalido::Chave(49)));
+        let mut p = pedido();
+        p.descricao = "Valor errado\nna emissão da nota".into();
+        assert!(matches!(
+            gerar_pedido_cancelamento(&p),
+            Err(PedidoInvalido::Caractere(_))
+        ));
     }
 }

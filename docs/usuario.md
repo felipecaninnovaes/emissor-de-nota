@@ -46,7 +46,7 @@ A descrição do serviço aceita variáveis que são trocadas na emissão; uma v
 Filtro por mês, situação de cada nota, contagem e total. A ação principal de cada linha fica visível (PDF para autorizada, **Corrigir e emitir** para rejeitada, **Verificar** para incerta) e as outras ficam em **Mais ▾**: cancelar, enviar por e-mail, **Copiar** (autorizada ou cancelada; leva tomador, serviço, valor e informações para a emissão, com a descrição refeita pelo modelo do serviço e o mês atual).
 
 - **Corrigir e emitir**: refaz uma rejeitada com o próximo número.
-- **Verificar**: consulta a Sefin para uma nota incerta (sem resposta). Nunca emita de novo antes de verificar.
+- **Verificar**: consulta a Sefin para uma nota incerta (sem resposta). Nunca emita de novo antes de verificar. Nos primeiros 5 minutos depois do envio, se a Sefin ainda não mostrar a nota, ela continua incerta: verifique de novo depois do horário indicado.
 - **Cancelar**: escolha o motivo e escreva a justificativa (15 a 255 caracteres). O PDF é regerado com a marca d'água.
 
 ## Recorrentes e lote do mês

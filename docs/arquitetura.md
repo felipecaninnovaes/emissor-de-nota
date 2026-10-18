@@ -38,23 +38,23 @@ Implementado em `Emissor::emitir` (`crates/nfse-emissor/src/lib.rs`). A Sefin fi
 
 1. Recorrência e planilha: se o item já tem nota autorizada ou em andamento, não emite de novo.
 2. Monta e **valida a DPS antes de reservar número**: DPS inválida não gasta numeração.
-3. Reserva o número em transação atômica (`numeracao`, por empresa, ambiente e série) e grava a DPS como `enviando`.
-4. Assina (XMLDSIG, em `spawn_blocking`) e envia (`POST /nfse`).
+3. Reserva o número em transação atômica (`numeracao`, por empresa, ambiente e série); a DPS fica `reservada`.
+4. Assina (XMLDSIG, em `spawn_blocking`), grava a DPS como `enviando` (com `enviado_em`) e envia (`POST /nfse`). Se a geração, a assinatura ou a gravação falharem, a DPS passa a `rejeitada` ("não enviada"); as que ficaram `reservada` por queda do programa são liberadas ao abrir o sistema.
 5. Resposta:
-   - **autorizada**: grava a NFS-e exatamente como a Sefin devolveu (com SHA-256), confere a assinatura da Sefin (apenas aviso, ver [ADR 0007](decisoes/0007-assinatura-da-sefin-como-aviso.md)), gera o PDF e arquiva XML e PDF na pasta;
+   - **autorizada**: grava a NFS-e exatamente como a Sefin devolveu (com SHA-256; a DPS, a nota e a auditoria na mesma transação), confere a assinatura da Sefin (apenas aviso, ver [ADR 0007](decisoes/0007-assinatura-da-sefin-como-aviso.md)), gera o PDF e arquiva XML e PDF na pasta. Se a gravação falhar (XML ilegível, chave divergente), a DPS fica `incerta` com a chave no motivo, e a reconciliação busca a nota de novo; falhas depois da gravação viram aviso;
    - **rejeitada**: grava o erro; a DPS fica `rejeitada` e a correção usa o **próximo** número;
    - **sem resposta ou resposta ilegível** (timeout, 5xx): a DPS fica `incerta` e o emissor consulta `GET /dps/{id}` antes de qualquer reenvio.
-6. `reconciliar` / `reconciliar_pendentes` resolvem as incertas (ao abrir o sistema e pelo botão "Verificar"): grava a NFS-e se existir ou libera a DPS para reenvio.
+6. `reconciliar` / `reconciliar_pendentes` resolvem as incertas (ao abrir o sistema e pelo botão "Verificar"): grava a NFS-e se existir ou libera a DPS para reenvio. Só o 404 conta como "não existe" (sucesso sem `chaveAcesso` é erro de formato), e só depois de `JANELA_RECONCILIACAO` (5 min) desde `enviado_em`: antes disso a Sefin pode ainda não mostrar a DPS e ela continua `incerta`. "Verificar" numa DPS `enviando` dentro da janela é recusado (o envio está em curso).
 
 Situações da DPS (`SituacaoDps` em `nfse-db/src/dps.rs`): `reservada`, `enviando`, `autorizada`, `rejeitada`, `incerta`, `cancelada`, `substituida`.
 
-Outras operações em `Emissor`: `cancelar` (evento e101101), `emitir_recorrencia`, `emitir_importado`, `ajustar_numeracao_pela_sefin`, `dados_para_refazer` (nota rejeitada), `dados_para_copiar` (autorizada ou cancelada), `enviar_email` e `enviar_email_apos_emissao`.
+Outras operações em `Emissor`: `cancelar` (evento e101101; sem resposta, a nota continua `autorizada` e o operador é orientado a repetir, já que o Id do pedido é fixo), `emitir_recorrencia`, `emitir_importado`, `ajustar_numeracao_pela_sefin`, `dados_para_refazer` (nota rejeitada), `dados_para_copiar` (autorizada ou cancelada), `enviar_email` e `enviar_email_apos_emissao`.
 
 Descrição da nota: `aplicar_mes_ref` troca as variáveis (lista em [usuario.md](usuario.md#variáveis-na-descrição)); variável desconhecida é barrada antes do envio (`variaveis_desconhecidas`).
 
 ## Banco de dados
 
-Um SQLite (SQLCipher) por máquina (`emissor.db` em `app_data_dir()`), em modo WAL com `synchronous = FULL` ([ADR 0008](decisoes/0008-synchronous-full.md)). Migrações em `crates/nfse-db/migrations/` (`0001` a `0006`), executadas pelo `sqlx::migrate!`. A recriação de tabela que exige desligar chaves estrangeiras roda como ajuste logo após as migrações (`crates/nfse-db/ajustes/`). As migrações têm de ficar em CRLF (`.gitattributes`); ver [desenvolvimento.md](desenvolvimento.md#migrações-do-banco).
+Um SQLite (SQLCipher) por máquina (`emissor.db` em `app_data_dir()`), em modo WAL com `synchronous = FULL` ([ADR 0008](decisoes/0008-synchronous-full.md)). Migrações em `crates/nfse-db/migrations/` (`0001` a `0006`), executadas pelo `sqlx::migrate!`. A recriação de tabela que exige desligar chaves estrangeiras roda como ajuste logo após as migrações (`crates/nfse-db/ajustes/`). Como num banco novo esse ajuste recria `dps` depois de todas as migrações, mudança na tabela `dps` vai em `ajustes.rs` (idempotente, depois da recriação), não numa migração: é o caso de `dps.enviado_em` e do índice `dps_empresa_id`. As migrações têm de ficar em CRLF (`.gitattributes`); ver [desenvolvimento.md](desenvolvimento.md#migrações-do-banco).
 
 | Tabela | Conteúdo |
 | --- | --- |
