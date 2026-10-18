@@ -562,16 +562,18 @@
           <legend>Identificação</legend>
           <div class="grade">
             <div class="c6"><label for="servico-nome">Nome na lista</label><input id="servico-nome" name="nome" required placeholder="Honorários mensais"></div>
-            <div class="c6"><label for="servico-busca-lista">Procurar o código pelo nome</label>
+            <div class="c6"><label for="servico-codigo-trib-nac">Cód. tributação nacional</label>
               <div class="busca">
-                <input id="servico-busca-lista" placeholder="Ex.: contabilidade, suporte técnico..." autocomplete="off" aria-describedby="servico-ctn-descricao">
-                <div class="resultados" id="servico-resultados-lista" hidden></div>
+                <input id="servico-codigo-trib-nac" name="codigo_trib_nac" required placeholder="171901 ou parte do nome (ex.: contabilidade)" data-formato="ctn" autocomplete="off" aria-describedby="servico-ctn-descricao">
+                <div class="resultados" id="servico-resultados-ctn" hidden></div>
               </div>
               <p class="ajuda" id="servico-ctn-descricao" aria-live="polite"></p></div>
-            <div class="c3"><label for="servico-codigo-trib-nac">Cód. tributação nacional</label><input id="servico-codigo-trib-nac" name="codigo_trib_nac" required placeholder="171901" data-formato="ctn" inputmode="numeric" maxlength="6">
-              <p class="ajuda">6 dígitos, da LC 116.</p></div>
-            <div class="c3"><label for="servico-nbs">NBS</label><input id="servico-nbs" name="nbs" placeholder="113022100" data-formato="nbs" inputmode="numeric" maxlength="9">
-              <p class="ajuda">9 dígitos.</p></div>
+            <div class="c6"><label for="servico-nbs">NBS</label>
+              <div class="busca">
+                <input id="servico-nbs" name="nbs" placeholder="113022100 ou parte do nome" data-formato="nbs" autocomplete="off" aria-describedby="servico-nbs-descricao">
+                <div class="resultados" id="servico-resultados-nbs" hidden></div>
+              </div>
+              <p class="ajuda" id="servico-nbs-descricao" aria-live="polite"></p></div>
             <div class="c3"><label for="servico-codigo-trib-mun">Código municipal</label><input id="servico-codigo-trib-mun" name="codigo_trib_mun" maxlength="3" data-formato="ctm" inputmode="numeric"></div>
             <div class="c3"><label for="servico-valor-sugerido">Valor sugerido (R$)</label><input id="servico-valor-sugerido" name="valor_sugerido" inputmode="decimal" data-formato="valor" class="campo-valor"></div>
             <div class="c12"><label for="servico-descricao">Descrição padrão</label><textarea id="servico-descricao" name="descricao" required rows="2" placeholder="SERVIÇOS CONTÁBEIS REFERENTE A {mes_ref}"></textarea>

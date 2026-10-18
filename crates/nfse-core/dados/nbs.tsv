@@ -1,0 +1,918 @@
+# fonte: anexo_b-nbs2-lista_servico_nacional-snnfse-v1-01-20260122.xlsx
+101011100	Serviços de construção de edificações residenciais de um e dois pavimentos	Serviços de construção de edificações residenciais
+101011200	Serviços de construção de edificações residenciais com mais de dois pavimentos	Serviços de construção de edificações residenciais
+101012100	Serviços de construção de edificações industriais	Serviços de construção de edificações não residenciais
+101012200	Serviços de construção de edificações comerciais	Serviços de construção de edificações não residenciais
+101012900	Serviços de construção de edificações não residenciais não classificados em subposições anteriores	Serviços de construção de edificações não residenciais
+101013000	Serviços de construção de edificações de uso misto (residencial e não residencial)	Serviços de construção de edificações
+101021100	Serviços de construção de autoestradas (exceto autoestradas elevadas), ruas e estradas	Serviços de construção de autoestradas (exceto autoestradas elevadas), ruas, estradas, estradas férreas, pistas de pouso e de decolagem em aeroportos e infraestrutura aeroportuária
+101021200	Serviços de construção de ferrovias	Serviços de construção de autoestradas (exceto autoestradas elevadas), ruas, estradas, estradas férreas, pistas de pouso e de decolagem em aeroportos e infraestrutura aeroportuária
+101021300	Serviços de construção de pistas de pouso e decolagem em aeroportos e de infraestrutura aeroportuária	Serviços de construção de autoestradas (exceto autoestradas elevadas), ruas, estradas, estradas férreas, pistas de pouso e de decolagem em aeroportos e infraestrutura aeroportuária
+101022000	Serviços de construção de pontes, autoestradas elevadas e túneis	Serviços de construção de obras de engenharia civil
+101023100	Serviços de construção de infraestrutura de proteção e acesso aquaviário	Serviços de construção de portos, vias navegáveis, represas, irrigação e outras obras hídricas
+101023200	Serviços de construção de infraestrutura de acostagem aquaviária	Serviços de construção de portos, vias navegáveis, represas, irrigação e outras obras hídricas
+101023300	Serviços de construção de infraestrutura terrestre e de obras de engenharia afins nos portos	Serviços de construção de portos, vias navegáveis, represas, irrigação e outras obras hídricas
+101023400	Serviços de construção de barragens	Serviços de construção de portos, vias navegáveis, represas, irrigação e outras obras hídricas
+101023510	Serviços de construção de adutoras em conduto livre	Serviços de construção de adutoras em conduto livre, de sistemas de irrigação e relacionados ao controle dos cursos de água
+101023520	Serviços de construção de sistemas de irrigação	Serviços de construção de adutoras em conduto livre, de sistemas de irrigação e relacionados ao controle dos cursos de água
+101023530	Serviços de construção relacionada ao controle dos cursos de água, inclusive canalização	Serviços de construção de adutoras em conduto livre, de sistemas de irrigação e relacionados ao controle dos cursos de água
+101024110	Serviços de construção de dutos de longo curso para o transporte de petróleo, seus derivados, e gás	Serviços de construção de dutos de longo curso
+101024120	Serviços de construção de dutos de longo curso para o transporte e escoamento de águas	Serviços de construção de dutos de longo curso
+101024190	Serviços de construção de dutos de longo curso não classificados em subposições anteriores	Serviços de construção de dutos de longo curso
+101024210	Serviços de construção de linhas de comunicação de longo curso	Serviços de construção de linhas de comunicação de longo curso e linhas de transmissão de alta tensão
+101024220	Serviços de construção de linhas de transmissão de alta tensão	Serviços de construção de linhas de comunicação de longo curso e linhas de transmissão de alta tensão
+101025100	Serviços de construção de dutos locais	Serviços de construção de dutos locais e de linhas locais de comunicação e de transmissão de baixa e média tensão e outros serviços de construção relacionados
+101025210	Serviços de construção de linhas locais de comunicação	Serviços de construção de linhas locais de comunicação e de transmissão de baixa e média tensão e outros serviços de construção relacionados
+101025220	Serviços de construção de linhas locais de transmissão de baixa e média tensão	Serviços de construção de linhas locais de comunicação e de transmissão de baixa e média tensão e outros serviços de construção relacionados
+101025310	Serviços de construção de sistemas de esgotos	Serviços de construção de sistemas de esgotos e de sistemas de estações para elevação, tratamento e purificação de água
+101025320	Serviços de construção de sistemas de estações para elevação, tratamento e purificação de água	Serviços de construção de sistemas de esgotos e de sistemas de estações para elevação, tratamento e purificação de água
+101026100	Serviços de construção de usinas de geração de energia	Serviços de construção de instalações industriais
+101026900	Serviços de construção de instalações industriais não classificados em subposições anteriores	Serviços de construção de instalações industriais
+101027000	Serviços de construção de minas e suas unidades industriais	Serviços de construção de obras de engenharia civil
+101028000	Serviços de construção de instalações para recreação e atividades desportivas ao ar livre	Serviços de construção de obras de engenharia civil
+101029000	Serviços de construção de obras de engenharia civil não classificados em subposições anteriores	Serviços de construção de obras de engenharia civil
+101031000	Serviços de demolição	Serviços de preparação do local da obra
+101032000	Serviços de preparação de terrenos e de canteiros de obras	Serviços de preparação do local da obra
+101033000	Serviços de escavação e remoção de terra	Serviços de preparação do local da obra
+101034100	Serviços de perfuração de poços de água	Serviços de perfuração de poços de água e de instalação de sistemas sépticos
+101034200	Serviços de instalação de sistemas sépticos	Serviços de perfuração de poços de água e de instalação de sistemas sépticos
+101040000	Serviços de montagem e de edificação de construções pré-fabricadas	
+101051100	Serviços de estaqueamento	Serviços de estaqueamento e de fundação
+101051200	Serviços de fundação	Serviços de estaqueamento e de fundação
+101052100	Serviços de construção de estruturas de edificações	Serviços de construção de estruturas
+101052200	Serviços de construção de estruturas de telhados e coberturas	Serviços de construção de estruturas
+101053000	Serviços de construção de telhados e coberturas e serviços de impermeabilização	Serviços especializados de construção
+101054000	Serviços de concretagem	Serviços especializados de construção
+101055000	Serviços de montagem de estruturas de aço	Serviços especializados de construção
+101056000	Serviços de alvenaria	Serviços especializados de construção
+101057000	Serviços de andaimes	Serviços especializados de construção
+101059000	Serviços especializados de construção não classificados em subposições anteriores	Serviços especializados de construção
+101061100	Serviços de instalação de fiação elétrica e componentes	Serviços de instalação elétrica
+101061200	Serviços de instalação de alarmes contra incêndio	Serviços de instalação elétrica
+101061300	Serviços de instalação de sistemas de alarmes antifurto	Serviços de instalação elétrica
+101061400	Serviços de instalação de antenas residenciais	Serviços de instalação elétrica
+101061900	Serviços de instalação elétrica não classificados em subposições anteriores	Serviços de instalação elétrica
+101062100	Serviços de instalação de tubulação para fornecimento de água	Serviços de instalação de tubulação para fornecimento e escoamento de água
+101062200	Serviços de instalação de tubulação para escoamento de água	Serviços de instalação de tubulação para fornecimento e escoamento de água
+101063100	Serviços de instalação de equipamentos de aquecimento	Serviços de instalação de equipamentos de aquecimento, de ventilação e de ar condicionado
+101063200	Serviços de instalação de equipamentos de ventilação e de ar condicionado	Serviços de instalação de equipamentos de aquecimento, de ventilação e de ar condicionado
+101064000	Serviços de instalação de gás	Serviços de instalação
+101065000	Serviços de instalação de isolamentos	Serviços de instalação
+101066000	Serviços de instalação de elevadores, esteiras e escadas rolantes	Serviços de instalação
+101069000	Serviços de instalação não classificados em subposições anteriores	Serviços de instalação
+101071000	Serviços de vidraçaria	Serviços de acabamento
+101072000	Serviços de gesso e de estuque	Serviços de acabamento
+101073000	Serviços de pintura	Serviços de acabamento
+101074000	Serviços de revestimento de pisos e de paredes	Serviços de acabamento
+101075000	Serviços de carpintaria e de serralharia	Serviços de acabamento
+101076000	Serviços de instalação de cercas e grades	Serviços de acabamento
+101079000	Serviços de acabamento não classificados em subposições anteriores	Serviços de acabamento
+102010000	Serviços de intermediação na distribuição de mercadorias	
+102020000	Comércio atacadista	
+102030000	Comércio varejista	
+102040000	Serviços de despacho aduaneiro	
+102050000	Serviços de intermediação na comercialização de energia elétrica	
+103011000	Fornecimento de refeições acompanhado de serviços de restaurante	Fornecimento de alimentação, incluindo refeições
+103012100	Fornecimento de refeições pelo sistema de autosserviço (self-service)	Fornecimento de refeições com serviços limitados de restaurante
+103012200	Fornecimento de comidas rápidas (fast-food)	Fornecimento de refeições com serviços limitados de restaurante
+103012900	Fornecimento de refeições com serviços limitados de restaurante não classificado em subposições anteriores	Fornecimento de refeições com serviços limitados de restaurante
+103013100	Fornecimento de alimentação para eventos	Fornecimento de alimentação, incluindo refeições, sob contrato
+103013200	Fornecimento de alimentação para operadores de transportes (comissaria ou catering)	Fornecimento de alimentação, incluindo refeições, sob contrato
+103013900	Fornecimento de alimentação, incluindo refeições, sob contrato, não classificados em subposições anteriores	Fornecimento de alimentação, incluindo refeições, sob contrato
+103019000	Fornecimento de alimentação não classificado em subposições anteriores	Fornecimento de alimentação, incluindo refeições
+103020000	Fornecimento de bebidas em bares, cervejarias e outros	
+103031100	Serviços de hospedagem em quartos ou unidades de hospedagem para visitantes, com serviços diários de faxina	Serviços de hospedagem em quartos ou unidades de hospedagem para visitantes
+103031200	Serviços de hospedagem em quartos ou unidades de hospedagem para visitantes, sem serviços diários de faxina	Serviços de hospedagem em quartos ou unidades de hospedagem para visitantes
+103031300	Serviços de hospedagem em quartos ou unidades de hospedagem para visitantes, em propriedades partilhadas	Serviços de hospedagem em quartos ou unidades de hospedagem para visitantes
+103031400	Serviços de hospedagem para visitantes, em quartos de múltipla ocupação	Serviços de hospedagem em quartos ou unidades de hospedagem para visitantes
+103032000	Serviços de acampamentos turísticos (camping)	Serviços de hospedagem para visitantes
+103039000	Serviços de hospedagem para visitantes não classificados em subposições anteriores	Serviços de hospedagem para visitantes
+103041000	Serviços de hospedagem em quartos ou unidades de hospedagem para estudantes em residências estudantis	Serviços de hospedagem, exceto para visitantes
+103042000	Serviços de hospedagem em quartos ou unidades de hospedagem para trabalhadores em hotéis ou campos	Serviços de hospedagem, exceto para visitantes
+103049000	Serviços de hospedagem, exceto para visitantes, não classificados em subposições anteriores	Serviços de hospedagem, exceto para visitantes
+104011111	Serviços de transporte rodoviário local prestados exclusivamente por meio de ônibus	Serviços de transporte rodoviário local regular de passageiros, exceto em áreas metropolitanas
+104011119	Serviços de transporte rodoviário local regular de passageiros, exceto em áreas metropolitanas, não classificados em subitens anteriores	Serviços de transporte rodoviário local regular de passageiros, exceto em áreas metropolitanas
+104011120	Serviços de transporte rodoviário local regular de passageiros, em áreas metropolitanas	Serviços de transporte rodoviário local regular de passageiros
+104011210	Serviços de transporte escolar	Serviços especiais de transporte rodoviário local regular de passageiros
+104011220	Serviços de transporte para aeroportos (shuttle)	Serviços especiais de transporte rodoviário local regular de passageiros
+104011290	Serviços especiais de transporte rodoviário local regular de passageiros não classificados em itens anteriores	Serviços especiais de transporte rodoviário local regular de passageiros
+104011300	Serviços de táxi	Serviços de transporte terrestre local de passageiros
+104011400	Serviços de carro com motorista, exceto táxi	Serviços de transporte terrestre local de passageiros
+104011510	Serviços de fretamento contínuo, local	Serviços de transporte rodoviário local de passageiros por fretamento
+104011520	Serviços de fretamento eventual ou turístico, local	Serviços de transporte rodoviário local de passageiros por fretamento
+104011610	Serviços de transporte ferroviário local de passageiros	Serviços de transporte local de passageiros por veículos sobre trilhos
+104011620	Serviços de transporte metroviário (metrô) local de passageiros	Serviços de transporte local de passageiros por veículos sobre trilhos
+104011690	Serviços de transporte local de passageiros por veículos sobre trilhos não classificados em itens anteriores	Serviços de transporte local de passageiros por veículos sobre trilhos
+104011710	Serviços de transporte rodoviário para passeios turísticos (sightseeing)	Serviços de transporte terrestre para passeios turísticos (sightseeing)
+104011720	Serviços de transporte ferroviário para passeios turísticos (sightseeing)	Serviços de transporte terrestre para passeios turísticos (sightseeing)
+104011790	Serviços de transporte terrestre para passeios turísticos (sightseeing), não classificados em itens anteriores	Serviços de transporte terrestre para passeios turísticos (sightseeing)
+104011900	Serviços de transporte terrestre local de passageiros, não classificados em subposições anteriores	Serviços de transporte terrestre local de passageiros
+104012110	Serviços de transporte aquaviário local de passageiros, por navegação interior, em embarcações para travessia	Serviços de transporte aquaviário local de passageiros, por navegação interior
+104012120	Serviços de transporte aquaviário local de passageiros, por navegação interior, em embarcações para cruzeiros	Serviços de transporte aquaviário local de passageiros, por navegação interior
+104012190	Serviços de transporte aquaviário local de passageiros, por navegação interior, não classificados em itens anteriores	Serviços de transporte aquaviário local de passageiros, por navegação interior
+104012200	Serviços de transporte aquaviário local de passageiros por fretamento	Serviços de transporte aquaviário local de passageiros
+104012300	Serviços de transporte aquaviário para passeios turísticos (sightseeing)	Serviços de transporte aquaviário local de passageiros
+104012900	Serviços de transporte aquaviário local de passageiros, não classificados em subposições anteriores	Serviços de transporte aquaviário local de passageiros
+104013000	Serviços de transporte integrado local de passageiros	Serviços de transporte local de passageiros
+104014100	Serviços de táxi aéreo local	Serviços de transporte aéreo local de passageiros
+104014200	Serviços de transporte aéreo local de passageiros por fretamento	Serviços de transporte aéreo local de passageiros
+104014300	Serviços de transporte aéreo para passeios turísticos (sightseeing)	Serviços de transporte aéreo local de passageiros
+104014900	Serviços de transporte aéreo local de passageiros, não classificados em subposições anteriores	Serviços de transporte aéreo local de passageiros
+104019000	Serviços de transporte local de passageiros, não classificados em subposições anteriores	Serviços de transporte local de passageiros
+104021110	Serviços de transporte rodoviário nacional, exceto local, prestados exclusivamente por meio de ônibus	Serviços de transporte rodoviário nacional, exceto local, regular de passageiros
+104021190	Serviços de transporte rodoviário nacional, exceto local, de passageiros, não classificados em subitens anteriores	Serviços de transporte rodoviário nacional, exceto local, regular de passageiros
+104021200	Serviços especiais de transporte rodoviário nacional, exceto local, regular de passageiros	Serviços de transporte terrestre nacional, exceto local, de passageiros
+104021310	Serviços de fretamento contínuo, nacional, exceto local	Serviços de transporte rodoviário nacional, exceto local, de passageiros, por fretamento
+104021320	Serviços de fretamento eventual ou turístico, nacional, exceto local	Serviços de transporte rodoviário nacional, exceto local, de passageiros, por fretamento
+104021400	Serviços de transporte ferroviário nacional, exceto local, de passageiros	Serviços de transporte terrestre nacional, exceto local, de passageiros
+104021900	Serviços de transporte terrestre nacional, exceto local, de passageiros, não classificados em subposições anteriores	Serviços de transporte terrestre nacional, exceto local, de passageiros
+104022110	Serviços de transporte aquaviário de passageiros, por navegação interior, em embarcações para travessia	Serviços de transporte aquaviário nacional, exceto local, de passageiros, por navegação interior
+104022120	Serviços de transporte aquaviário de passageiros, por navegação interior, em embarcações para cruzeiros	Serviços de transporte aquaviário nacional, exceto local, de passageiros, por navegação interior
+104022190	Serviços de transporte aquaviário nacional, exceto local, de passageiros, por navegação interior, não classificados em itens anteriores	Serviços de transporte aquaviário nacional, exceto local, de passageiros, por navegação interior
+104022200	Serviços de transporte aquaviário nacional costeiro de passageiros	Serviços de transporte aquaviário nacional, exceto local, de passageiros
+104022300	Serviços de transporte aquaviário nacional, exceto local, de passageiros, por fretamento	Serviços de transporte aquaviário nacional, exceto local, de passageiros
+104023100	Serviços de transporte aéreo nacional, exceto local, regular de passageiros	Serviços de transporte aéreo nacional, exceto local, de passageiros
+104023200	Serviços de táxi aéreo nacional, exceto local	Serviços de transporte aéreo nacional, exceto local, de passageiros
+104023300	Serviços de transporte aéreo nacional, exceto local, de passageiros, por fretamento	Serviços de transporte aéreo nacional, exceto local, de passageiros
+104023900	Serviços de transporte aéreo nacional, exceto local, de passageiros, não classificados em subposições anteriores	Serviços de transporte aéreo nacional, exceto local, de passageiros
+104029000	Serviços de transporte nacional, exceto local, de passageiros, não classificados em subposições anteriores	Serviços de transporte nacional, exceto local, de passageiros
+104031110	Serviços de transporte de passageiros prestados exclusivamente por meio de ônibus	Serviços de transporte rodoviário internacional regular de passageiros
+104031190	Serviços de transporte rodoviário internacional de passageiros não classificados em itens anteriores	Serviços de transporte rodoviário internacional regular de passageiros
+104031200	Serviços de transporte rodoviário internacional de passageiros por fretamento	Serviços regulares de transporte terrestre internacional de passageiros
+104031310	Serviços de transporte internacional ferroviário de passageiros	Serviços de transporte internacional de passageiros por veículos sobre trilhos
+104031390	Serviços de transporte internacional de passageiros por veículos sobre trilhos não classificados em itens anteriores	Serviços de transporte internacional de passageiros por veículos sobre trilhos
+104031900	Serviços de transporte terrestre internacional de passageiros, não classificados em subposições anteriores	Serviços regulares de transporte terrestre internacional de passageiros
+104032110	Serviços de transporte aquaviário internacional de passageiros, por navegação interior, em embarcações para travessia	Serviços de transporte aquaviário internacional de passageiros, por navegação interior
+104032120	Serviços de transporte aquaviário internacional de passageiros, por navegação interior, em embarcações para cruzeiros	Serviços de transporte aquaviário internacional de passageiros, por navegação interior
+104032190	Serviços de transporte aquaviário internacional de passageiros, por navegação interior, não classificados em itens anteriores	Serviços de transporte aquaviário internacional de passageiros, por navegação interior
+104032200	Serviços de transporte aquaviário internacional costeiro de passageiros	Serviços de transporte aquaviário internacional de passageiros
+104032300	Serviços de transporte aquaviário internacional transoceânico de passageiros	Serviços de transporte aquaviário internacional de passageiros
+104032400	Serviços de transporte aquaviário internacional de passageiros por fretamento	Serviços de transporte aquaviário internacional de passageiros
+104033100	Serviços de transporte aéreo internacional regular de passageiros	Serviços de transporte aéreo internacional de passageiros
+104033200	Serviços de táxi aéreo internacional	Serviços de transporte aéreo internacional de passageiros
+104033300	Serviços de transporte aéreo internacional de passageiros por fretamento	Serviços de transporte aéreo internacional de passageiros
+104033900	Serviços de transporte aéreo internacional de passageiros, não classificados em subposições anteriores	Serviços de transporte aéreo internacional de passageiros
+104039000	Serviços de transporte internacional de passageiros, não classificados em subposições anteriores	Serviços de transporte internacional de passageiros
+104041000	Locação de veículos rodoviários de passageiros com motorista	Locação de veículos de passageiros com operador
+104042000	Locação de embarcações de passageiros com tripulação	Locação de veículos de passageiros com operador
+104043000	Locação de aeronaves de passageiros com tripulação	Locação de veículos de passageiros com operador
+104050000	Afretamento de embarcações de passageiros por tempo	
+105011110	Serviços de transporte rodoviário de cargas sólidas a granel	Serviços de transporte rodoviário de cargas a granel
+105011120	Serviços de transporte rodoviário de cargas líquidas, ou liquefeitas, a granel	Serviços de transporte rodoviário de cargas a granel
+105011130	Serviços de transporte rodoviário de cargas gasosas a granel	Serviços de transporte rodoviário de cargas a granel
+105011210	Serviços de transporte rodoviário de carga solta, não unitizada	Serviços de transporte rodoviário de carga geral, exceto em contêineres
+105011220	Serviços de transporte rodoviário de carga unitizada	Serviços de transporte rodoviário de carga geral, exceto em contêineres
+105011230	Serviços de transporte rodoviário de carga frigorificada ou climatizada	Serviços de transporte rodoviário de carga geral, exceto em contêineres
+105011310	Serviços de transporte rodoviário de cargas em contêineres frigorificados ou climatizados	Serviços de transporte rodoviário de cargas em contêineres
+105011320	Serviços de transporte rodoviário de cargas em contêineres não frigorificados ou climatizados	Serviços de transporte rodoviário de cargas em contêineres
+105011410	Serviços de transporte rodoviário de cargas vivas	Serviços de transporte rodoviário de cargas especiais
+105011420	Serviços de transporte rodoviário de mudanças domésticas e de mobília e outros objetos de escritório	Serviços de transporte rodoviário de cargas especiais
+105011430	Serviços de transporte rodoviário de cargas de grande porte	Serviços de transporte rodoviário de cargas especiais
+105011440	Serviços de transporte rodoviário de veículos	Serviços de transporte rodoviário de cargas especiais
+105011451	Serviços de transporte rodoviário de combustíveis, lubrificantes e GLP, inclusive apresentados em botijões metálicos	Serviços de transporte rodoviário de produtos perigosos
+105011452	Serviços de transporte rodoviário de produtos químicos perigosos, exceto lubrificantes e GLP	Serviços de transporte rodoviário de produtos perigosos
+105011459	Serviços de transporte rodoviário de produtos perigosos não classificados em subitens anteriores	Serviços de transporte rodoviário de produtos perigosos
+105011500	Serviços de transporte rodoviário de cargas postais e malotes	Serviços de transporte rodoviário de cargas
+105011900	Serviços de transporte rodoviário de cargas não classificados em subposições anteriores	Serviços de transporte rodoviário de cargas
+105012110	Serviços de transporte ferroviário de cargas sólidas a granel	Serviços de transporte ferroviário de cargas a granel
+105012120	Serviços de transporte ferroviário de cargas líquidas, ou liquefeitas, a granel	Serviços de transporte ferroviário de cargas a granel
+105012130	Serviços de transporte ferroviário de cargas gasosas a granel	Serviços de transporte ferroviário de cargas a granel
+105012210	Serviços de transporte ferroviário de carga solta, não unitizada	Serviços de transporte ferroviário de cargas geral, exceto em contêineres
+105012220	Serviços de transporte ferroviário de carga unitizada	Serviços de transporte ferroviário de cargas geral, exceto em contêineres
+105012230	Serviços de transporte ferroviário de carga frigorificada ou climatizada	Serviços de transporte ferroviário de cargas geral, exceto em contêineres
+105012310	Serviços de transporte ferroviário de cargas em contêineres frigorificados ou climatizados	Serviços de transporte ferroviário de cargas em contêineres
+105012320	Serviços de transporte ferroviário de cargas em contêineres não frigorificados ou climatizados	Serviços de transporte ferroviário de cargas em contêineres
+105012410	Serviços de transporte ferroviário de cargas vivas	Serviços de transporte ferroviário de cargas especiais
+105012421	Serviços de transporte ferroviário de combustíveis, lubrificantes e GLP, inclusive apresentados em botijões metálicos	Serviços de transporte ferroviário de produtos perigosos
+105012422	Serviços de transporte ferroviário de produtos químicos perigosos, exceto lubrificantes e GLP	Serviços de transporte ferroviário de produtos perigosos
+105012429	Serviços de transporte ferroviário de produtos perigosos não classificados em subposições anteriores	Serviços de transporte ferroviário de produtos perigosos
+105012500	Serviços de transporte ferroviário de bens e valores	Serviços de transporte ferroviário de cargas
+105012900	Serviços de transporte ferroviário de cargas não classificados em subposições anteriores	Serviços de transporte ferroviário de cargas
+105013100	Serviços de transporte de petróleo, gás natural e combustível por meio de dutos	Serviços de transporte de cargas por meio de dutos
+105013200	Serviços de transporte de minérios por meio de dutos	Serviços de transporte de cargas por meio de dutos
+105013900	Serviços de transporte de cargas por meio de dutos não classificados em subposições anteriores	Serviços de transporte de cargas por meio de dutos
+105021110	Serviços de transporte aquaviário por navegação interior de cargas sólidas, a granel	Serviços de transporte aquaviário por navegação interior de cargas a granel
+105021120	Serviços de transporte aquaviário por navegação interior de cargas líquidas, ou liquefeitas, a granel	Serviços de transporte aquaviário por navegação interior de cargas a granel
+105021130	Serviços de transporte aquaviário por navegação interior de cargas gasosas a granel	Serviços de transporte aquaviário por navegação interior de cargas a granel
+105021210	Serviços de transporte aquaviário por navegação interior de carga solta, não unitizada	Serviços de transporte aquaviário por navegação interior de carga geral, exceto em contêineres
+105021220	Serviços de transporte aquaviário por navegação interior de carga unitizada	Serviços de transporte aquaviário por navegação interior de carga geral, exceto em contêineres
+105021230	Serviços de transporte aquaviário por navegação interior de carga frigorificada ou climatizada	Serviços de transporte aquaviário por navegação interior de carga geral, exceto em contêineres
+105021310	Serviços de transporte aquaviário por navegação interior de cargas em contêineres frigorificados ou climatizados	Serviços de transporte aquaviário por navegação interior de cargas em contêineres
+105021320	Serviços de transporte aquaviário por navegação interior de cargas em contêineres não frigorificados ou climatizados	Serviços de transporte aquaviário por navegação interior de cargas em contêineres
+105021410	Serviços de transporte aquaviário por navegação interior de cargas vivas	Serviços de transporte aquaviário por navegação interior de cargas especiais
+105021420	Serviços de transporte aquaviário por navegação interior de mudanças domésticas e de mobília e outros objetos de escritório	Serviços de transporte aquaviário por navegação interior de cargas especiais
+105021430	Serviços de transporte aquaviário por navegação interior de cargas de grande porte	Serviços de transporte aquaviário por navegação interior de cargas especiais
+105021440	Serviços de transporte aquaviário por navegação interior de veículos	Serviços de transporte aquaviário por navegação interior de cargas especiais
+105021451	Serviços de transporte aquaviário por navegação interior de combustíveis, lubrificantes e GLP, inclusive apresentado em botijões metálicos	Serviços de transporte aquaviário por navegação interior de produtos perigosos
+105021452	Serviços de transporte aquaviário por navegação interior de produtos químicos perigosos, exceto lubrificantes e GLP	Serviços de transporte aquaviário por navegação interior de produtos perigosos
+105021459	Serviços de transporte aquaviário por navegação interior de produtos perigosos não classificados em subposições anteriores	Serviços de transporte aquaviário por navegação interior de produtos perigosos
+105021490	Serviços de transporte aquaviário por navegação interior de cargas especiais não classificados em subposições anteriores	Serviços de transporte aquaviário por navegação interior de cargas especiais
+105021900	Serviços de transporte aquaviário por navegação interior de cargas não classificados em subposições anteriores	Serviços de transporte aquaviário por navegação interior de cargas
+105022110	Serviços de transporte aquaviário costeiro de cargas sólidas a granel	Serviços de transporte aquaviário costeiro de cargas a granel
+105022120	Serviços de transporte aquaviário costeiro de cargas líquidas ou liquefeitas, a granel	Serviços de transporte aquaviário costeiro de cargas a granel
+105022130	Serviços de transporte aquaviário costeiro de cargas gasosas a granel	Serviços de transporte aquaviário costeiro de cargas a granel
+105022210	Serviços de transporte aquaviário costeiro de carga solta, não unitizada	Serviços de transporte aquaviário costeiro de cargas em geral, exceto em contêineres
+105022220	Serviços de transporte aquaviário costeiro de carga unitizada	Serviços de transporte aquaviário costeiro de cargas em geral, exceto em contêineres
+105022230	Serviços de transporte aquaviário costeiro de carga frigorificada ou climatizada	Serviços de transporte aquaviário costeiro de cargas em geral, exceto em contêineres
+105022310	Serviços de transporte aquaviário costeiro de cargas em contêineres frigorificados ou climatizados	Serviços de transporte aquaviário costeiro de cargas em contêineres
+105022320	Serviços de transporte aquaviário costeiro de cargas em contêineres não classificados em subposições anteriores	Serviços de transporte aquaviário costeiro de cargas em contêineres
+105022410	Serviços de transporte aquaviário costeiro de cargas vivas	Serviços de transporte aquaviário costeiro de cargas especiais
+105022420	Serviços de transporte aquaviário costeiro de mudanças domésticas e de mobília e outros objetos de escritório	Serviços de transporte aquaviário costeiro de cargas especiais
+105022430	Serviços de transporte aquaviário costeiro de cargas de grande porte	Serviços de transporte aquaviário costeiro de cargas especiais
+105022440	Serviços de transporte aquaviário costeiro de veículos	Serviços de transporte aquaviário costeiro de cargas especiais
+105022451	Serviços de transporte aquaviário costeiro de combustíveis, lubrificantes e GLP, inclusive apresentado em botijões metálicos	Serviços de transporte aquaviário costeiro de produtos perigosos
+105022452	Serviços de transporte aquaviário costeiro de produtos químicos perigosos, exceto lubrificantes e GLP	Serviços de transporte aquaviário costeiro de produtos perigosos
+105022459	Serviços de transporte aquaviário costeiro de produtos perigosos não classificados em subposições anteriores	Serviços de transporte aquaviário costeiro de produtos perigosos
+105022900	Serviços de transportes aquaviário costeiro de cargas não classificados em subposições anteriores	Serviços de transporte aquaviário costeiro de cargas
+105023110	Serviços de transporte aquaviário transoceânico de cargas sólidas a granel	Serviços de transporte aquaviário transoceânico de cargas a granel
+105023120	Serviços de transporte aquaviário transoceânico de cargas líquidas, ou liquefeitas, a granel	Serviços de transporte aquaviário transoceânico de cargas a granel
+105023130	Serviços de transporte aquaviário transoceânico de cargas gasosas a granel	Serviços de transporte aquaviário transoceânico de cargas a granel
+105023210	Serviços de transporte aquaviário transoceânico de carga solta, não unitizada	Serviços de transporte aquaviário transoceânico de carga geral, exceto em contêineres
+105023220	Serviços de transporte aquaviário transoceânico de carga unitizada	Serviços de transporte aquaviário transoceânico de carga geral, exceto em contêineres
+105023230	Serviços de transporte aquaviário transoceânico de carga frigorificada ou climatizada	Serviços de transporte aquaviário transoceânico de carga geral, exceto em contêineres
+105023310	Serviços de transporte aquaviário transoceânico de cargas em contêineres frigorificados ou climatizados	Serviços de transporte aquaviário transoceânico de cargas em contêineres
+105023320	Serviços de transporte aquaviário transoceânico de cargas em contêineres não frigorificados ou climatizados	Serviços de transporte aquaviário transoceânico de cargas em contêineres
+105023410	Serviços de transporte aquaviário transoceânico de cargas vivas	Serviços de transporte aquaviário transoceânico de cargas especiais
+105023420	Serviços de transporte aquaviário transoceânico de mudanças domésticas e de mobília e outros objetos de escritório	Serviços de transporte aquaviário transoceânico de cargas especiais
+105023430	Serviços de transporte aquaviário transoceânico de cargas de grande porte	Serviços de transporte aquaviário transoceânico de cargas especiais
+105023440	Serviços de transporte aquaviário transoceânico de veículos	Serviços de transporte aquaviário transoceânico de cargas especiais
+105023451	Serviços de transporte aquaviário transoceânico de combustíveis, lubrificantes e GLP, inclusive apresentado em botijões metálicos	Serviços de transporte aquaviário transoceânico de produtos perigosos
+105023452	Serviços de transporte aquaviário transoceânico de produtos químicos perigosos, exceto lubrificantes e GLP	Serviços de transporte aquaviário transoceânico de produtos perigosos
+105023459	Serviços de transporte aquaviário transoceânico de produtos perigosos não classificados em subposições anteriores	Serviços de transporte aquaviário transoceânico de produtos perigosos
+105023900	Serviços de transporte aquaviário transoceânico de cargas não classificados em subposições anteriores	Serviços de transporte aquaviário transoceânico de cargas
+105031100	Serviços de transporte aéreo de cargas em contêineres frigorificados ou climatizados	Serviços de transporte aéreo de cargas em contêineres
+105031200	Serviços de transporte aéreo de cargas em contêineres não frigorificados ou climatizados	Serviços de transporte aéreo de cargas em contêineres
+105032100	Serviços de transporte aéreo de produtos perigosos	Serviços de transporte aéreo de cargas especiais
+105032200	Serviços de transporte aéreo de animais vivos	Serviços de transporte aéreo de cargas especiais
+105032300	Serviços de transporte aéreo de máquinas e veículos	Serviços de transporte aéreo de cargas especiais
+105032400	Serviços de transporte aéreo de perecíveis	Serviços de transporte aéreo de cargas especiais
+105032500	Serviços de transporte aéreo de cargas frágeis	Serviços de transporte aéreo de cargas especiais
+105032600	Serviços de transporte aéreo de cargas controladas	Serviços de transporte aéreo de cargas especiais
+105032700	Serviços de transporte aéreo de valores	Serviços de transporte aéreo de cargas especiais
+105032800	Serviços de transporte aéreo de cargas postais, remessas expressas e cargas congêneres	Serviços de transporte aéreo de cargas especiais
+105032900	Serviços de transporte aéreo de cargas especiais não classificados em subposições anteriores	Serviços de transporte aéreo de cargas especiais
+105039000	Serviços de transporte aéreo de cargas não classificados em subposições anteriores	Serviços de transporte aéreo de cargas
+105041100	Serviços de transporte multimodal de cargas sólidas a granel	Serviços de transporte multimodal de cargas a granel
+105041200	Serviços de transporte multimodal de cargas líquidas, ou liquefeitas, a granel	Serviços de transporte multimodal de cargas a granel
+105041300	Serviços de transporte multimodal de cargas gasosas a granel	Serviços de transporte multimodal de cargas a granel
+105042100	Serviços de transporte multimodal de carga solta, não unitizada	Serviços de transporte multimodal de carga geral, exceto em contêineres
+105042200	Serviços de transporte multimodal de carga unitizada	Serviços de transporte multimodal de carga geral, exceto em contêineres
+105042300	Serviços de transporte multimodal de carga frigorificada ou climatizada	Serviços de transporte multimodal de carga geral, exceto em contêineres
+105043100	Serviços de transporte multimodal de cargas em contêineres frigorificados ou climatizados	Serviços de transporte multimodal de cargas em contêineres
+105043200	Serviços de transporte multimodal de cargas em contêineres não frigorificados ou climatizados	Serviços de transporte multimodal de cargas em contêineres
+105044100	Serviços de transporte multimodal de cargas vivas	Serviços de transporte multimodal de cargas especiais
+105044200	Serviços de transporte multimodal de mudanças domésticas e de mobília e outros objetos de escritório	Serviços de transporte multimodal de cargas especiais
+105044300	Serviços de transporte multimodal de cargas de grande porte	Serviços de transporte multimodal de cargas especiais
+105044400	Serviços de transporte multimodal de veículos	Serviços de transporte multimodal de cargas especiais
+105044510	Serviços de transporte multimodal de combustíveis, lubrificantes e GLP, inclusive apresentado em botijões metálicos	Serviços de transporte multimodal de produtos perigosos
+105044520	Serviços de transporte multimodal de produtos químicos perigosos, exceto lubrificantes e GLP	Serviços de transporte multimodal de produtos perigosos
+105044590	Serviços de transporte multimodal de produtos perigosos não classificados em subposições anteriores	Serviços de transporte multimodal de produtos perigosos
+105044900	Serviços de transporte multimodal de cargas especiais não classificados em subposições anteriores	Serviços de transporte multimodal de cargas especiais
+105049000	Serviços de transporte multimodal de cargas não classificados em subposições anteriores	Serviços de transporte multimodal de cargas
+105051000	Locação de veículos rodoviários de carga com motorista	Locação de veículos de cargas com operador
+105052000	Locação de embarcações de carga com tripulação	Locação de veículos de cargas com operador
+105053000	Locação de aeronaves de carga com tripulação	Locação de veículos de cargas com operador
+105060000	Afretamento de embarcações de carga por tempo	
+106011000	Serviços de manuseio de contêineres	Serviços de manuseio de cargas
+106019000	Serviços de manuseio de cargas não classificados em subposições anteriores	Serviços de manuseio de cargas
+106021000	Serviços de armazenagem frigorificada	Serviços de armazenagem
+106022100	Serviços de armazenagem de petróleo e seus derivados	Serviços de armazenagem de produtos perigosos
+106022200	Serviços de armazenagem de combustíveis, lubrificantes e GLP, inclusive apresentado em botijões metálicos	Serviços de armazenagem de produtos perigosos
+106022300	Serviços de armazenagem de produtos químicos perigosos	Serviços de armazenagem de produtos perigosos
+106022900	Serviços de armazenagem de outros produtos perigosos	Serviços de armazenagem de produtos perigosos
+106023100	Serviços de armazenagem de granéis sólidos	Serviços de armazenagem de granéis sólidos, líquidos ou liquefeitos e gasosos
+106023200	Serviços de armazenagem de granéis líquidos ou liquefeitos	Serviços de armazenagem de granéis sólidos, líquidos ou liquefeitos e gasosos
+106023300	Serviços de armazenagem de granéis gasosos	Serviços de armazenagem de granéis sólidos, líquidos ou liquefeitos e gasosos
+106029000	Serviços de armazenagem não classificados em subposições anteriores	Serviços de armazenagem
+106030000	Serviços de apoio ao transporte ferroviário	
+106041000	Serviços de estações rodoviárias	Serviços de apoio ao transporte rodoviário
+106042100	Serviços de operação de rodovias	Serviços de operação de rodovias, pontes e túneis
+106042200	Serviços de operação de pontes e túneis	Serviços de operação de rodovias, pontes e túneis
+106043000	Serviços de estacionamento	Serviços de apoio ao transporte rodoviário
+106044000	Serviços de reboque para veículos particulares e comerciais	Serviços de apoio ao transporte rodoviário
+106049000	Serviços de apoio ao transporte rodoviário não classificados em subposições anteriores	Serviços de apoio ao transporte rodoviário
+106051000	Serviços de operação de portos e canais, exceto manuseio de cargas	Serviços de apoio ao transporte aquaviário
+106052000	Serviços de praticagem e de atracação	Serviços de apoio ao transporte aquaviário
+106053000	Serviços de salvamento de embarcações	Serviços de apoio ao transporte aquaviário
+106054000	Serviços de navegação de apoio	Serviços de apoio ao transporte aquaviário
+106059000	Serviços de apoio ao transporte aquaviário não classificados em subposições anteriores	Serviços de apoio ao transporte aquaviário
+106061100	Serviços de operação aeroportuária, exceto manuseio de cargas	Serviços de apoio ao transporte aéreo
+106061200	Serviços de controle de tráfego aéreo	Serviços de apoio ao transporte aéreo
+106061900	Serviços de apoio ao transporte aéreo não classificados em suposições anteriores	Serviços de apoio ao transporte aéreo
+106062000	Serviços de apoio ao transporte aeroespacial	Serviços de apoio ao transporte aéreo e aeroespacial
+106070000	Serviços de agenciamento de transporte de cargas	
+106081000	Serviços de coleta e entrega de cargas no transporte multimodal	Serviços de apoio ao transporte multimodal de cargas
+106082000	Serviços de unitização ou desunitização de cargas no transporte multimodal	Serviços de apoio ao transporte multimodal de cargas
+106083000	Serviços de movimentação de cargas no transporte multimodal	Serviços de apoio ao transporte multimodal de cargas
+106084000	Serviços de consolidação ou desconsolidação documental de cargas no transporte multimodal	Serviços de apoio ao transporte multimodal de cargas
+106089000	Serviços de apoio ao transporte multimodal de cargas não classificados em subposições anteriores	Serviços de apoio ao transporte multimodal de cargas
+106090000	Serviços de apoio aos transportes não classificados em posições anteriores	
+107010000	Serviços postais e de telegrama	
+107020000	Serviços de coleta, transporte, remessa ou entrega de documentos ou encomendas, exceto remessas expressas	
+107030000	Serviços de remessas expressas	
+108011000	Serviços de transmissão de eletricidade	Serviços de transmissão e distribuição de eletricidade
+108012000	Serviços de distribuição de eletricidade	Serviços de transmissão e distribuição de eletricidade
+108021000	Serviços de distribuição de água por meio de tubulações, exceto vapor de água e água quente	Serviços de distribuição de água
+108022000	Serviços de distribuição de vapor de água, água quente e ar condicionado por meio de tubulações	Serviços de distribuição de água
+108023000	Serviços de distribuição de água, exceto por meio de tubulações	Serviços de distribuição de água
+108030000	Serviços de distribuição de gás canalizado	
+109011000	Serviços de banco central	Serviços financeiros, exceto bancos de investimento, serviços de seguros e previdência complementar
+109012100	Serviços de depósito para pessoas jurídicas	Serviços de depósito
+109012200	Serviços de depósito para pessoas físicas	Serviços de depósito
+109012900	Serviços de depósito para outros depositantes	Serviços de depósito
+109013100	Serviços de financiamentos imobiliários residenciais	Serviços de concessão de crédito
+109013200	Serviços de financiamentos imobiliários não residenciais	Serviços de concessão de crédito
+109013300	Serviços de empréstimos e financiamentos pessoais	Serviços de concessão de crédito
+109013400	Serviços de empréstimos e financiamentos comerciais	Serviços de concessão de crédito
+109013500	Serviços de empréstimos e financiamentos industriais	Serviços de concessão de crédito
+109013600	Serviços de empréstimos e financiamentos agropecuários	Serviços de concessão de crédito
+109013900	Serviços de concessão de crédito não classificados em subposições anteriores	Serviços de concessão de crédito
+109014000	Serviços de cartão de crédito	Serviços financeiros, exceto bancos de investimento, serviços de seguros e previdência complementar
+109015111	Arrendamento mercantil financeiro de veículos rodoviários automotores para o transporte de passageiros	Arrendamento mercantil financeiro de equipamentos de transporte
+109015112	Arrendamento mercantil financeiro de veículos rodoviários automotores para o transporte de mercadorias	Arrendamento mercantil financeiro de equipamentos de transporte
+109015113	Arrendamento mercantil financeiro de veículos e equipamentos ferroviários	Arrendamento mercantil financeiro de equipamentos de transporte
+109015114	Arrendamento mercantil financeiro de outros equipamentos de transporte terrestre, inclusive de veículos de uso misto	Arrendamento mercantil financeiro de equipamentos de transporte
+109015115	Arrendamento mercantil financeiro de navios e outras embarcações	Arrendamento mercantil financeiro de equipamentos de transporte
+109015116	Arrendamento mercantil financeiro de aeronaves	Arrendamento mercantil financeiro de equipamentos de transporte
+109015117	Arrendamento mercantil financeiro de contêineres	Arrendamento mercantil financeiro de equipamentos de transporte
+109015121	Arrendamento mercantil financeiro de máquinas e equipamentos agrícolas	Arrendamento mercantil financeiro de outras máquinas e equipamentos
+109015122	Arrendamento mercantil financeiro de máquinas e equipamentos de construção	Arrendamento mercantil financeiro de outras máquinas e equipamentos
+109015123	Arrendamento mercantil financeiro de máquinas e equipamentos para escritórios, exceto computadores	Arrendamento mercantil financeiro de outras máquinas e equipamentos
+109015124	Arrendamento mercantil financeiro de computadores	Arrendamento mercantil financeiro de outras máquinas e equipamentos
+109015125	Arrendamento mercantil financeiro de equipamentos de telecomunicação	Arrendamento mercantil financeiro de outras máquinas e equipamentos
+109015129	Arrendamento mercantil financeiro de outras máquinas e equipamentos não classificado em subposições anteriores	Arrendamento mercantil financeiro de outras máquinas e equipamentos
+109015210	Arrendamento mercantil financeiro de televisão e outros eletroeletrônicos domésticos, bem como seus acessórios	Arrendamento mercantil financeiro de outras mercadorias
+109015220	Arrendamento mercantil financeiro de mídias gravadas	Arrendamento mercantil financeiro de outras mercadorias
+109015230	Arrendamento mercantil financeiro de móveis e eletrodomésticos	Arrendamento mercantil financeiro de outras mercadorias
+109015240	Arrendamento mercantil financeiro de equipamentos para diversão e lazer	Arrendamento mercantil financeiro de outras mercadorias
+109015250	Arrendamento mercantil financeiro de artigos de cama, mesa e banho	Arrendamento mercantil financeiro de outras mercadorias
+109015290	Arrendamento mercantil financeiro de outras mercadorias não classificado em subposições anteriores	Arrendamento mercantil financeiro de outras mercadorias
+109019000	Serviços financeiros, exceto bancos de investimento, serviços de seguros e previdência complementar, não classificados em subposições anteriores	Serviços financeiros, exceto bancos de investimento, serviços de seguros e previdência complementar
+109021000	Serviços de valoração de ativos	Serviços de banco de investimento
+109022000	Serviços de subscrição de valores mobiliários	Serviços de banco de investimento
+109023000	Serviços de fusões e aquisições	Serviços de banco de investimento
+109024000	Serviços de capital de risco e finanças corporativas	Serviços de banco de investimento
+109029000	Serviços de banco de investimento não classificados em subposições anteriores	Serviços de banco de investimento
+109031100	Serviços de seguro de vida	Serviços de seguro de vida e de previdência complementar, excluídos os serviços de resseguro
+109031200	Serviços de previdência complementar aberta	Serviços de seguro de vida e de previdência complementar, excluídos os serviços de resseguro
+109031300	Serviços de previdência complementar fechada	Serviços de seguro de vida e de previdência complementar, excluídos os serviços de resseguro
+109032100	Serviços de seguro saúde	Serviços de seguro saúde e de acidentes
+109032200	Serviços de seguro de acidentes	Serviços de seguro saúde e de acidentes
+109033100	Serviços de seguro de veículos rodoviários	Serviços de outros seguros, excluídos os serviços de resseguro
+109033200	Serviços de seguro de veículos e equipamentos para transporte ferroviário, aquaviário e aéreo	Serviços de outros seguros, excluídos os serviços de resseguro
+109033300	Serviços de seguro de cargas	Serviços de outros seguros, excluídos os serviços de resseguro
+109033400	Serviços de seguro de outras propriedades	Serviços de outros seguros, excluídos os serviços de resseguro
+109033500	Serviços de seguro por responsabilidade civil	Serviços de outros seguros, excluídos os serviços de resseguro
+109033600	Serviços de seguro de crédito e de caução	Serviços de outros seguros, excluídos os serviços de resseguro
+109033700	Serviços de seguro de viagem	Serviços de outros seguros, excluídos os serviços de resseguro
+109033800	Serviços de seguro rural	Serviços de outros seguros, excluídos os serviços de resseguro
+109033900	Serviços de outros seguros, excluídos os serviços de resseguro, não classificados em subposições anteriores	Serviços de outros seguros, excluídos os serviços de resseguro
+109041000	Serviços de resseguro de vida	Serviços de resseguro
+109042100	Serviços de resseguro saúde	Serviços de resseguro saúde e de acidentes
+109042200	Serviços de resseguro de acidentes	Serviços de resseguro saúde e de acidentes
+109043100	Serviços de resseguro de veículos rodoviários	Serviços de outros resseguros
+109043200	Serviços de resseguro de veículos e equipamentos para transporte ferroviário, aquaviário e aéreo	Serviços de outros resseguros
+109043300	Serviços de resseguro de cargas	Serviços de outros resseguros
+109043400	Serviços de resseguro de outras propriedades	Serviços de outros resseguros
+109043500	Serviços de resseguro de responsabilidade civil	Serviços de outros resseguros
+109043600	Serviços de resseguro de crédito e caução	Serviços de outros resseguros
+109043700	Serviços de resseguro rural	Serviços de outros resseguros
+109043900	Serviços de outros resseguros não classificados em subposições anteriores	Serviços de outros resseguros
+109051100	Serviços de corretagem de títulos	Serviços de corretagem de títulos, derivativos e commodities
+109051200	Serviços de corretagem de derivativos e commodities	Serviços de corretagem de títulos, derivativos e commodities
+109051300	Serviços de compensação de transações financeiras, inclusive com ativos financeiros (clearinghouse)	Serviços de corretagem de títulos, derivativos e commodities
+109052100	Serviços de gestão e administração de carteiras de ativos, exceto fundos de pensão	Serviços de gestão e administração de carteiras de ativos, fundos e trust
+109052200	Serviços de administração fundos de investimento e fundos de pensão	Serviços de gestão e administração de carteiras de ativos, fundos e trust
+109052300	Serviços de gestão e administração de trust	Serviços de gestão e administração de carteiras de ativos, fundos e trust
+109053000	Serviços de guarda e custódia	Serviços auxiliares aos serviços financeiros, exceto os relacionados a seguros e previdência complementar
+109054000	Serviços relacionados à administração de mercados financeiros	Serviços auxiliares aos serviços financeiros, exceto os relacionados a seguros e previdência complementar
+109055000	Serviços de consultoria financeira	Serviços auxiliares aos serviços financeiros, exceto os relacionados a seguros e previdência complementar
+109056000	Serviços de câmbio	Serviços auxiliares aos serviços financeiros, exceto os relacionados a seguros e previdência complementar
+109057000	Serviços de classificação de risco (rating)	Serviços auxiliares aos serviços financeiros, exceto os relacionados a seguros e previdência complementar
+109058000	Serviços fiduciários	Serviços auxiliares aos serviços financeiros, exceto os relacionados a seguros e previdência complementar
+109059000	Serviços auxiliares aos serviços financeiros não classificados em subposições anteriores	Serviços auxiliares aos serviços financeiros, exceto os relacionados a seguros e previdência complementar
+109061100	Serviços de agenciamento e corretagem de seguros, resseguros e previdência complementar, exceto de seguros saúde	Serviços de corretagem e agenciamento de seguros, resseguros e previdência complementar
+109061200	Serviços de corretagem de seguros saúde	Serviços de corretagem e agenciamento de seguros, resseguros e previdência complementar
+109062000	Serviços de perícia e avaliação de seguros e resseguros	Serviços auxiliares a seguros, resseguros e previdência complementar
+109063000	Serviços atuariais	Serviços auxiliares a seguros, resseguros e previdência complementar
+109064000	Serviços de gestão de fundos de previdência complementar	Serviços auxiliares a seguros, resseguros e previdência complementar
+109069000	Serviços auxiliares a seguros, resseguros e previdência complementar não classificados em subposições anteriores	Serviços auxiliares a seguros, resseguros e previdência complementar
+109070000	Serviços de seguro de recebíveis	
+109080000	Fomento comercial (factoring)	
+109091000	Serviços de holding de patrimônio de empresas subsidiárias	Serviços de holding de ativos financeiros
+109092000	Serviços de holding de valores mobiliários e outros ativos financeiros e fundos e entidades financeiras similares	Serviços de holding de ativos financeiros
+109101000	Serviços de planos privados de assistência à saúde	Serviços de planos privados de assistência à saúde e serviços relacionados
+109102000	Serviços de corretagem de planos privados de assistência à saúde	Serviços de planos privados de assistência à saúde e serviços relacionados
+109109000	Serviços de planos privados de assistência à saúde e serviços relacionados não classificados em subposições anteriores	Serviços de planos privados de assistência à saúde e serviços relacionados
+109110000	Serviços financeiros e serviços relacionados não classificados em posições anteriores	
+110011100	Serviços de administração e locação de imóveis residenciais	Serviços de administração e locação de imóveis
+110011210	Serviços de administração e locação, sublocação, arrendamento, direito de passagem ou permissão de uso, compartilhado ou não, de ferrovia, rodovia, postes, cabos, dutos e condutos de qualquer natureza	Serviços de administração e locação de imóveis não residenciais
+110011290	Serviços de administração e locação de outros imóveis não residenciais	Serviços de administração e locação de imóveis não residenciais
+110012100	Serviços de intermediação na compra e venda de imóveis residenciais	Serviços de intermediação na compra e venda de imóveis
+110012200	Serviços de intermediação na compra e venda de imóveis não residenciais	Serviços de intermediação na compra e venda de imóveis
+110013000	Serviços de avaliação de imóveis	Serviços imobiliários sob comissão ou contrato
+110014000	Serviços de consultoria imobiliária	Serviços imobiliários sob comissão ou contrato
+110015000	Serviços de assessoria de gestão condominial (condomínios, edifícios residenciais e mistos)	Serviços imobiliários sob comissão ou contrato
+110019000	Serviços imobiliários não classificados em subposições anteriores	Serviços imobiliários sob comissão ou contrato
+110021000	Locação de imóveis residenciais	Locação de imóveis
+110022000	Locação de imóveis não residenciais	Locação de imóveis
+111011100	Arrendamento mercantil operacional ou locação de veículos rodoviários automotores para o transporte de até oito passageiros, sem operador	Arrendamento mercantil operacional ou locação de equipamentos de transporte, sem operador
+111011200	Arrendamento mercantil operacional ou locação de veículos rodoviários automotores para o transporte de cargas, sem operador	Arrendamento mercantil operacional ou locação de equipamentos de transporte, sem operador
+111011300	Arrendamento mercantil operacional ou locação de veículos e equipamentos de transporte ferroviário, sem operador	Arrendamento mercantil operacional ou locação de equipamentos de transporte, sem operador
+111011400	Arrendamento mercantil operacional ou locação de outros equipamentos de transporte terrestre, inclusive de veículos de uso misto, sem operador	Arrendamento mercantil operacional ou locação de equipamentos de transporte, sem operador
+111011500	Arrendamento mercantil operacional ou locação de navios e outras embarcações, sem tripulação	Arrendamento mercantil operacional ou locação de equipamentos de transporte, sem operador
+111011600	Arrendamento mercantil operacional ou locação de aeronaves, sem tripulação	Arrendamento mercantil operacional ou locação de equipamentos de transporte, sem operador
+111011700	Arrendamento mercantil operacional ou locação de contêineres	Arrendamento mercantil operacional ou locação de equipamentos de transporte, sem operador
+111012000	Arrendamento mercantil operacional ou locação de máquinas e equipamentos agrícolas, sem operador	Arrendamento mercantil operacional ou locação de máquinas e equipamentos, sem operador
+111013000	Arrendamento mercantil operacional ou locação de máquinas e equipamentos de construção, sem operador	Arrendamento mercantil operacional ou locação de máquinas e equipamentos, sem operador
+111014000	Arrendamento mercantil operacional ou locação de máquinas e equipamentos para escritórios, exceto computadores, sem operador	Arrendamento mercantil operacional ou locação de máquinas e equipamentos, sem operador
+111015000	Arrendamento mercantil operacional ou locação de computadores, sem operador	Arrendamento mercantil operacional ou locação de máquinas e equipamentos, sem operador
+111016000	Arrendamento mercantil operacional ou locação de equipamentos de telecomunicação, sem operador	Arrendamento mercantil operacional ou locação de máquinas e equipamentos, sem operador
+111019000	Arrendamento mercantil operacional ou locação de máquinas e equipamentos, sem operador, não classificado em subposições anteriores	Arrendamento mercantil operacional ou locação de máquinas e equipamentos, sem operador
+111021000	Arrendamento mercantil operacional ou locação de televisão e outros eletroeletrônicos, bem como seus acessórios	Arrendamento mercantil operacional ou locação de outras mercadorias
+111022000	Arrendamento mercantil operacional ou locação de mídias gravadas	Arrendamento mercantil operacional ou locação de outras mercadorias
+111023000	Arrendamento mercantil operacional ou locação de móveis e eletrodomésticos	Arrendamento mercantil operacional ou locação de outras mercadorias
+111024000	Arrendamento mercantil operacional ou locação de equipamentos para diversão e lazer	Arrendamento mercantil operacional ou locação de outras mercadorias
+111025000	Arrendamento mercantil operacional ou locação de artigos de cama, mesa e banho	Arrendamento mercantil operacional ou locação de outras mercadorias
+111026000	Arrendamento mercantil operacional ou locação de roupas e calçados	Arrendamento mercantil operacional ou locação de outras mercadorias
+111029000	Arrendamento mercantil operacional ou locação de outras mercadorias não classificado em subposições anteriores	Arrendamento mercantil operacional ou locação de outras mercadorias
+111031000	Licenciamento de direitos de obras literárias	Licenciamento de direitos de autor e de direitos conexos
+111032100	Licenciamento de direitos de produção, distribuição ou comercialização de programas de computador (software)	Licenciamento de direitos sobre programas de computador (software) e bancos de dados
+111032200	Licenciamento de direitos de uso de programas de computador (software)	Licenciamento de direitos sobre programas de computador (software) e bancos de dados
+111032300	Licenciamento de direitos sobre bancos de dados	Licenciamento de direitos sobre programas de computador (software) e bancos de dados
+111032900	Licenciamento de direitos sobre programas de computador (software) e bancos de dados não classificado em subposições anteriores	Licenciamento de direitos sobre programas de computador (software) e bancos de dados
+111033100	Licenciamento de direitos de autor de obras cinematográficas	Licenciamento de direitos de obras audiovisuais
+111033200	Licenciamento de direitos de autor de obras jornalísticas	Licenciamento de direitos de obras audiovisuais
+111033300	Licenciamento de direitos de autor de obras publicitárias	Licenciamento de direitos de obras audiovisuais
+111033400	Licenciamento de direitos conexos de artistas intérpretes ou executantes em obras audiovisuais	Licenciamento de direitos de obras audiovisuais
+111033500	Licenciamento de direitos conexos de produtores de obras audiovisuais	Licenciamento de direitos de obras audiovisuais
+111033610	Licenciamento de direitos de obras audiovisuais sobre transmissões de eventos esportivos	Licenciamento de direitos de obras audiovisuais destinadas à televisão
+111033620	Licenciamento de direitos de obras audiovisuais sobre transmissões de programas televisivos	Licenciamento de direitos de obras audiovisuais destinadas à televisão
+111033690	Licenciamento de direitos de obras audiovisuais sobre outras transmissões televisivas	Licenciamento de direitos de obras audiovisuais destinadas à televisão
+111033900	Licenciamento de direitos de obras audiovisuais não classificado em subposições anteriores	Licenciamento de direitos de obras audiovisuais
+111034100	Licenciamento de direitos de autor de obras musicais ou literomusicais	Licenciamento de direitos de obras musicais e de fonogramas
+111034200	Licenciamento de direitos conexos de artistas intérpretes ou executantes	Licenciamento de direitos de obras musicais e de fonogramas
+111034300	Licenciamento de direitos conexos de produtores de fonogramas	Licenciamento de direitos de obras musicais e de fonogramas
+111035000	Licenciamento de direitos relacionados à radiodifusão	Licenciamento de direitos de autor e de direitos conexos
+111039000	Licenciamento de direitos de autor e de direitos conexos não classificado em subposições anteriores	Licenciamento de direitos de autor e de direitos conexos
+111041000	Licenciamento de direitos sobre patentes	Licenciamento de direitos sobre a propriedade industrial
+111042000	Licenciamento de direitos sobre marcas	Licenciamento de direitos sobre a propriedade industrial
+111043000	Licenciamento de direitos sobre desenho industrial	Licenciamento de direitos sobre a propriedade industrial
+111049000	Licenciamento de direitos sobre a propriedade industrial não classificado em subposições anteriores	Licenciamento de direitos sobre a propriedade industrial
+111051000	Licenciamento de direitos sobre cultivares	Licenciamento de outros direitos
+111052000	Licenciamento de direitos sobre topografias de circuitos integrados	Licenciamento de outros direitos
+111053000	Licenciamento de direitos relativos à informação não divulgada	Licenciamento de outros direitos
+111054100	Exploração de recursos vegetais, inclusive florestais	Exploração de recursos naturais
+111054200	Exploração de recursos minerais	Exploração de recursos naturais
+111055100	Licenciamento de direitos sobre conhecimento tradicional associado a recursos genéticos	Licenciamento de direitos sobre conhecimento tradicional
+111055900	Licenciamento de direitos sobre conhecimento tradicional não classificado em subposições anteriores	Licenciamento de direitos sobre conhecimento tradicional
+111056000	Licenciamento de direitos relativos ao acesso a recursos genéticos, exceto os decorrentes do conhecimento tradicional	Licenciamento de outros direitos
+111057000	Licenciamento de direitos sobre informações relativas à experiência adquirida no setor industrial, comercial ou científico (know-how)	Licenciamento de outros direitos
+111059000	Licenciamento de outros direitos não classificado em subposições anteriores	Licenciamento de outros direitos
+111061000	Cessão temporária de direitos de obras literárias	Cessão temporária de direitos de autor e de direitos conexos
+111062000	Cessão temporária de direitos sobre programas de computador (software)	Cessão temporária de direitos de autor e de direitos conexos
+111063100	Cessão temporária de direitos de autor de obras cinematográficas	Cessão temporária de direitos sobre obras audiovisuais
+111063200	Cessão temporária de direitos de autor de obras jornalísticas	Cessão temporária de direitos sobre obras audiovisuais
+111063300	Cessão temporária de direitos de autor de obras publicitárias	Cessão temporária de direitos sobre obras audiovisuais
+111063400	Cessão temporária de direitos conexos de artistas intérpretes ou executantes em obras audiovisuais	Cessão temporária de direitos sobre obras audiovisuais
+111063500	Cessão temporária de direitos conexos de produtores de obras audiovisuais	Cessão temporária de direitos sobre obras audiovisuais
+111063610	Cessão temporária de direitos de obras audiovisuais sobre transmissões de eventos esportivos	Cessão temporária de direitos de obras audiovisuais destinadas à televisão
+111063620	Cessão temporária de direitos de obras audiovisuais sobre transmissões de programas televisivos	Cessão temporária de direitos de obras audiovisuais destinadas à televisão
+111063690	Cessão temporária de direitos de obras audiovisuais sobre outras transmissões televisivas	Cessão temporária de direitos de obras audiovisuais destinadas à televisão
+111063900	Cessão temporária de direitos de obras audiovisuais não classificada em subposições anteriores	Cessão temporária de direitos sobre obras audiovisuais
+111064100	Cessão temporária de direitos de autor de obras musicais e literomusicais	Cessão temporária de direitos de obras musicais e de fonogramas
+111064200	Cessão temporária de direitos conexos de artistas intérpretes ou executantes	Cessão temporária de direitos de obras musicais e de fonogramas
+111064300	Cessão temporária de direitos conexos de produtores de fonogramas	Cessão temporária de direitos de obras musicais e de fonogramas
+111065000	Cessão temporária de direitos relacionados à radiodifusão	Cessão temporária de direitos de autor e de direitos conexos
+111069000	Cessão temporária de direitos de autor e de direitos conexos não classificada em subposições anteriores	Cessão temporária de direitos de autor e de direitos conexos
+111071000	Cessão definitiva de direitos de obras literárias	Cessão definitiva de direitos de autor e de direitos conexos
+111072000	Cessão definitiva de direitos sobre programas de computador (software)	Cessão definitiva de direitos de autor e de direitos conexos
+111073100	Cessão definitiva de direitos de obras cinematográficas	Cessão definitiva de direitos de obras audiovisuais
+111073200	Cessão definitiva de direitos de obras jornalísticas	Cessão definitiva de direitos de obras audiovisuais
+111073300	Cessão definitiva de direitos de obras publicitárias	Cessão definitiva de direitos de obras audiovisuais
+111073900	Cessão definitiva de direitos de obras audiovisuais não classificada em subposições anteriores	Cessão definitiva de direitos de obras audiovisuais
+111074000	Cessão definitiva de direitos de obras musicais e de fonogramas	Cessão definitiva de direitos de autor e de direitos conexos
+111075000	Cessão definitiva de direitos relacionados à radiodifusão	Cessão definitiva de direitos de autor e de direitos conexos
+111079000	Cessão definitiva de direitos de autor e de direitos conexos não classificada em subposições anteriores	Cessão definitiva de direitos de autor e de direitos conexos
+111081000	Cessão definitiva de direitos sobre patentes	Cessão definitiva de direitos sobre a propriedade industrial
+111082000	Cessão definitiva de direitos sobre marcas	Cessão definitiva de direitos sobre a propriedade industrial
+111083000	Cessão definitiva de direitos sobre desenho industrial	Cessão definitiva de direitos sobre a propriedade industrial
+111089000	Cessão definitiva de direitos sobre a propriedade industrial não classificada em subposições anteriores	Cessão definitiva de direitos sobre a propriedade industrial
+111091000	Cessão definitiva de direitos sobre cultivares	Cessão definitiva de outros direitos
+111092000	Cessão definitiva de direitos sobre topografias de circuitos integrados	Cessão definitiva de outros direitos
+111093000	Cessão definitiva de direitos relativos à informação não divulgada	Cessão definitiva de outros direitos
+111099000	Cessão definitiva de outros direitos não classificada em subposições anteriores	Cessão definitiva de outros direitos
+111100000	Franquia	
+112011100	Serviços de pesquisa e desenvolvimento em ciências físicas	Serviços de pesquisa e desenvolvimento em ciências naturais
+112011200	Serviços de pesquisa e desenvolvimento em química e biologia	Serviços de pesquisa e desenvolvimento em ciências naturais
+112011900	Serviços de pesquisa e desenvolvimento em ciências naturais não classificadas em subposições anteriores	Serviços de pesquisa e desenvolvimento em ciências naturais
+112012000	Serviços de pesquisa e desenvolvimento em biotecnologia	Serviços de pesquisa e desenvolvimento em ciências naturais, engenharia e tecnologia
+112013100	Serviços de pesquisa e desenvolvimento em Tecnologia da Informação e Comunicação (TIC)	Serviços de pesquisa e desenvolvimento em engenharia e tecnologia
+112013200	Serviços de pesquisa e desenvolvimento em nanotecnologia	Serviços de pesquisa e desenvolvimento em engenharia e tecnologia
+112013300	Serviços de pesquisa e desenvolvimento em engenharia e tecnologia nucleares	Serviços de pesquisa e desenvolvimento em engenharia e tecnologia
+112013400	Serviços de pesquisa e desenvolvimento em engenharia e tecnologia em micro-ondas de potência	Serviços de pesquisa e desenvolvimento em engenharia e tecnologia
+112013900	Serviços de pesquisa e desenvolvimento em engenharia e tecnologia não classificados em subposições anteriores	Serviços de pesquisa e desenvolvimento em engenharia e tecnologia
+112014000	Serviços de pesquisa e desenvolvimento em ciências médicas, odontológicas e farmacêuticas	Serviços de pesquisa e desenvolvimento em ciências naturais, engenharia e tecnologia
+112015000	Serviços de pesquisa e desenvolvimento em ciências agrárias	Serviços de pesquisa e desenvolvimento em ciências naturais, engenharia e tecnologia
+112019000	Serviços de pesquisa e desenvolvimento em ciências, engenharia e tecnologia não classificados em subposições anteriores	Serviços de pesquisa e desenvolvimento em ciências naturais, engenharia e tecnologia
+112021000	Serviços de pesquisa e desenvolvimento em psicologia	Serviços de pesquisa e desenvolvimento em ciências sociais e humanidades
+112022000	Serviços de pesquisa e desenvolvimento em ciências econômicas	Serviços de pesquisa e desenvolvimento em ciências sociais e humanidades
+112023000	Serviços de pesquisa e desenvolvimento em direito	Serviços de pesquisa e desenvolvimento em ciências sociais e humanidades
+112024000	Serviços de pesquisa e desenvolvimento em línguas e literatura	Serviços de pesquisa e desenvolvimento em ciências sociais e humanidades
+112029000	Serviços de pesquisa e desenvolvimento em ciências sociais e humanidades não classificadas em subposições anteriores	Serviços de pesquisa e desenvolvimento em ciências sociais e humanidades
+112030000	Serviços de pesquisa e desenvolvimento interdisciplinar	
+113011000	Serviços de representação e consultoria jurídica criminal	Serviços jurídicos
+113012000	Serviços de representação e consultoria jurídica em outras áreas do direito, exceto consultoria tributária	Serviços jurídicos
+113013000	Serviços de documentação e certificação, exceto os serviços notariais e de registro	Serviços jurídicos
+113014000	Serviços de arbitragem, conciliação e mediação	Serviços jurídicos
+113019000	Serviços jurídicos não classificados em subposições anteriores	Serviços jurídicos
+113021100	Serviços de auditoria contábil	Serviços de auditoria
+113021900	Serviços de auditoria não classificados em subposições anteriores	Serviços de auditoria
+113022100	Serviços de contabilidade	Serviços de contabilidade e escrituração mercantil
+113022200	Serviços de escrituração mercantil	Serviços de contabilidade e escrituração mercantil
+113022300	Serviços de folha de pagamento	Serviços de contabilidade e escrituração mercantil
+113031000	Serviços de consultoria tributária para pessoas jurídicas	Serviços de consultoria tributária
+113032000	Serviços de consultoria tributária para pessoas físicas	Serviços de consultoria tributária
+113040000	Serviços notariais e de registro	
+114011100	Serviços de consultoria em gestão estratégica	Serviços de consultoria em gestão empresarial
+114011200	Serviços de consultoria em gestão financeira	Serviços de consultoria em gestão empresarial
+114011300	Serviços de consultoria em gestão de recursos humanos	Serviços de consultoria em gestão empresarial
+114011400	Serviços de consultoria em gestão de marketing	Serviços de consultoria em gestão empresarial
+114011500	Serviços de consultoria em gestão operacional	Serviços de consultoria em gestão empresarial
+114011600	Serviços de consultoria em gestão energética	Serviços de consultoria em gestão empresarial
+114011700	Serviços de consultoria em gestão de cadeia logística	Serviços de consultoria em gestão empresarial
+114011800	Serviços de consultoria em gestão hospitalar	Serviços de consultoria em gestão empresarial
+114011900	Serviços de consultoria em gestão empresarial não classificados em subposições anteriores	Serviços de consultoria em gestão empresarial
+114012100	Serviços de gestão em processos de negócios	Serviços de gestão de negócios
+114012200	Serviços de gestão hospitalar	Serviços de gestão de negócios
+114012900	Serviços de gestão não classificados em subposições anteriores	Serviços de gestão de negócios
+114013100	Serviços de assessoria de imprensa	Serviços de assessoria empresarial
+114013200	Serviços de relações públicas	Serviços de assessoria empresarial
+114013900	Serviços de assessoria empresarial não classificados em subposições anteriores	Serviços de assessoria empresarial
+114021100	Serviços de consultoria em arquitetura	Serviços de arquitetura
+114021200	Serviços de arquitetura para projetos de construções residenciais	Serviços de arquitetura
+114021300	Serviços de arquitetura para projetos de construções não residenciais	Serviços de arquitetura
+114021400	Serviços de arquitetura para restauração de prédios históricos	Serviços de arquitetura
+114021500	Serviços de arquitetura relativos ao acompanhamento e fiscalização da execução de projetos arquitetônicos e urbanísticos	Serviços de arquitetura
+114022100	Serviços de planejamento urbano	Serviços de planejamento urbano e de áreas rurais
+114022200	Serviços de planejamento de áreas rurais	Serviços de planejamento urbano e de áreas rurais
+114023100	Serviços de consultoria em paisagismo	Serviços de paisagismo
+114023200	Serviços de paisagismo, exceto consultoria	Serviços de paisagismo
+114029000	Serviços de arquitetura, de planejamento urbano e de áreas rurais e de paisagismo não classificados em subposições anteriores	Serviços de arquitetura, de planejamento urbano e de áreas rurais e de paisagismo
+114031000	Serviços de consultoria em engenharia	Serviços de engenharia
+114032110	Serviços de engenharia para projetos de construção residencial	Serviços de engenharia para projetos de construção
+114032120	Serviços de engenharia para projetos de construção não-residencial	Serviços de engenharia para projetos de construção
+114032211	Serviços de engenharia para projetos de exploração de minerais	Serviços de engenharia para exploração de minerais, petróleo, gás e biocombustíveis
+114032212	Serviços de engenharia para projetos de exploração de petróleo e gás	Serviços de engenharia para exploração de minerais, petróleo, gás e biocombustíveis
+114032213	Serviços de engenharia para projetos de refino de petróleo e petroquímica	Serviços de engenharia para exploração de minerais, petróleo, gás e biocombustíveis
+114032214	Serviços de engenharia para projetos de unidades de produção de biocombustíveis	Serviços de engenharia para exploração de minerais, petróleo, gás e biocombustíveis
+114032221	Serviços de engenharia para projetos de veículos terrestres	Serviços de engenharia para projetos de veículos
+114032222	Serviços de engenharia para projetos de embarcações	Serviços de engenharia para projetos de veículos
+114032223	Serviços de engenharia para projetos de veículos aéreos e aeroespaciais	Serviços de engenharia para projetos de veículos
+114032290	Serviços de engenharia para outros projetos industriais e de fabricação, exceto para projetos de energia	Serviços de engenharia para projetos industriais e de fabricação, exceto para projetos de energia
+114032300	Serviços de engenharia para projetos de infraestrutura de transportes	Serviços de engenharia para projetos específicos
+114032400	Serviços de engenharia para projetos de energia	Serviços de engenharia para projetos específicos
+114032500	Serviços de engenharia para projetos de telecomunicações, radiodifusão e televisão	Serviços de engenharia para projetos específicos
+114032600	Serviços de engenharia para projetos de gerenciamento de resíduos (perigosos e não perigosos)	Serviços de engenharia para projetos específicos
+114032700	Serviços de engenharia para projetos de distribuição de água e rede de esgoto	Serviços de engenharia para projetos específicos
+114032900	Serviços de engenharia para outros projetos	Serviços de engenharia para projetos específicos
+114033000	Serviços de gerenciamento de projetos de construção	Serviços de engenharia
+114039000	Serviços de engenharia não classificados em subposições anteriores	Serviços de engenharia
+114041100	Serviços de consultoria geológica e geofísica	Serviços geológicos, geofísicos e outros de prospecção
+114041200	Serviços geofísicos	Serviços geológicos, geofísicos e outros de prospecção
+114041300	Serviços geoquímicos	Serviços geológicos, geofísicos e outros de prospecção
+114041400	Serviços de informações para avaliação e exploração de recursos naturais	Serviços geológicos, geofísicos e outros de prospecção
+114041900	Serviços geológicos, geofísicos e outros de prospecção não classificados em subposições anteriores	Serviços geológicos, geofísicos e outros de prospecção
+114042100	Serviços topográficos	Serviços topográficos e cartográficos
+114042200	Serviços cartográficos	Serviços topográficos e cartográficos
+114043000	Serviços meteorológicos e de previsão do tempo	Serviços científicos e outros serviços técnicos
+114044100	Serviços de análise e de exames técnicos sobre pureza e composição	Serviços de análise e exames técnicos
+114044200	Serviços de análise e de exames técnicos de propriedades físicas	Serviços de análise e exames técnicos
+114044300	Serviços de análise e de exames técnicos de sistemas elétricos e mecânicos	Serviços de análise e exames técnicos
+114044400	Serviços de inspeção técnica de veículos de transporte rodoviário	Serviços de análise e exames técnicos
+114044900	Serviços de análise e exames técnicos não classificados em subposições anteriores	Serviços de análise e exames técnicos
+114051100	Serviços hospitalares, com ou sem internação, para animais domésticos	Serviços veterinários para animais domésticos
+114051200	Serviços de atendimento, assistência ou tratamento para animais domésticos	Serviços veterinários para animais domésticos
+114052100	Serviços hospitalares, com ou sem internação, para animais de corte	Serviços veterinários para animais de corte
+114052200	Serviços de atendimento, assistência ou tratamento para animais de corte	Serviços veterinários para animais de corte
+114053000	Serviços funerários, de cremação e de embalsamamento de animais	Serviços veterinários
+114054000	Serviços de bancos de órgãos, sangue, sêmen, tecidos, óvulos e outros materiais biológicos	Serviços veterinários
+114055000	Planos de atendimento e assistência médico-veterinária	Serviços veterinários
+114056000	Serviços de guarda, adestramento, embelezamento e alojamento	Serviços veterinários
+114059000	Serviços veterinários não classificados em subposições anteriores	Serviços veterinários
+114061100	Serviços de campanhas publicitárias	Serviços de propaganda
+114061200	Serviços de marketing direto e mala direta	Serviços de propaganda
+114061900	Serviços de propaganda não classificados em subposições anteriores	Serviços de propaganda
+114062000	Aquisição ou venda de espaço ou tempo para propaganda, sob comissão	Serviços de propaganda e de alocação de espaço ou tempo para propaganda
+114063100	Venda de espaço para propaganda em mídia impressa, exceto sob comissão	Venda de espaço ou tempo para propaganda, exceto sob comissão
+114063200	Venda de tempo para propaganda em rádio e televisão, exceto sob comissão	Venda de espaço ou tempo para propaganda, exceto sob comissão
+114063300	Venda de espaço para propaganda na rede mundial de computadores, exceto sob comissão	Venda de espaço ou tempo para propaganda, exceto sob comissão
+114063400	Venda de espaço para propaganda em mídia exterior, exceto sob comissão	Venda de espaço ou tempo para propaganda, exceto sob comissão
+114063900	Venda de espaço ou tempo para propaganda, exceto sob comissão, não classificados em subposições anteriores	Venda de espaço ou tempo para propaganda, exceto sob comissão
+114070000	Pesquisas de mercado e serviços de pesquisa de opinião pública	
+114081100	Serviços fotográficos de retratos	Serviços fotográficos e videográficos de eventos
+114081200	Serviços fotográficos e videográficos para propaganda	Serviços fotográficos e videográficos de eventos
+114081300	Serviços fotográficos e videográficos de eventos	Serviços fotográficos e videográficos de eventos
+114081400	Serviços fotográficos especiais	Serviços fotográficos e videográficos de eventos
+114081500	Serviços de restauração e retoque de fotografias	Serviços fotográficos e videográficos de eventos
+114081900	Serviços fotográficos e videográficos não classificados em subposições anteriores	Serviços fotográficos e videográficos de eventos
+114082000	Serviços de processamento de fotografias	Serviços fotográficos, videográficos e de processamento de fotografias
+114091100	Serviços de design de interiores para espaços comerciais e públicos	Serviços de design de interiores
+114091200	Serviços de design de interiores para espaços residenciais	Serviços de design de interiores
+114092100	Serviços de desenho industrial de embalagens, expositores de loja e objetos promocionais para comunicação e vendas	Serviços de desenho industrial
+114092200	Serviços de desenho industrial de produtos, utensílios, equipamentos, vestuário, calçados, ornamentos, joias e objetos pessoais	Serviços de desenho industrial
+114092300	Serviços de desenho industrial de máquinas, equipamentos, acessórios e objetos de uso industrial de qualquer natureza	Serviços de desenho industrial
+114092400	Serviços de desenho industrial de mobiliários e itens de decoração	Serviços de desenho industrial
+114092500	Serviços de desenho industrial de utensílios e equipamentos eletrodomésticos e eletroeletrônicos	Serviços de desenho industrial
+114092900	Serviços de desenho industrial não classificados em subposições anteriores	Serviços de desenho industrial
+114093000	Serviços de design de marcas, imagens, objetos gráficos e digitais	Serviços especializados de design
+114099000	Serviços especializados de design não classificados em subposições anteriores	Serviços especializados de design
+114101000	Serviços de consultoria ambiental	Serviços de consultoria técnica e científica não classificados em posições anteriores
+114109000	Serviços de consultoria técnica e científica não classificados em subposições anteriores	Serviços de consultoria técnica e científica não classificados em posições anteriores
+114110000	Serviços de tradução e de intérpretes	
+114120000	Serviços para registros de marcas comerciais e de franquias empresariais, exceto as licenças de uso de direito	
+114130000	Serviços de prospecção de clientes	
+114140000	Serviços de prospecção de fornecedores	
+114150000	Serviços profissionais, técnicos e gerenciais não classificados em posições anteriores	
+115011000	Serviços de consultoria em tecnologia da informação (TI)	Serviços de consultoria, de segurança e de suporte em tecnologia da informação (TI)
+115012000	Serviços de segurança em tecnologia da informação (TI)	Serviços de consultoria, de segurança e de suporte em tecnologia da informação (TI)
+115013000	Serviços de suporte em tecnologia da informação (TI)	Serviços de consultoria, de segurança e de suporte em tecnologia da informação (TI)
+115021000	Serviços de projeto, desenvolvimento e instalação de aplicativos e programas não personalizados (não customizados)	Serviços de projeto e desenvolvimento de aplicativos e programas em tecnologia da informação (TI)
+115022000	Serviços de projeto e desenvolvimento, adaptação e instalação de aplicativos personalizados (customizados)	Serviços de projeto e desenvolvimento de aplicativos e programas em tecnologia da informação (TI)
+115023000	Serviços de projeto e desenvolvimento de estruturas e conteúdo de páginas eletrônicas	Serviços de projeto e desenvolvimento de aplicativos e programas em tecnologia da informação (TI)
+115024000	Serviços de projeto e desenvolvimento de estruturas e conteúdo de bancos de dados	Serviços de projeto e desenvolvimento de aplicativos e programas em tecnologia da informação (TI)
+115025000	Serviços de integração de sistemas em tecnologia da informação (TI)	Serviços de projeto e desenvolvimento de aplicativos e programas em tecnologia da informação (TI)
+115029000	Serviços de projeto e desenvolvimento de aplicativos e programas em tecnologia da informação (TI) não classificados em subposições anteriores	Serviços de projeto e desenvolvimento de aplicativos e programas em tecnologia da informação (TI)
+115030000	Serviços de projeto e desenvolvimento de redes em tecnologia da informação (TI)	
+115040000	Serviços de projeto e desenvolvimento de topografias de circuitos integrados	
+115050000	Serviços de projeto de circuitos integrados	
+115061000	Serviços de hospedagem de sítios na rede mundial de computadores	Serviços de hospedagem e de disponibilização de infraestrutura em tecnologia da informação (TI)
+115062100	Serviços de hospedagem de aplicativos e programas software como serviço (SaaS)	Serviços de hospedagem de aplicativos e programas
+115062200	Serviços de fornecimento de infraestrutura como serviço (IaaS)	Serviços de hospedagem de aplicativos e programas
+115062300	Serviços de fornecimento de plataformas como serviço (PaaS)	Serviços de hospedagem de aplicativos e programas
+115062900	Serviços de hospedagem de aplicativos e programas não classificados em subposições anteriores	Serviços de hospedagem de aplicativos e programas
+115069000	Serviços de hospedagem e de disponibilização de infraestrutura em tecnologia da informação (TI) não classificados em subposições anteriores	Serviços de hospedagem e de disponibilização de infraestrutura em tecnologia da informação (TI)
+115071000	Serviços de gerenciamento de redes	Serviços de gerenciamento de redes e de infraestrutura em tecnologia da informação (TI)
+115072000	Serviços de gerenciamento de sistemas computacionais	Serviços de gerenciamento de redes e de infraestrutura em tecnologia da informação (TI)
+115079000	Serviços de gerenciamento de infraestrutura em tecnologia da informação (TI) não classificados em subposições anteriores	Serviços de gerenciamento de redes e de infraestrutura em tecnologia da informação (TI)
+115080000	Serviços de manutenção de aplicativos e programas	
+115090000	Serviços de processamento de dados	
+115100000	Serviços em tecnologia da informação (TI) não classificados em subposições anteriores	
+117011100	Serviços de interconexão pelo uso da rede fixa	Serviços de operadoras
+117011200	Serviços de interconexão pelo uso de rede móvel	Serviços de operadoras
+117011900	Serviços de operadoras não classificados em subposições anteriores	Serviços de operadoras
+117012100	Serviços de chamadas de telecomunicações fixos comutados	Serviços de telecomunicações fixos
+117012900	Serviços de telecomunicações fixos não classificados em subposições anteriores	Serviços de telecomunicações fixos
+117013100	Serviços de voz nas telecomunicações móveis	Serviços de telecomunicações móveis
+117013200	Serviços de texto nas telecomunicações móveis	Serviços de telecomunicações móveis
+117013300	Serviços de transmissão de dados nas telecomunicações móveis, exceto serviços de texto	Serviços de telecomunicações móveis
+117013400	Serviços de telecomunicações móveis para usuários visitantes (roaming)	Serviços de telecomunicações móveis
+117014000	Serviços de redes privadas	Telefonia e outros serviços de telecomunicações, exceto pela rede mundial de computadores
+117015100	Serviços de transmissão de dados local, nacional ou internacional	Serviços de transmissão de dados e serviços de exploração de linha dedicada
+117015200	Serviços de exploração de linha dedicada local, nacional ou internacional	Serviços de transmissão de dados e serviços de exploração de linha dedicada
+117019000	Outros serviços de telecomunicações, exceto pela rede mundial de computadores, não classificados em subposições anteriores	Telefonia e outros serviços de telecomunicações, exceto pela rede mundial de computadores
+117021000	Serviços de fornecimento de infraestrutura de acesso (backbone) à rede mundial de computadores	Serviços de telecomunicações pela rede mundial de computadores
+117022100	Serviços de acesso à rede mundial de computadores por banda estreita	Serviços de acesso à rede mundial de computadores
+117022200	Serviços de acesso à rede mundial de computadores por banda larga	Serviços de acesso à rede mundial de computadores
+117029000	Serviços de telecomunicações pela rede mundial de computadores não classificados em subposições anteriores	Serviços de telecomunicações pela rede mundial de computadores
+117031000	Serviços de oferta de livros, jornais, periódicos, diretórios e malas diretas de acesso imediato (on-line)	Serviços de oferta de conteúdo de acesso imediato (on-line)
+117032100	Serviços de oferta de áudio para download	Serviços de oferta de áudio de acesso imediato (on-line)
+117032200	Serviços de oferta de áudio de conteúdo contínuo (streaming)	Serviços de oferta de áudio de acesso imediato (on-line)
+117033100	Serviços de oferta de arquivos contendo filmes e vídeos para download	Serviços de oferta de arquivos contendo filmes e vídeos de acesso imediato (on-line)
+117033200	Serviços de oferta de filmes e vídeos de conteúdo contínuo (streaming)	Serviços de oferta de arquivos contendo filmes e vídeos de acesso imediato (on-line)
+117039100	Serviços de oferta de jogos e games de acesso imediato (on-line)	Serviços de oferta de outros conteúdos de acesso imediato (on-line) pela rede mundial de computadores
+117039200	Serviços de oferta de conteúdo de portais de busca na rede mundial de computadores	Serviços de oferta de outros conteúdos de acesso imediato (on-line) pela rede mundial de computadores
+117039900	Serviços de oferta de outros conteúdos de acesso imediato (on-line) não classificados em subposições anteriores	Serviços de oferta de outros conteúdos de acesso imediato (on-line) pela rede mundial de computadores
+117041000	Serviços de agências de notícias para jornais e periódicos	Serviços de agências de notícias
+117042000	Serviços de agências de notícias para mídia audiovisual	Serviços de agências de notícias
+117051000	Serviços de biblioteca	Serviços de biblioteca e arquivo
+117052000	Serviços de arquivo	Serviços de biblioteca e arquivo
+117061100	Serviços de programação dos canais de rádio	Serviços de programação dos canais de rádio e televisão
+117061200	Serviços de programação dos canais de televisão	Serviços de programação dos canais de rádio e televisão
+117062100	Serviços de transmissão de sinais, sons e imagens de rádio e televisão, aberta ou por assinatura	Serviços de transmissão de sinais, sons e imagens de rádio e televisão, aberta ou por assinatura; e serviços de distribuição de pacotes de televisão por assinatura
+117062200	Serviços de distribuição de pacotes básicos de programação de televisão por assinatura	Serviços de transmissão de sinais, sons e imagens de rádio e televisão, aberta ou por assinatura; e serviços de distribuição de pacotes de televisão por assinatura
+117062300	Serviços de distribuição de pacotes de programação adicional de televisão por assinatura	Serviços de transmissão de sinais, sons e imagens de rádio e televisão, aberta ou por assinatura; e serviços de distribuição de pacotes de televisão por assinatura
+117062400	Serviços de distribuição de programas de televisão por assinatura, na modalidade "pague por exibição" (pay-per-view)	Serviços de transmissão de sinais, sons e imagens de rádio e televisão, aberta ou por assinatura; e serviços de distribuição de pacotes de televisão por assinatura
+117069000	Serviços de difusão, programação e distribuição de programas de rádio e televisão não classificados em subposições anteriores	Serviços de difusão, programação e distribuição de programas de rádio e televisão
+118011100	Serviço de recrutamento e seleção de profissionais executivos	Serviços de recrutamento e seleção de pessoal
+118011200	Serviço de recrutamento e seleção de profissionais, exceto executivos	Serviços de recrutamento e seleção de pessoal
+118012100	Serviços de fornecimento de mão de obra terceirizada, exceto temporária	Serviços de fornecimento de mão de obra
+118012200	Serviços de fornecimento de mão de obra temporária	Serviços de fornecimento de mão de obra
+118012900	Serviços de fornecimento de mão de obra não classificados em subposições anteriores	Serviços de fornecimento de mão de obra
+118021000	Serviços de investigação	Serviços de investigação e segurança
+118022000	Serviços de consultoria em segurança	Serviços de investigação e segurança
+118023000	Serviços de sistemas de segurança	Serviços de investigação e segurança
+118024000	Serviços de carro-forte	Serviços de investigação e segurança
+118025000	Serviços de guarda e escolta armada	Serviços de investigação e segurança
+118029000	Serviços de segurança não classificados em subposições anteriores	Serviços de investigação e segurança
+118031000	Serviços gerais de limpeza	Serviços de limpeza
+118032100	Serviços de desinfecção e extermínio de pragas	Serviços especializados de limpeza
+118032200	Serviços de limpeza de janelas	Serviços especializados de limpeza
+118032900	Serviços especializados de limpeza não classificados em subposições anteriores	Serviços especializados de limpeza
+118040000	Serviços de acondicionamento e empacotamento	
+118051100	Serviços de reservas para transporte aéreo de passageiros	Serviços de reservas para transporte de passageiros
+118051200	Serviços de reservas para transporte ferroviário de passageiros	Serviços de reservas para transporte de passageiros
+118051300	Serviços de reservas para transporte rodoviário de passageiros	Serviços de reservas para transporte de passageiros
+118051400	Serviços de reservas de carros de aluguel	Serviços de reservas para transporte de passageiros
+118051900	Serviços de reservas para transporte de passageiros não classificados em subposições anteriores	Serviços de reservas para transporte de passageiros
+118052100	Serviços de reservas de hospedagem, exceto em unidades compartilhadas	Serviços de reservas de hospedagem, reservas em cruzeiros e reservas de pacotes turísticos
+118052200	Serviços de reservas e intercâmbio de unidades compartilhadas (time-share)	Serviços de reservas de hospedagem, reservas em cruzeiros e reservas de pacotes turísticos
+118052300	Serviços de reservas em cruzeiros	Serviços de reservas de hospedagem, reservas em cruzeiros e reservas de pacotes turísticos
+118052400	Serviços de reservas de pacotes turísticos	Serviços de reservas de hospedagem, reservas em cruzeiros e reservas de pacotes turísticos
+118053100	Serviços de reservas para centros de convenções, centros de congressos e salas de exposições	Outros serviços de reservas
+118053200	Serviços de reservas de ingressos para eventos de entretenimento e recreativos	Outros serviços de reservas
+118053900	Serviços de reservas não classificados em subposições anteriores	Outros serviços de reservas
+118054000	Serviços de operadoras de turismo	Serviços de planejamento de viagens e serviços relacionados
+118055000	Serviços de guias turísticos	Serviços de planejamento de viagens e serviços relacionados
+118056100	Serviços de promoção turística	Serviços de promoção turística e informação a visitantes
+118056200	Serviços de informação a visitantes	Serviços de promoção turística e informação a visitantes
+118061000	Serviços de informação cadastral e análise de crédito	Outros serviços de apoio às atividades empresariais
+118062000	Serviços de cobrança	Outros serviços de apoio às atividades empresariais
+118063100	Serviços de call center	Serviços de apoio às atividades empresariais por meio de telefone
+118063900	Serviços de apoio às atividades empresariais por meio de telefone não classificados em subposições anteriores	Serviços de apoio às atividades empresariais por meio de telefone
+118064000	Serviços combinados de escritório e apoio administrativo	Outros serviços de apoio às atividades empresariais
+118065100	Serviços de fotocópias e outros serviços de reprodução de documentos	Serviços especializados de apoio a escritório
+118065200	Serviços de execução e envio de mala direta e de elaboração de listas de endereços	Serviços especializados de apoio a escritório
+118065300	Serviços de preparação de documentos	Serviços especializados de apoio a escritório
+118065900	Serviços especializados de apoio a escritório não classificados em subposições anteriores	Serviços especializados de apoio a escritório
+118066100	Serviços de assistência e organização de convenções	Serviços de assistência e organização de convenções, feiras de negócios, exposições e outros eventos
+118066200	Serviços de assistência e organização de feiras de negócios	Serviços de assistência e organização de convenções, feiras de negócios, exposições e outros eventos
+118066300	Serviços de assistência e organização de exposições e outros eventos	Serviços de assistência e organização de convenções, feiras de negócios, exposições e outros eventos
+118067000	Serviços de jardinagem	Outros serviços de apoio às atividades empresariais
+118068100	Serviços de agenciamento de modelos	Serviços de agenciamento de modelos, artistas e atletas
+118068200	Serviços de agenciamento de artistas	Serviços de agenciamento de modelos, artistas e atletas
+118068300	Serviços de agenciamento de atletas	Serviços de agenciamento de modelos, artistas e atletas
+118069000	Serviços de apoio não classificados em subposições anteriores	Outros serviços de apoio às atividades empresariais
+119011000	Serviços de apoio à agricultura	Serviços de apoio à agricultura, pecuária, produção florestal (silvicultura), pesca e aquicultura
+119012000	Serviços de apoio à pecuária	Serviços de apoio à agricultura, pecuária, produção florestal (silvicultura), pesca e aquicultura
+119013000	Serviços de apoio à produção florestal (silvicultura)	Serviços de apoio à agricultura, pecuária, produção florestal (silvicultura), pesca e aquicultura
+119014000	Serviços de apoio à pesca	Serviços de apoio à agricultura, pecuária, produção florestal (silvicultura), pesca e aquicultura
+119015000	Serviços de apoio à aquicultura	Serviços de apoio à agricultura, pecuária, produção florestal (silvicultura), pesca e aquicultura
+119021000	Serviços de apoio à extração de petróleo e gás	Serviços de apoio à mineração
+119029000	Serviços de apoio à mineração não classificados em subposições anteriores	Serviços de apoio à mineração
+119031100	Serviços de apoio à transmissão de eletricidade	Serviços de apoio à transmissão e distribuição de eletricidade
+119031200	Serviços de apoio à distribuição de eletricidade	Serviços de apoio à transmissão e distribuição de eletricidade
+119032000	Serviços de apoio à distribuição de gás por meio de tubulações	Serviços de apoio à transmissão e distribuição de eletricidade e à distribuição de gás e água
+119033000	Serviços de apoio à distribuição de água por meio de tubulações, exceto vapor de água e água quente	Serviços de apoio à transmissão e distribuição de eletricidade e à distribuição de gás e água
+119034000	Serviços de apoio a distribuição de vapor de água, água quente e ar condicionado por meio de tubulações	Serviços de apoio à transmissão e distribuição de eletricidade e à distribuição de gás e água
+119035000	Serviços de apoio à distribuição de água, exceto por meio de tubulações	Serviços de apoio à transmissão e distribuição de eletricidade e à distribuição de gás e água
+120011000	Serviços de manutenção e reparação de produtos metálicos, exceto maquinários e equipamentos	Serviços de manutenção e reparação de produtos metálicos, maquinários e equipamentos
+120012000	Serviços de manutenção e reparação de computadores e seus periféricos e de maquinário para escritório	Serviços de manutenção e reparação de produtos metálicos, maquinários e equipamentos
+120013110	Serviços de manutenção e reparação de veículos rodoviários motorizados	Serviços de manutenção e reparação de veículos rodoviários
+120013120	Serviços de manutenção e reparação de veículos rodoviários não motorizados	Serviços de manutenção e reparação de veículos rodoviários
+120013200	Serviços de manutenção e reparação de veículos sobre trilhos	Serviços de manutenção e reparação de maquinários e equipamentos de transporte
+120013300	Serviços de manutenção e reparação de veículos aquaviários	Serviços de manutenção e reparação de maquinários e equipamentos de transporte
+120013410	Serviços de manutenção e reparação de aeronaves, exceto de motores, turborreatores e turbopropulsores aeronáuticos	Serviços de manutenção e reparação de veículos de transporte aéreo e aeroespacial
+120013420	Serviços de manutenção e reparação de motores, turborreatores e turbopropulsores aeronáuticos	Serviços de manutenção e reparação de veículos de transporte aéreo e aeroespacial
+120013430	Serviços de manutenção e reparação de foguetes e equipamentos aeroespaciais	Serviços de manutenção e reparação de veículos de transporte aéreo e aeroespacial
+120013500	Serviços de manutenção e reparação de veículos militares	Serviços de manutenção e reparação de maquinários e equipamentos de transporte
+120013900	Serviços de manutenção e reparação de maquinários e equipamentos de transporte não classificados em subposições anteriores	Serviços de manutenção e reparação de maquinários e equipamentos de transporte
+120014000	Serviços de manutenção e reparação de plataformas, inclusive navios-plataforma, para extração de petróleo e gás	Serviços de manutenção e reparação de produtos metálicos, maquinários e equipamentos
+120015000	Serviços de manutenção e reparação de maquinários e equipamentos de uso industrial	Serviços de manutenção e reparação de produtos metálicos, maquinários e equipamentos
+120016000	Serviços de manutenção e reparação de maquinários e equipamentos de uso comercial	Serviços de manutenção e reparação de produtos metálicos, maquinários e equipamentos
+120017000	Serviços de manutenção e reparação de equipamentos e aparelhos de telecomunicações	Serviços de manutenção e reparação de produtos metálicos, maquinários e equipamentos
+120018100	Serviços de manutenção e reparação de aparelhos eletroeletrônicos domésticos	Serviços de manutenção e reparação de outros maquinários e equipamentos
+120018200	Serviços de manutenção e reparação de instrumentos e equipamentos médico-hospitalares, odontológicos, óticos e de precisão	Serviços de manutenção e reparação de outros maquinários e equipamentos
+120018300	Serviços de manutenção e reparação de equipamentos militares	Serviços de manutenção e reparação de outros maquinários e equipamentos
+120018900	Serviços de manutenção e reparação de outros maquinários e equipamentos não classificados em subposições anteriores	Serviços de manutenção e reparação de outros maquinários e equipamentos
+120021000	Serviços de manutenção e reparação de produtos de couro, calçados, malas e bolsas	Serviços de manutenção e reparação de outros bens de consumo
+120022000	Serviços de manutenção e reparação de relógios e joias	Serviços de manutenção e reparação de outros bens de consumo
+120023000	Serviços de manutenção e reparação de móveis	Serviços de manutenção e reparação de outros bens de consumo
+120024000	Serviços de manutenção de roupas e outros produtos têxteis	Serviços de manutenção e reparação de outros bens de consumo
+120029000	Serviços de manutenção e reparação de outros bens de consumo não classificados em subposições anteriores	Serviços de manutenção e reparação de outros bens de consumo
+120031000	Serviços de instalação de produtos metálicos, exceto maquinário e equipamentos	Serviços de instalação, exceto os de construção
+120032110	Serviços de montagem sob encomenda de turbinas industriais	Serviços de instalação de maquinários, aparelhos e equipamentos industriais
+120032190	Serviços de instalação de maquinários, aparelhos e equipamentos industriais não classificados em itens anteriores	Serviços de instalação de maquinários, aparelhos e equipamentos industriais
+120032200	Serviços de instalação de computadores e seus periféricos e maquinário de escritório	Serviços de instalação de maquinários, aparelhos e equipamentos
+120032300	Serviços de instalação de equipamentos e aparelhos de comunicação, incluindo de rádio e de televisão	Serviços de instalação de maquinários, aparelhos e equipamentos
+120032400	Serviços de instalação de maquinários, equipamentos, instrumentos e aparelhos médico-hospitalares, óticos e de precisão	Serviços de instalação de maquinários, aparelhos e equipamentos
+120032510	Serviços de instalação de sensores e sistemas de armas	Serviços de instalação de sensores e sistemas de armas e de instalação de maquinários, aparelhos e equipamentos de emprego militar
+120032520	Serviços de instalação de maquinários, aparelhos e equipamentos de emprego militar	Serviços de instalação de sensores e sistemas de armas e de instalação de maquinários, aparelhos e equipamentos de emprego militar
+120032610	Serviços de montagem sob encomenda de motores, turborreatores e turbopropulsores aeronáuticos	Serviços de instalação de maquinários e equipamentos de transporte
+120032690	Serviços de instalação de maquinários e equipamentos de transporte não classificados em itens anteriores	Serviços de instalação de maquinários e equipamentos de transporte
+120032900	Serviços de instalação de maquinários, aparelhos e equipamentos não classificados em subposições anteriores	Serviços de instalação de maquinários, aparelhos e equipamentos
+121011000	Serviços de editoração	Serviços de editoração, impressão, reprodução e publicação
+121012100	Serviços de impressão	Serviços de impressão e reprodução de mídia gravada
+121012200	Serviços relacionados à impressão	Serviços de impressão e reprodução de mídia gravada
+121012300	Serviços de reprodução de mídia gravada	Serviços de impressão e reprodução de mídia gravada
+121013000	Serviços de publicação	Serviços de editoração, impressão, reprodução e publicação
+122011100	Serviços de creches ou de entidade equivalente	Serviços de educação infantil
+122011200	Serviços de pré-escola	Serviços de educação infantil
+122011900	Serviços de educação infantil não classificados em subposições anteriores	Serviços de educação infantil
+122012000	Serviços de ensino fundamental	Serviços de educação básica
+122013000	Serviços de ensino médio	Serviços de educação básica
+122020000	Serviços de educação técnica de nível médio	
+122031000	Serviços de ensino fundamental de jovens e adultos	Serviços de educação de jovens e adultos
+122032000	Serviços de ensino médio de jovens e adultos	Serviços de educação de jovens e adultos
+122041000	Serviços educacionais de graduação	Serviços de educação superior
+122042000	Serviços educacionais de pós-graduação	Serviços de educação superior
+122043000	Serviços educacionais de extensão	Serviços de educação superior
+122044000	Serviços educacionais de cursos sequenciais	Serviços de educação superior
+122051100	Serviços de educação com enfoque cultural	Outros serviços de educação, inclusive treinamento
+122051200	Serviços de educação desportiva e recreacional	Outros serviços de educação, inclusive treinamento
+122051300	Serviços de educação em línguas estrangeiras e de sinais	Outros serviços de educação, inclusive treinamento
+122051400	Serviços de palestras e conferências	Outros serviços de educação, inclusive treinamento
+122051900	Outros serviços de educação, inclusive treinamento, não classificados em subposições anteriores	Outros serviços de educação, inclusive treinamento
+122052000	Serviços de apoio aos serviços educacionais	Outros serviços educacionais, incluindo de treinamento, e serviços de apoio aos serviços educacionais
+123011100	Serviços cirúrgicos	Serviços hospitalares
+123011200	Serviços ginecológicos e obstétricos	Serviços hospitalares
+123011300	Serviços psiquiátricos	Serviços hospitalares
+123011400	Serviços prestados em Unidades de Terapia Intensiva	Serviços hospitalares
+123011500	Serviços de atendimento de urgência	Serviços hospitalares
+123011900	Serviços hospitalares não classificados em subposições anteriores	Serviços hospitalares
+123012100	Serviços de clínica médica	Serviços médicos não hospitalares e serviços odontológicos
+123012200	Serviços médicos especializados	Serviços médicos não hospitalares e serviços odontológicos
+123012300	Serviços odontológicos	Serviços médicos não hospitalares e serviços odontológicos
+123019100	Serviços de enfermagem	Outros serviços de saúde humana
+123019200	Serviços de fisioterapia	Outros serviços de saúde humana
+123019300	Serviços laboratoriais	Outros serviços de saúde humana
+123019400	Serviços de diagnóstico por imagem	Outros serviços de saúde humana
+123019500	Serviços de bancos de material biológico humano	Outros serviços de saúde humana
+123019600	Serviços de ambulância	Outros serviços de saúde humana
+123019700	Serviços de assistência ao parto e pós-parto	Outros serviços de saúde humana
+123019800	Serviços de psicologia	Outros serviços de saúde humana
+123019900	Outros serviços de saúde humana não classificados em subposições anteriores	Outros serviços de saúde humana
+123021000	Serviços de cuidado em saúde em unidades de acolhimento	Serviços de cuidado e assistência a idosos e pessoas com deficiência em unidades de acolhimento
+123022100	Serviços de assistência a idosos em unidades de acolhimento	Serviços de assistência a idosos e pessoas com deficiência em unidades de acolhimento
+123022200	Serviços de assistência a crianças e adolescentes com deficiência em unidades de acolhimento	Serviços de assistência a idosos e pessoas com deficiência em unidades de acolhimento
+123022300	Serviços de assistência a adultos com deficiência em unidades de acolhimento	Serviços de assistência a idosos e pessoas com deficiência em unidades de acolhimento
+123030000	Serviços de assistência prestados a pessoas em situação de vulnerabilidade social com acomodação	
+123041100	Serviços de reabilitação vocacional para pessoas com deficiência	Serviços de reabilitação vocacional
+123041200	Serviços de reabilitação vocacional para desempregados	Serviços de reabilitação vocacional
+123041900	Serviço de reabilitação vocacional não classificados nas subposições anteriores	Serviços de reabilitação vocacional
+123042000	Serviços de orientação e aconselhamento relacionados a crianças e adolescentes	Serviços de assistência social sem acomodação
+123049000	Serviços de assistência social sem acomodação não classificados em subposições anteriores	Serviços de assistência social sem acomodação
+124010000	Serviços de tratamento de água	
+124021000	Serviços de esgoto e tratamento de esgotos	Serviços de esgoto, tratamento de esgotos e limpeza de fossas sépticas
+124022000	Serviços de esvaziamento e limpeza de fossas sépticas	Serviços de esgoto, tratamento de esgotos e limpeza de fossas sépticas
+124031100	Serviços de coleta de resíduos de serviços de saúde e outros resíduos biológicos	Serviços de coleta de resíduos perigosos
+124031200	Serviços de coleta de resíduos perigosos industriais, exceto resíduos de serviços de saúde e outros resíduos biológicos	Serviços de coleta de resíduos perigosos
+124031900	Serviços de coleta de outros resíduos perigosos não classificados em subposições anteriores	Serviços de coleta de resíduos perigosos
+124032100	Serviços de coleta de resíduos recicláveis, não perigosos, de origem doméstica	Serviços de coleta de resíduos recicláveis não perigosos
+124032200	Serviços de coleta de resíduos recicláveis, não perigosos, exceto de origem doméstica	Serviços de coleta de resíduos recicláveis não perigosos
+124033100	Serviços de coleta de resíduos gerais de origem doméstica	Serviços de coleta de resíduos gerais
+124033200	Serviços de coleta de resíduos gerais, exceto de origem doméstica	Serviços de coleta de resíduos gerais
+124041100	Serviços de triagem, preparação, consolidação e estocagem de resíduos perigosos	Serviços de triagem, preparação, consolidação e estocagem de resíduos
+124041200	Serviços de demolição e desmantelamento de embarcações, veículos e outros bens	Serviços de triagem, preparação, consolidação e estocagem de resíduos
+124041300	Serviços de triagem, preparação, consolidação e estocagem de resíduos recicláveis não perigosos	Serviços de triagem, preparação, consolidação e estocagem de resíduos
+124041900	Serviços de triagem, preparação, consolidação e estocagem de resíduos não perigosos, exceto os recicláveis	Serviços de triagem, preparação, consolidação e estocagem de resíduos
+124042100	Serviços de tratamento de resíduos perigosos	Serviços de tratamento e eliminação de resíduos perigosos
+124042200	Serviços de eliminação de resíduos perigosos	Serviços de tratamento e eliminação de resíduos perigosos
+124043100	Serviços de tratamento e eliminação de resíduos não perigosos em aterros sanitários	Serviços de tratamento e eliminação de resíduos não perigosos
+124043200	Serviços de tratamento e eliminação de resíduos não perigosos em aterros, exceto os sanitários	Serviços de tratamento e eliminação de resíduos não perigosos
+124043300	Serviços de incineração de resíduos não perigosos	Serviços de tratamento e eliminação de resíduos não perigosos
+124043900	Serviços de tratamento e eliminação de resíduos não perigosos não classificados em subposições anteriores	Serviços de tratamento e eliminação de resíduos não perigosos
+124051100	Serviços de remediação e limpeza do ar	Serviços de remediação e limpeza de áreas contaminadas
+124051200	Serviços de remediação e limpeza de águas de superfície	Serviços de remediação e limpeza de áreas contaminadas
+124051300	Serviços de remediação e limpeza do solo e de águas subterrâneas	Serviços de remediação e limpeza de áreas contaminadas
+124051400	Serviços de remediação em edificações	Serviços de remediação e limpeza de áreas contaminadas
+124052000	Serviços de contenção, controle e monitoramento de áreas contaminadas	Serviços de remediação e contenção de contaminantes
+124059000	Serviços de remediação não classificados em subposições anteriores	Serviços de remediação e contenção de contaminantes
+124061000	Serviços de varrição de vias e áreas públicas	Serviços de limpeza urbana e similares
+124069000	Serviços de limpeza urbana e similares não classificados em subposições anteriores	Serviços de limpeza urbana e similares
+124070000	Serviços de proteção ambiental não classificados em posições anteriores	
+125011100	Serviços de gravação de som em estúdio	Serviços de gravação de som
+125011200	Serviços de gravação de som ao vivo	Serviços de gravação de som
+125012100	Serviços de produção de programas de televisão, videoteipes e filmes	Serviços de produção de programas de rádio e televisão, videoteipes e filmes
+125012200	Serviços de produção de programas de rádio	Serviços de produção de programas de rádio e televisão, videoteipes e filmes
+125013100	Serviços de edição de obras audiovisuais	Serviços de pós-produção de obras audiovisuais
+125013200	Serviços de duplicação e transferência de obras audiovisuais	Serviços de pós-produção de obras audiovisuais
+125013300	Serviços de correção de cor e restauração digital de obras audiovisuais	Serviços de pós-produção de obras audiovisuais
+125013400	Serviços de efeitos visuais em obras audiovisuais	Serviços de pós-produção de obras audiovisuais
+125013500	Serviços de animação	Serviços de pós-produção de obras audiovisuais
+125013600	Serviços de legendas, títulos e dublagem em obras audiovisuais	Serviços de pós-produção de obras audiovisuais
+125013700	Serviços de projeto e edição de som em obras audiovisuais	Serviços de pós-produção de obras audiovisuais
+125013900	Serviços de pós-produção de obras audiovisuais não classificados em subposições anteriores	Serviços de pós-produção de obras audiovisuais
+125014000	Serviços de agenciamento para a comercialização de obras audiovisuais	Serviços de produção audiovisual, de apoio e relacionados
+125015000	Serviços de projeção de filmes	Serviços de produção audiovisual, de apoio e relacionados
+125019000	Serviços de produção audiovisual, de apoio e relacionados não classificados em subposições anteriores	Serviços de produção audiovisual, de apoio e relacionados
+125021000	Serviços de organização e promoção de atuações artísticas ao vivo	Serviços de apresentação e promoção de atuações artísticas e outros serviços de entretenimento ao vivo
+125022000	Serviços de produção e apresentação de atuações artísticas ao vivo	Serviços de apresentação e promoção de atuações artísticas e outros serviços de entretenimento ao vivo
+125023000	Serviços de apoio para atuações artísticas ao vivo	Serviços de apresentação e promoção de atuações artísticas e outros serviços de entretenimento ao vivo
+125029000	Serviços de apresentação e promoção de atuações artísticas e outros serviços de entretenimento ao vivo não classificados em subposições anteriores	Serviços de apresentação e promoção de atuações artísticas e outros serviços de entretenimento ao vivo
+125031000	Serviços de atuação artística	Serviços de atuação artística e outros serviços artísticos
+125032000	Serviços de autores, compositores, escultores, pintores e outros artistas, exceto os de atuação artística	Serviços de atuação artística e outros serviços artísticos
+125041100	Serviços de museus	Serviços de museus e de preservação de locais e construções históricas
+125041200	Serviços de preservação e operação de locais e construções históricas	Serviços de museus e de preservação de locais e construções históricas
+125042100	Serviços de jardins botânico e zoológico	Serviços de reservas botânica, zoológica e natural
+125042200	Serviços de reserva natural, incluindo preservação de vida selvagem	Serviços de reservas botânica, zoológica e natural
+125051000	Serviços de organização e promoção de eventos desportivos e recreacionais desportivos	Serviços desportivos e recreacionais desportivos
+125052000	Serviços de clubes desportivos	Serviços desportivos e recreacionais desportivos
+125059000	Serviços desportivos e recreacionais desportivos não classificados em subposições anteriores	Serviços desportivos e recreacionais desportivos
+125060000	Serviços fornecidos por atletas e desportistas, por conta própria, e serviços de apoio relacionados com desportes e recreação desportiva	
+125071000	Serviços de parques temáticos de diversão	Serviços de parques de diversão e atrações similares
+125079000	Serviços de parques de diversão e atrações similares não classificados em subposições anteriores	Serviços de parques de diversão e atrações similares
+125080000	Serviços recreativos, culturais e desportivos não classificados em posições anteriores	
+126011000	Serviços de limpeza de têxteis, exceto quando realizados a seco	Serviços de lavanderia e tinturaria
+126012000	Serviços de limpeza a seco	Serviços de lavanderia e tinturaria
+126013000	Serviços de tinturaria	Serviços de lavanderia e tinturaria
+126014000	Serviços de passadoria de roupas e outros artigos têxteis	Serviços de lavanderia e tinturaria
+126019000	Serviços de lavanderia não classificados em subposições anteriores	Serviços de lavanderia e tinturaria
+126021000	Serviços de cabeleireiros e barbeiros	Serviços de tratamento de beleza e bem-estar físico
+126022000	Serviços de manicure, pedicure e tratamento cosmético	Serviços de tratamento de beleza e bem-estar físico
+126023000	Serviços de bem-estar físico	Serviços de tratamento de beleza e bem-estar físico
+126029000	Serviços de tratamento de beleza e bem-estar físico não classificados em subposições anteriores	Serviços de tratamento de beleza e bem-estar físico
+126030000	Serviços funerários, de cremação e de embalsamamento	
+126040000	Serviços de confecção de roupas e outros artigos têxteis	
+126050000	Serviços domésticos	
+126060000	Serviços pessoais não classificados em posições anteriores	

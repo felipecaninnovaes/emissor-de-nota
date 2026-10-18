@@ -50,6 +50,11 @@ const mascaraCpf = (t) => {
 /** Valor digitado ("1500", "1.500,5", "1500.50") → número, ou NaN. */
 const numeroDigitado = (t) => Number(String(valorDigitado(t) ?? "").replace(",", "."));
 const exatoDigitos = (n, msg) => ({ mascara: soDigitos, valida: (v) => soDigitos(v).length === n || msg });
+/** Código de tabela oficial em campo com busca: texto com letras é busca pelo nome e fica como está. */
+const codigoDeLista = (n, msg) => ({
+  mascara: (t) => (/[^\d.\s-]/.test(t) ? t : soDigitos(t)),
+  valida: (v) => new RegExp(`^\\d{${n}}$`).test(v.trim()) || msg,
+});
 const emailValido = (e) => /^[^\s@;,]+@[^\s@;,]+\.[^\s@;,]+$/.test(e);
 
 /**
@@ -68,8 +73,8 @@ export const FORMATOS = {
     valida: (v) => soDigitos(v).length === 8 || "CEP com 8 dígitos.",
   },
   ibge: exatoDigitos(7, "Código IBGE com 7 dígitos (ex.: 3511102)."),
-  ctn: exatoDigitos(6, "6 dígitos, sem pontos (ex.: 171901)."),
-  nbs: exatoDigitos(9, "NBS com 9 dígitos."),
+  ctn: codigoDeLista(6, "6 dígitos (ex.: 171901): digite o código ou escolha um na lista."),
+  nbs: codigoDeLista(9, "NBS com 9 dígitos: digite o código ou escolha um na lista."),
   ctm: exatoDigitos(3, "Código municipal com 3 dígitos."),
   cst: exatoDigitos(2, "CST com 2 dígitos (ex.: 00)."),
   cst_ibs: exatoDigitos(3, "CST do IBS/CBS com 3 dígitos (ex.: 000)."),

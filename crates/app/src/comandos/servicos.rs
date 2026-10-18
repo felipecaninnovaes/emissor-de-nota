@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use nfse_core::Valor;
-use nfse_core::lista_servicos::{self, ItemListaServico};
+use nfse_core::tabela_codigos::ItemCodigo;
+use nfse_core::{lista_servicos, nbs};
 use nfse_db::servicos::{Servico, Tributacao};
 
 use super::comum::{R, exigir_cofre, gravar_e_abrir_csv, texto, vazio_para_none};
@@ -74,10 +75,11 @@ pub async fn salvar_servico(estado: State<'_, Estado>, servico: ServicoDto) -> R
     estado.banco()?.salvar_servico(&servico.into()).await.map_err(texto)
 }
 
+/// Resultado da busca numa tabela oficial embutida; `fonte` é o arquivo de origem (a versão).
 #[derive(Serialize)]
 pub struct ListaNacionalDto {
     fonte: &'static str,
-    itens: Vec<&'static ItemListaServico>,
+    itens: Vec<&'static ItemCodigo>,
 }
 
 /// Busca na Lista de Serviços Nacional embutida (por nome ou código), para o cadastro do serviço.
@@ -87,6 +89,16 @@ pub fn buscar_lista_servicos(termo: String) -> ListaNacionalDto {
     ListaNacionalDto {
         fonte: lista_servicos::fonte(),
         itens: lista_servicos::buscar(&termo, 30),
+    }
+}
+
+/// Busca na NBS embutida (por nome ou código), para o cadastro do serviço. Não lê dados do usuário:
+/// dispensa o cofre.
+#[tauri::command]
+pub fn buscar_nbs(termo: String) -> ListaNacionalDto {
+    ListaNacionalDto {
+        fonte: nbs::fonte(),
+        itens: nbs::buscar(&termo, 30),
     }
 }
 

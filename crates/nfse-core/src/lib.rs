@@ -4,6 +4,8 @@ pub mod documento;
 pub mod dps;
 pub mod lista_servicos;
 pub mod modelo;
+pub mod nbs;
+pub mod tabela_codigos;
 pub mod texto;
 pub mod valor;
 

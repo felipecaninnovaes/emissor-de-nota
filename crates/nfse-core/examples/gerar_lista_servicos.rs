@@ -1,11 +1,11 @@
-//! Gera `dados/lista-servicos-nacional.tsv` a partir do Anexo B da documentação técnica da NFS-e
-//! Nacional (aba `LISTA.SERV.NAC.`). Uso:
+//! Gera `dados/lista-servicos-nacional.tsv` (aba `LISTA.SERV.NAC.`) e `dados/nbs.tsv` (aba
+//! `LISTA.NBS_v2.0`) a partir do Anexo B da documentação técnica da NFS-e Nacional. Uso:
 //!
 //! ```text
 //! cargo run -p nfse-core --example gerar_lista_servicos -- caminho/anexo_b-...xlsx
 //! ```
 //!
-//! O nome do arquivo de origem vai para a primeira linha do TSV (`# fonte: ...`) e aparece na tela
+//! O nome do arquivo de origem vai para a primeira linha de cada TSV (`# fonte: ...`) e aparece na tela
 //! como versão da lista. Ver docs/desenvolvimento.md.
 
 use std::fmt::Write as _;
@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 use calamine::{Data, Reader};
 
 const ABA: &str = "LISTA.SERV.NAC.";
+const ABA_NBS: &str = "LISTA.NBS_v2.0";
 
 fn main() -> Result<(), String> {
     let origem = std::env::args_os()
@@ -60,6 +61,53 @@ fn main() -> Result<(), String> {
     }
     std::fs::write(&destino, tsv).map_err(|e| format!("{}: {e}", destino.display()))?;
     println!("{quantos} códigos gravados em {}", destino.display());
+
+    let aba = pasta
+        .worksheet_range(ABA_NBS)
+        .map_err(|e| format!("aba {ABA_NBS}: {e}"))?;
+    gerar_nbs(&aba, &nome)
+}
+
+/// NBS: só os códigos de 9 dígitos (os do `cNBS`); o grupo é a descrição do nível mais próximo
+/// acima (posição, subposição, item ou subitem), achado pelo prefixo dos dígitos, ou vazio.
+fn gerar_nbs(aba: &calamine::Range<Data>, nome: &str) -> Result<(), String> {
+    let destino = Path::new(env!("CARGO_MANIFEST_DIR")).join("dados/nbs.tsv");
+    let mut tsv = format!("# fonte: {nome}\n");
+    // níveis acima do código atual: (dígitos, descrição), do mais largo ao mais estreito
+    let mut niveis: Vec<(String, String)> = Vec::new();
+    let mut quantos = 0;
+    // cabeçalho: CÓDIGO NBS | DESCRIÇÃO
+    for (i, linha) in aba.rows().enumerate().skip(1) {
+        let campo = |c: usize| linha.get(c).map(celula).unwrap_or_default();
+        let codigo: String = campo(0).chars().filter(char::is_ascii_digit).collect();
+        let descricao = campo(1).split_whitespace().collect::<Vec<_>>().join(" ");
+        if codigo.is_empty() {
+            if linha.iter().all(|d| matches!(d, Data::Empty)) {
+                continue;
+            }
+            return Err(format!("aba {ABA_NBS}, linha {}: sem código", i + 1));
+        }
+        if descricao.is_empty() {
+            continue; // o fim da aba traz linhas de modelo (`9.9999.99.99`) sem descrição
+        }
+        niveis.retain(|(d, _)| codigo.starts_with(d.as_str()) && d.len() < codigo.len());
+        if codigo.len() < 9 {
+            niveis.push((codigo, descricao));
+            continue;
+        }
+        if codigo.len() > 9 {
+            return Err(format!(
+                "aba {ABA_NBS}, linha {}: código {codigo} com mais de 9 dígitos",
+                i + 1
+            ));
+        }
+        // posição sem subdivisões (X.XXXX.00.00) já é o código completo: não tem nível acima na aba
+        let grupo = niveis.last().map_or("", |(_, d)| d.as_str());
+        writeln!(tsv, "{codigo}\t{descricao}\t{grupo}").expect("escrever em String");
+        quantos += 1;
+    }
+    std::fs::write(&destino, tsv).map_err(|e| format!("{}: {e}", destino.display()))?;
+    println!("{quantos} códigos NBS gravados em {}", destino.display());
     Ok(())
 }
 

@@ -15,7 +15,7 @@ import {
   vazio,
 } from "./util.js";
 import { acoesLinha, linhaVazia, selecaoEmTabela } from "./tabela.js";
-import { ErroCampo, abrirDialogo, confirmar, preencherForm } from "./formularios.js";
+import { ErroCampo, abrirDialogo, confirmar, limparErro, preencherForm } from "./formularios.js";
 import { ligarCombobox } from "./componentes.js";
 import { renderizarServicosEmitir } from "./emitir.js";
 
@@ -71,45 +71,72 @@ $("#lista-servicos").addEventListener("click", async (ev) => {
 
 $("#novo-servico").addEventListener("click", () => editarServico(null));
 
-const ctnServico = $("#servico-codigo-trib-nac");
 const pontuarCtn = (c) => `${c.slice(0, 2)}.${c.slice(2, 4)}.${c.slice(4)}`;
-const AJUDA_LISTA_NACIONAL = "Busca na Lista de Serviços Nacional; ao escolher, o código é preenchido.";
+const pontuarNbs = (c) => `${c.slice(0, 1)}.${c.slice(1, 5)}.${c.slice(5, 7)}.${c.slice(7)}`;
 
-/** Mostra, abaixo da busca, a descrição oficial do código digitado (ou avisa que não está na lista). */
-async function descreverCtn() {
-  const ajuda = $("#servico-ctn-descricao");
-  const codigo = soDigitos(ctnServico.value);
-  if (codigo.length !== 6) {
-    ajuda.textContent = AJUDA_LISTA_NACIONAL;
-    return;
+/**
+ * Campo de código com busca na tabela oficial embutida (Lista de Serviços Nacional ou NBS): o
+ * operador digita os dígitos ou parte do nome e escolhe na lista; a descrição oficial do código
+ * aparece abaixo do campo. Devolve a função que atualiza essa descrição (usada ao abrir o diálogo).
+ */
+function ligarCampoDeCodigo({ campo, caixa, ajuda, digitos, comando, nomeLista, pontuar, rotulo, ajudaPadrao }) {
+  async function descrever() {
+    const codigo = soDigitos(campo.value);
+    if (codigo.length !== digitos) {
+      ajuda.textContent = ajudaPadrao;
+      return;
+    }
+    try {
+      const { fonte, itens } = await invoke(comando, { termo: codigo });
+      if (soDigitos(campo.value) !== codigo) return; // o usuário já mudou o código
+      ajuda.textContent = itens.length
+        ? `${pontuar(codigo)} · ${itens[0].descricao}`
+        : `O código ${codigo} não está na ${nomeLista} embutida (${fonte}); confira antes de emitir.`;
+    } catch (e) {
+      toast(String(e), true);
+    }
   }
-  try {
-    const { fonte, itens } = await invoke("buscar_lista_servicos", { termo: codigo });
-    if (soDigitos(ctnServico.value) !== codigo) return; // o usuário já mudou o código
-    ajuda.textContent = itens.length
-      ? `${pontuarCtn(codigo)} · ${itens[0].descricao}`
-      : `O código ${codigo} não está na Lista de Serviços Nacional embutida (${fonte}); confira antes de emitir.`;
-  } catch (e) {
-    toast(String(e), true);
-  }
+
+  campo.addEventListener("input", descrever);
+  ligarCombobox(campo, caixa, {
+    rotulo,
+    vazio: `Nenhum código da ${nomeLista} encontrado.`,
+    contagem: (n) => `${n} código(s) encontrado(s).`,
+    buscar: async (termo) => (await invoke(comando, { termo })).itens,
+    opcao: (i) => `${esc(i.descricao)}<small>${pontuar(i.codigo)}${i.grupo ? ` · ${esc(i.grupo)}` : ""}</small>`,
+    aoEscolher(i) {
+      campo.value = i.codigo;
+      caixa.hidden = true;
+      // o código escolhido é válido: tira a marca de erro, se havia
+      if (campo.getAttribute("aria-invalid") === "true") limparErro(campo);
+      descrever();
+    },
+  });
+  return descrever;
 }
 
-ctnServico.addEventListener("input", descreverCtn);
-
-ligarCombobox($("#servico-busca-lista"), $("#servico-resultados-lista"), {
+const descreverCtn = ligarCampoDeCodigo({
+  campo: $("#servico-codigo-trib-nac"),
+  caixa: $("#servico-resultados-ctn"),
+  ajuda: $("#servico-ctn-descricao"),
+  digitos: 6,
+  comando: "buscar_lista_servicos",
+  nomeLista: "Lista de Serviços Nacional",
+  pontuar: pontuarCtn,
   rotulo: "Códigos de serviço",
-  vazio: "Nenhum código da lista nacional encontrado.",
-  contagem: (n) => `${n} código(s) encontrado(s).`,
-  buscar: async (termo) => (await invoke("buscar_lista_servicos", { termo })).itens,
-  opcao: (i) => `${esc(i.descricao)}<small>${pontuarCtn(i.codigo)} · ${esc(i.grupo)}</small>`,
-  aoEscolher(i) {
-    const busca = $("#servico-busca-lista");
-    busca.value = "";
-    $("#servico-resultados-lista").hidden = true;
-    ctnServico.value = i.codigo;
-    // o input também tira a marca de erro do campo, se havia
-    ctnServico.dispatchEvent(new Event("input", { bubbles: true }));
-  },
+  ajudaPadrao: "Digite os 6 dígitos ou parte do nome para buscar na Lista de Serviços Nacional.",
+});
+
+const descreverNbs = ligarCampoDeCodigo({
+  campo: $("#servico-nbs"),
+  caixa: $("#servico-resultados-nbs"),
+  ajuda: $("#servico-nbs-descricao"),
+  digitos: 9,
+  comando: "buscar_nbs",
+  nomeLista: "NBS",
+  pontuar: pontuarNbs,
+  rotulo: "Códigos NBS",
+  ajudaPadrao: "Opcional. Digite os 9 dígitos ou parte do nome para buscar na NBS.",
 });
 
 /** Percentual digitado ("11,48") → texto aceito pelo backend, ou null. */
@@ -186,6 +213,7 @@ function editarServico(s) {
   }
   mostrarCamposIbs(form);
   descreverCtn();
+  descreverNbs();
   abrirDialogo(dlg, $("#erro-servico"), async (d) => {
     const retencoes = { aplicar: d.aplicar_fed };
     for (const k of ["irrf", "csll", "cp", "pis", "cofins"]) {

@@ -64,18 +64,18 @@ Todo comando que lê ou grava dados precisa de `exigir_cofre(&estado)` ou da mac
 
 A logomarca do DANFSe é `crates/app/assets/logo-nfse.png`, gerada a partir de `logo-nfse.svg` (cópia ajustada: fonte Liberation Sans e largura 240).
 
-## Lista de Serviços Nacional
+## Lista de Serviços Nacional e NBS
 
-A API do Sistema Nacional não lista os códigos de tributação nacional (`cTribNac`); a lista vem do Anexo B da [documentação técnica](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual) (`anexo_b-nbs2-lista_servico_nacional-snnfse-*.xlsx`, aba `LISTA.SERV.NAC.`). Ela fica embutida em `crates/nfse-core/dados/lista-servicos-nacional.tsv` (módulo `nfse_core::lista_servicos`) e alimenta a busca por nome no cadastro de serviços. A primeira linha do TSV guarda o nome do arquivo de origem, que a tela mostra como versão quando um código não está na lista.
+A API do Sistema Nacional não lista os códigos de tributação nacional (`cTribNac`) nem a NBS (`cNBS`); as duas tabelas vêm do Anexo B da [documentação técnica](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual) (`anexo_b-nbs2-lista_servico_nacional-snnfse-*.xlsx`, abas `LISTA.SERV.NAC.` e `LISTA.NBS_v2.0`). Elas ficam embutidas em `crates/nfse-core/dados/lista-servicos-nacional.tsv` (módulo `nfse_core::lista_servicos`) e `crates/nfse-core/dados/nbs.tsv` (módulo `nfse_core::nbs`), com a leitura e a busca comuns em `nfse_core::tabela_codigos`. Os campos de código do cadastro de serviços buscam nelas (comandos `buscar_lista_servicos` e `buscar_nbs`). A primeira linha de cada TSV guarda o nome do arquivo de origem, que a tela mostra como versão quando um código não está na tabela. Da NBS entram só os códigos de 9 dígitos; o grupo de cada um é a descrição do nível imediatamente acima (vazio na posição sem subdivisões, `X.XXXX.00.00`). O anexo não traz correlação entre `cTribNac` e NBS.
 
 Quando sair uma versão nova do anexo, baixe a planilha **sem renomear** e regenere:
 
 ```bash
 cargo run -p nfse-core --example gerar_lista_servicos -- caminho/anexo_b-nbs2-lista_servico_nacional-snnfse-vX-XX-AAAAMMDD.xlsx
-cargo test -p nfse-core lista_servicos
+cargo test -p nfse-core -- lista_servicos nbs
 ```
 
-O gerador confere o código de cada linha com item, subitem e desdobro e falha se a planilha mudar de formato. A lista não bloqueia o cadastro: código fora dela só gera um aviso.
+O gerador grava os dois TSV, confere o código de cada linha da lista de serviços com item, subitem e desdobro e falha se a planilha mudar de formato (na NBS, código com mais de 9 dígitos); as linhas de modelo sem descrição no fim da aba da NBS são ignoradas. As tabelas não bloqueiam o cadastro: código fora delas só gera um aviso.
 
 ## CLI `nfse-poc`
 
