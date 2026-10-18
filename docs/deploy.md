@@ -43,7 +43,7 @@ O workflow **Instalador** (`.github/workflows/instalador.yml`) roda ao receber u
 
 ## Atualização automática
 
-O app consulta `releases/latest/download/latest.json` ao abrir e em Configurações → Atualizações (`crates/app/src/comandos/atualizacao.rs`). Se há versão nova, baixa o MSI, confere a assinatura com a chave pública de `plugins.updater.pubkey` (em `tauri.conf.json`), fecha, instala (`installMode: passive`) e abre de novo. O `latest.json` traz as quatro plataformas da tabela acima. No Linux só a instalação por AppImage se atualiza sozinha; quem instalou o DEB baixa a versão nova à mão.
+O app consulta `releases/latest/download/latest.json` ao abrir e em Configurações → Atualizações (`crates/app/src/comandos/atualizacao.rs`). Se há versão nova, baixa o MSI, confere a assinatura com a chave pública de `plugins.updater.pubkey` (em `tauri.conf.json`), fecha, instala (`installMode: passive`) e abre de novo. A interface recusa atualizar enquanto há emissão ou cancelamento indo para a Sefin, e não deixa começar outro durante o download. O `latest.json` traz as quatro plataformas da tabela acima. No Linux só a instalação por AppImage se atualiza sozinha; quem instalou o DEB baixa a versão nova à mão.
 
 ## Chave de assinatura
 

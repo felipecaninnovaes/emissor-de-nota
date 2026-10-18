@@ -31,7 +31,9 @@ fn parse_centesimos(entrada: &str) -> Result<i64, DecimalInvalido> {
 }
 
 fn formatar_centesimos(v: i64, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "{}.{:02}", v / 100, v % 100)
+    let sinal = if v < 0 { "-" } else { "" };
+    let v = v.unsigned_abs();
+    write!(f, "{sinal}{}.{:02}", v / 100, v % 100)
 }
 
 macro_rules! decimal_2_casas {
@@ -105,7 +107,9 @@ decimal_2_casas!(
 impl Valor {
     /// `self × p%`, arredondado para o centavo mais próximo (meio para cima).
     pub fn aplicar(self, p: Percentual) -> Valor {
-        Valor((self.0 * p.0 + 5_000) / 10_000)
+        // O produto passa de i64 com valores grandes (15 dígitos × 100,00%); o resultado cabe.
+        let v = (i128::from(self.0) * i128::from(p.0) + 5_000) / 10_000;
+        Valor(i64::try_from(v).unwrap_or(if v < 0 { i64::MIN } else { i64::MAX }))
     }
 }
 
@@ -136,6 +140,14 @@ mod testes {
                 .to_string(),
             "0.50"
         );
+    }
+
+    #[test]
+    fn valores_extremos() {
+        let grande = Valor::parse("999999999999999.99").unwrap();
+        assert_eq!(grande.aplicar(Percentual::parse("100").unwrap()), grande);
+        assert_eq!(Valor::de_centesimos(-5).to_string(), "-0.05");
+        assert_eq!(Valor::de_centesimos(-12345).to_string(), "-123.45");
     }
 
     #[test]

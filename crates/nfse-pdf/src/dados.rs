@@ -161,22 +161,28 @@ fn ou_traco(v: Option<String>) -> String {
 
 // ---------- formatação ----------
 
+/// `v` tem exatamente `n` dígitos ASCII (só então é seguro fatiar por posição).
+fn digitos(v: &str, n: usize) -> bool {
+    v.len() == n && v.bytes().all(|b| b.is_ascii_digit())
+}
+
 pub fn cnpj(v: &str) -> String {
-    if v.len() != 14 {
+    // O CNPJ alfanumérico tem letras nas 12 primeiras posições.
+    if v.len() != 14 || !v.is_ascii() {
         return v.to_owned();
     }
     format!("{}.{}.{}/{}-{}", &v[..2], &v[2..5], &v[5..8], &v[8..12], &v[12..])
 }
 
 pub fn cpf(v: &str) -> String {
-    if v.len() != 11 {
+    if !digitos(v, 11) {
         return v.to_owned();
     }
     format!("{}.{}.{}-{}", &v[..3], &v[3..6], &v[6..9], &v[9..])
 }
 
 pub fn cep(v: &str) -> String {
-    if v.len() != 8 {
+    if !digitos(v, 8) {
         return v.to_owned();
     }
     format!("{}.{}-{}", &v[..2], &v[2..5], &v[5..])
@@ -201,6 +207,11 @@ pub fn data_hora(v: &str) -> String {
 /// `3248.00` → `R$ 3.248,00`.
 pub fn moeda(v: &str) -> String {
     let (inteiro, frac) = v.split_once('.').unwrap_or((v, "00"));
+    let (sinal, inteiro) = inteiro.strip_prefix('-').map_or(("", inteiro), |i| ("-", i));
+    let numero = |t: &str| t.bytes().all(|b| b.is_ascii_digit());
+    if inteiro.is_empty() || !numero(inteiro) || !numero(frac) {
+        return v.to_owned();
+    }
     let frac = format!("{frac:0<2}");
     let mut com_milhar = String::new();
     for (i, c) in inteiro.chars().enumerate() {
@@ -209,7 +220,7 @@ pub fn moeda(v: &str) -> String {
         }
         com_milhar.push(c);
     }
-    format!("R$ {com_milhar},{}", &frac[..2])
+    format!("R$ {sinal}{com_milhar},{}", &frac[..2])
 }
 
 /// `2.5` → `2,50%`.
@@ -253,7 +264,7 @@ pub fn uf_do_ibge(codigo: &str) -> Option<&'static str> {
 }
 
 fn codigo_trib_nac(v: &str) -> String {
-    if v.len() == 6 {
+    if digitos(v, 6) {
         format!("{}.{}.{}", &v[..2], &v[2..4], &v[4..])
     } else {
         v.to_owned()
@@ -261,7 +272,7 @@ fn codigo_trib_nac(v: &str) -> String {
 }
 
 fn nbs(v: &str) -> String {
-    if v.len() == 9 {
+    if digitos(v, 9) {
         format!("{}.{}.{}.{}", &v[..1], &v[1..5], &v[5..7], &v[7..])
     } else {
         v.to_owned()
@@ -689,11 +700,14 @@ pub fn ler(xml: &str) -> Result<Danfse, ErroDados> {
             let centavos = |v: Option<&str>| -> i64 {
                 v.map_or(0, |v| {
                     let (i, f) = v.split_once('.').unwrap_or((v, "0"));
-                    i.parse::<i64>().unwrap_or(0) * 100 + format!("{f:0<2}")[..2].parse::<i64>().unwrap_or(0)
+                    let f = format!("{f:0<2}");
+                    i.parse::<i64>().unwrap_or(0) * 100 + f.get(..2).and_then(|f| f.parse().ok()).unwrap_or(0)
                 })
             };
             let soma = centavos(a) + centavos(b);
-            moeda(&format!("{}.{:02}", soma / 100, soma % 100))
+            let sinal = if soma < 0 { "-" } else { "" };
+            let soma = soma.unsigned_abs();
+            moeda(&format!("{sinal}{}.{:02}", soma / 100, soma % 100))
         }
     };
     let totais = Totais {
@@ -807,6 +821,18 @@ pub fn ler(xml: &str) -> Result<Danfse, ErroDados> {
 #[cfg(test)]
 mod testes {
     use super::*;
+
+    #[test]
+    fn texto_fora_do_formato_nao_derruba() {
+        // Multibyte na posição do corte: antes fatiava por byte no meio do caractere.
+        assert_eq!(cnpj("1é222333000181"), "1é222333000181");
+        assert_eq!(cpf("5é998224725"), "5é998224725");
+        assert_eq!(cep("1é800000"), "1é800000");
+        assert_eq!(nbs("1é2345678"), "1é2345678");
+        assert_eq!(moeda("10.é"), "10.é");
+        assert_eq!(moeda("abc"), "abc");
+        assert_eq!(moeda("-0.05"), "R$ -0,05");
+    }
 
     #[test]
     fn formatos() {

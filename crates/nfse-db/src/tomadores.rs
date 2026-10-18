@@ -78,49 +78,89 @@ impl Banco {
     /// Cria ou atualiza a pessoa pelo documento e garante o vínculo com a empresa.
     /// `fonte` registra de onde vieram os dados (ex.: "manual", "brasilapi").
     pub async fn salvar_tomador(&self, empresa_id: i64, t: &Tomador, fonte: &str) -> Resultado<i64> {
-        if t.nome.trim().is_empty() {
-            return Err(ErroBanco::Regra("nome do tomador vazio".into()));
-        }
-        let (tipo, numero) = tipo_e_numero(&t.documento);
-        let e = t.endereco.as_ref();
         let mut tx = self.pool().begin().await?;
-        let pessoa_id: i64 = sqlx::query(
-            "INSERT INTO pessoa (tipo, documento, nome, inscricao_municipal, municipio, cep, logradouro, numero,
-                 complemento, bairro, telefone, email, fonte, atualizado_em)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT (documento) DO UPDATE SET nome = excluded.nome,
-                 inscricao_municipal = excluded.inscricao_municipal, municipio = excluded.municipio, cep = excluded.cep,
-                 logradouro = excluded.logradouro, numero = excluded.numero, complemento = excluded.complemento,
-                 bairro = excluded.bairro, telefone = excluded.telefone, email = excluded.email,
-                 fonte = excluded.fonte, atualizado_em = excluded.atualizado_em
-             RETURNING id",
-        )
-        .bind(tipo)
-        .bind(numero)
-        .bind(t.nome.trim())
-        .bind(&t.inscricao_municipal)
-        .bind(e.map(|e| &e.municipio))
-        .bind(e.map(|e| &e.cep))
-        .bind(e.map(|e| e.logradouro.trim()))
-        .bind(e.map(|e| e.numero.trim()))
-        .bind(e.and_then(|e| e.complemento.as_deref()).map(str::trim))
-        .bind(e.map(|e| e.bairro.trim()))
-        .bind(&t.telefone)
-        .bind(&t.email)
-        .bind(fonte)
-        .bind(agora())
-        .fetch_one(&mut *tx)
-        .await?
-        .get(0);
-        sqlx::query("INSERT INTO empresa_tomador (empresa_id, pessoa_id) VALUES (?, ?) ON CONFLICT DO NOTHING")
-            .bind(empresa_id)
-            .bind(pessoa_id)
-            .execute(&mut *tx)
-            .await?;
+        let pessoa_id = gravar_tomador(&mut tx, empresa_id, t, fonte).await?;
         tx.commit().await?;
         Ok(pessoa_id)
     }
 
+    /// [`Banco::salvar_tomador`] com os e-mails de envio e a retenção do vínculo, tudo ou nada.
+    pub async fn salvar_tomador_vinculado(
+        &self,
+        empresa_id: i64,
+        t: &Tomador,
+        fonte: &str,
+        emails: Option<&str>,
+        retem_federais: bool,
+        retem_iss: bool,
+    ) -> Resultado<i64> {
+        let mut tx = self.pool().begin().await?;
+        let pessoa_id = gravar_tomador(&mut tx, empresa_id, t, fonte).await?;
+        sqlx::query(
+            "UPDATE empresa_tomador SET emails = ?, observacao = NULL, retem_federais = ?, retem_iss = ?
+             WHERE empresa_id = ? AND pessoa_id = ?",
+        )
+        .bind(emails)
+        .bind(retem_federais)
+        .bind(retem_iss)
+        .bind(empresa_id)
+        .bind(pessoa_id)
+        .execute(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        Ok(pessoa_id)
+    }
+}
+
+/// Cria ou atualiza a pessoa e garante o vínculo com a empresa, dentro da transação.
+async fn gravar_tomador(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    empresa_id: i64,
+    t: &Tomador,
+    fonte: &str,
+) -> Resultado<i64> {
+    if t.nome.trim().is_empty() {
+        return Err(ErroBanco::Regra("nome do tomador vazio".into()));
+    }
+    let (tipo, numero) = tipo_e_numero(&t.documento);
+    let e = t.endereco.as_ref();
+    let pessoa_id: i64 = sqlx::query(
+        "INSERT INTO pessoa (tipo, documento, nome, inscricao_municipal, municipio, cep, logradouro, numero,
+             complemento, bairro, telefone, email, fonte, atualizado_em)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (documento) DO UPDATE SET nome = excluded.nome,
+             inscricao_municipal = excluded.inscricao_municipal, municipio = excluded.municipio, cep = excluded.cep,
+             logradouro = excluded.logradouro, numero = excluded.numero, complemento = excluded.complemento,
+             bairro = excluded.bairro, telefone = excluded.telefone, email = excluded.email,
+             fonte = excluded.fonte, atualizado_em = excluded.atualizado_em
+         RETURNING id",
+    )
+    .bind(tipo)
+    .bind(numero)
+    .bind(t.nome.trim())
+    .bind(&t.inscricao_municipal)
+    .bind(e.map(|e| &e.municipio))
+    .bind(e.map(|e| &e.cep))
+    .bind(e.map(|e| e.logradouro.trim()))
+    .bind(e.map(|e| e.numero.trim()))
+    .bind(e.and_then(|e| e.complemento.as_deref()).map(str::trim))
+    .bind(e.map(|e| e.bairro.trim()))
+    .bind(&t.telefone)
+    .bind(&t.email)
+    .bind(fonte)
+    .bind(agora())
+    .fetch_one(&mut **tx)
+    .await?
+    .get(0);
+    sqlx::query("INSERT INTO empresa_tomador (empresa_id, pessoa_id) VALUES (?, ?) ON CONFLICT DO NOTHING")
+        .bind(empresa_id)
+        .bind(pessoa_id)
+        .execute(&mut **tx)
+        .await?;
+    Ok(pessoa_id)
+}
+
+impl Banco {
     pub async fn definir_emails_tomador(
         &self,
         empresa_id: i64,
@@ -306,6 +346,30 @@ mod testes {
         assert!(c1.retem_federais && !c1.retem_iss);
         let c2 = banco.tomador(clinica2.id, id1).await.unwrap();
         assert!(!c2.retem_federais && !c2.retem_iss, "retenção é do vínculo");
+    }
+
+    #[tokio::test]
+    async fn salva_tomador_com_vinculo() {
+        let (banco, _, empresa) = banco_com_empresa().await;
+        let id = banco
+            .salvar_tomador_vinculado(empresa.id, &convenio(), "manual", Some("a@x.com"), true, false)
+            .await
+            .unwrap();
+        let t = banco.tomador(empresa.id, id).await.unwrap();
+        assert_eq!(t.emails.as_deref(), Some("a@x.com"));
+        assert!(t.retem_federais && !t.retem_iss);
+
+        // Sem nome nada é gravado, nem a pessoa nem o vínculo.
+        let mut sem_nome = convenio();
+        sem_nome.nome = " ".into();
+        sem_nome.documento = nfse_core::modelo::Documento::Cpf(nfse_core::Cpf::parse("52998224725").unwrap());
+        assert!(
+            banco
+                .salvar_tomador_vinculado(empresa.id, &sem_nome, "manual", None, false, false)
+                .await
+                .is_err()
+        );
+        assert_eq!(banco.pessoa_por_documento("52998224725").await.unwrap(), None);
     }
 
     #[tokio::test]

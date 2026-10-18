@@ -85,25 +85,16 @@ pub async fn salvar_tomador(
     retem_iss: Option<bool>,
 ) -> R<i64> {
     exigir_cofre(&estado).await?;
-    let id = estado
-        .banco()?
-        .salvar_tomador(empresa_id, &tomador, "manual")
-        .await
-        .map_err(texto)?;
     estado
         .banco()?
-        .definir_emails_tomador(empresa_id, id, vazio_para_none(emails).as_deref(), None)
-        .await
-        .map_err(texto)?;
-    estado
-        .banco()?
-        .definir_retencao_tomador(
+        .salvar_tomador_vinculado(
             empresa_id,
-            id,
+            &tomador,
+            "manual",
+            vazio_para_none(emails).as_deref(),
             retem_federais.unwrap_or(false),
             retem_iss.unwrap_or(false),
         )
         .await
-        .map_err(texto)?;
-    Ok(id)
+        .map_err(texto)
 }

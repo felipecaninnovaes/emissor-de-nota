@@ -142,6 +142,23 @@ impl Banco {
     }
 }
 
+/// Registra na auditoria dentro da transação, para a ação e o registro irem juntos.
+pub(crate) async fn auditar_em(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    acao: &str,
+    empresa_id: i64,
+    detalhe: &str,
+) -> Resultado<()> {
+    sqlx::query("INSERT INTO auditoria (quando, acao, empresa_id, detalhe) VALUES (?, ?, ?, ?)")
+        .bind(agora())
+        .bind(acao)
+        .bind(empresa_id)
+        .bind(detalhe)
+        .execute(&mut **tx)
+        .await?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod testes {
     use super::*;

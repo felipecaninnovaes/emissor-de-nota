@@ -268,6 +268,8 @@ pub fn texto_variaveis_desconhecidas(nomes: &[String]) -> String {
 /// Valor no formato brasileiro, sem símbolo: `1.250,00`.
 fn valor_br(v: Valor) -> String {
     let c = v.centesimos();
+    let sinal = if c < 0 { "-" } else { "" };
+    let c = c.unsigned_abs();
     let inteiro = (c / 100).to_string();
     let mut milhares = String::new();
     for (i, d) in inteiro.chars().enumerate() {
@@ -276,7 +278,7 @@ fn valor_br(v: Valor) -> String {
         }
         milhares.push(d);
     }
-    format!("{milhares},{:02}", c % 100)
+    format!("{sinal}{milhares},{:02}", c % 100)
 }
 
 /// Variáveis `{nome}` que sobraram no texto (digitadas errado ou inexistentes).

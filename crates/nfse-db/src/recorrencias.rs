@@ -130,11 +130,13 @@ impl Banco {
         let consulta = match r.id {
             None => sqlx::query(
                 "INSERT INTO recorrencia (empresa_id, pessoa_id, servico_id, valor, descricao, informacoes_complementares,
-                     obra_json, criado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+                     obra_json, criado_em) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) RETURNING id",
             ),
+            // Só atualiza a recorrência da própria empresa: o id que vem da tela não muda o dono.
             Some(_) => sqlx::query(
-                "UPDATE recorrencia SET empresa_id = ?, pessoa_id = ?, servico_id = ?, valor = ?, descricao = ?,
-                     informacoes_complementares = ?, obra_json = ? WHERE id = ? AND ativa = 1 RETURNING id",
+                "UPDATE recorrencia SET pessoa_id = ?2, servico_id = ?3, valor = ?4, descricao = ?5,
+                     informacoes_complementares = ?6, obra_json = ?7 WHERE id = ?8 AND empresa_id = ?1 AND ativa = 1
+                 RETURNING id",
             ),
         };
         let consulta = consulta

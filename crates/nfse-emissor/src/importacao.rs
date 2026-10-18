@@ -199,7 +199,12 @@ pub async fn resolver(
             pessoa_id = Some(id);
             tomador = banco.nome_pessoa(id).await?;
             if let Some(e) = empresa {
-                vincular_tomador = banco.tomador(e.id, id).await.is_err();
+                // Só "não vinculado" vira vínculo novo; outro erro do banco interrompe a leitura.
+                vincular_tomador = match banco.tomador(e.id, id).await {
+                    Ok(_) => false,
+                    Err(nfse_db::ErroBanco::NaoEncontrado(_)) => true,
+                    Err(outro) => return Err(outro.into()),
+                };
             }
         } else {
             erros.push(format!("tomador {texto_tomador} não cadastrado"));

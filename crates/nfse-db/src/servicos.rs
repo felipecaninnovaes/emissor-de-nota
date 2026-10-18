@@ -132,38 +132,44 @@ fn chave_nome(nome: &str) -> String {
     nome.trim().to_lowercase()
 }
 
+/// INSERT ou UPDATE do serviço já validado, no pool ou numa transação.
+async fn gravar_servico<'e, E: sqlx::SqliteExecutor<'e>>(executor: E, s: &Servico) -> Resultado<i64> {
+    let consulta = match s.id {
+        None => sqlx::query(
+            "INSERT INTO servico (empresa_id, nome, descricao, codigo_trib_nac, codigo_trib_mun, nbs,
+                 tributacao_json, valor_sugerido) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) RETURNING id",
+        ),
+        // Só atualiza o serviço da própria empresa: o id que vem da tela não muda o dono.
+        Some(_) => sqlx::query(
+            "UPDATE servico SET nome = ?2, descricao = ?3, codigo_trib_nac = ?4, codigo_trib_mun = ?5,
+                 nbs = ?6, tributacao_json = ?7, valor_sugerido = ?8 WHERE id = ?9 AND empresa_id = ?1 RETURNING id",
+        ),
+    };
+    let mut consulta = consulta
+        .bind(s.empresa_id)
+        .bind(s.nome.trim())
+        .bind(&s.descricao)
+        .bind(&s.codigo_trib_nac)
+        .bind(&s.codigo_trib_mun)
+        .bind(&s.nbs)
+        .bind(json(&s.tributacao))
+        .bind(s.valor_sugerido.map(|v| v.centesimos()));
+    if let Some(id) = s.id {
+        consulta = consulta.bind(id);
+    }
+    let id = consulta
+        .fetch_optional(executor)
+        .await?
+        .ok_or(ErroBanco::NaoEncontrado("serviço"))?
+        .get(0);
+    Ok(id)
+}
+
 impl Banco {
     /// Insere (sem `id`) ou atualiza o serviço. Devolve o id.
     pub async fn salvar_servico(&self, s: &Servico) -> Resultado<i64> {
         s.validar()?;
-        let consulta = match s.id {
-            None => sqlx::query(
-                "INSERT INTO servico (empresa_id, nome, descricao, codigo_trib_nac, codigo_trib_mun, nbs,
-                     tributacao_json, valor_sugerido) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
-            ),
-            Some(_) => sqlx::query(
-                "UPDATE servico SET empresa_id = ?, nome = ?, descricao = ?, codigo_trib_nac = ?, codigo_trib_mun = ?,
-                     nbs = ?, tributacao_json = ?, valor_sugerido = ? WHERE id = ? RETURNING id",
-            ),
-        };
-        let mut consulta = consulta
-            .bind(s.empresa_id)
-            .bind(s.nome.trim())
-            .bind(&s.descricao)
-            .bind(&s.codigo_trib_nac)
-            .bind(&s.codigo_trib_mun)
-            .bind(&s.nbs)
-            .bind(json(&s.tributacao))
-            .bind(s.valor_sugerido.map(|v| v.centesimos()));
-        if let Some(id) = s.id {
-            consulta = consulta.bind(id);
-        }
-        let id = consulta
-            .fetch_optional(self.pool())
-            .await?
-            .ok_or(ErroBanco::NaoEncontrado("serviço"))?
-            .get(0);
-        Ok(id)
+        gravar_servico(self.pool(), s).await
     }
 
     /// Grava os serviços na empresa (o `id` e o `empresa_id` de cada um são ignorados). Um serviço
@@ -185,6 +191,7 @@ impl Banco {
             .filter_map(|s| Some((chave_nome(&s.nome), s.id?)))
             .collect();
         let mut resumo = ResumoImportacaoServicos::default();
+        let mut tx = self.pool().begin().await?;
         for s in servicos {
             let chave = chave_nome(&s.nome);
             let id = existentes.get(&chave).copied();
@@ -193,7 +200,7 @@ impl Banco {
                 empresa_id,
                 ..s.clone()
             };
-            let gravado = self.salvar_servico(&novo).await?;
+            let gravado = gravar_servico(&mut *tx, &novo).await?;
             match id {
                 Some(_) => resumo.atualizados += 1,
                 None => {
@@ -202,6 +209,7 @@ impl Banco {
                 }
             }
         }
+        tx.commit().await?;
         Ok(resumo)
     }
 
@@ -269,6 +277,25 @@ mod testes {
             },
             valor_sugerido: Some(Valor::parse("850").unwrap()),
         }
+    }
+
+    #[tokio::test]
+    async fn nao_atualiza_servico_de_outra_empresa() {
+        let (banco, _, empresa) = banco_com_empresa().await;
+        let mut outra = crate::empresas::testes::nova_empresa();
+        outra.cnpj = nfse_core::Cnpj::parse("11222333000262").unwrap();
+        let outra = banco.cadastrar_empresa(&outra).await.unwrap();
+        let id = banco.salvar_servico(&honorarios(empresa.id)).await.unwrap();
+
+        let mut alheio = honorarios(outra.id);
+        alheio.id = Some(id);
+        alheio.nome = "Trocado".into();
+        assert!(matches!(
+            banco.salvar_servico(&alheio).await,
+            Err(ErroBanco::NaoEncontrado(_))
+        ));
+        assert_eq!(banco.servico(id).await.unwrap().empresa_id, empresa.id);
+        assert_eq!(banco.servico(id).await.unwrap().nome, "Honorários mensais");
     }
 
     #[tokio::test]

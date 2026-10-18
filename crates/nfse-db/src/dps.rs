@@ -18,8 +18,8 @@ use sqlx::sqlite::SqliteRow;
 use nfse_core::modelo::{Ambiente, VERSAO_LEIAUTE};
 use nfse_core::{Dps, DpsId, Valor};
 
-use crate::empresas::{ambiente_de, ambiente_texto};
-use crate::{Banco, ErroBanco, Resultado, agora, de_json, json};
+use crate::empresas::{ambiente_de, ambiente_texto, empresa_em};
+use crate::{Banco, ErroBanco, Resultado, agora, auditar_em, de_json, json};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SituacaoDps {
@@ -140,9 +140,10 @@ pub fn sha256_hex(dados: &[u8]) -> String {
 impl Banco {
     /// Reserva o próximo número da série da empresa no ambiente configurado e cria a DPS.
     pub async fn reservar_dps(&self, empresa_id: i64) -> Resultado<RegistroDps> {
-        let empresa = self.empresa(empresa_id).await?;
-        let ambiente = ambiente_texto(empresa.ambiente);
+        // A empresa é lida na transação da reserva: uma troca de ambiente ou série não entra no meio.
         let mut tx = self.pool().begin().await?;
+        let empresa = empresa_em(&mut tx, empresa_id).await?;
+        let ambiente = ambiente_texto(empresa.ambiente);
         sqlx::query("INSERT INTO numeracao (empresa_id, ambiente, serie, proximo_numero) VALUES (?, ?, ?, 1) ON CONFLICT DO NOTHING")
             .bind(empresa_id)
             .bind(ambiente)
@@ -205,21 +206,23 @@ impl Banco {
         proximo: u64,
     ) -> Resultado<()> {
         let ambiente = ambiente_texto(ambiente);
+        if proximo == 0 || proximo > 999_999_999_999_999 {
+            return Err(ErroBanco::Regra("número da DPS fora da faixa".into()));
+        }
+        // Conferência e ajuste na mesma transação: uma reserva não entra entre os dois.
+        let mut tx = self.pool().begin().await?;
         let maior: Option<i64> =
             sqlx::query("SELECT MAX(numero) FROM dps WHERE empresa_id = ? AND ambiente = ? AND serie = ?")
                 .bind(empresa_id)
                 .bind(ambiente)
                 .bind(serie)
-                .fetch_one(self.pool())
+                .fetch_one(&mut *tx)
                 .await?
                 .get(0);
         if let Some(maior) = maior.filter(|m| proximo as i64 <= *m) {
             return Err(ErroBanco::Regra(format!(
                 "o número {maior} da série {serie} já foi usado; o próximo deve ser maior"
             )));
-        }
-        if proximo == 0 || proximo > 999_999_999_999_999 {
-            return Err(ErroBanco::Regra("número da DPS fora da faixa".into()));
         }
         sqlx::query(
             "INSERT INTO numeracao (empresa_id, ambiente, serie, proximo_numero) VALUES (?, ?, ?, ?)
@@ -229,14 +232,17 @@ impl Banco {
         .bind(ambiente)
         .bind(serie)
         .bind(proximo as i64)
-        .execute(self.pool())
+        .execute(&mut *tx)
         .await?;
-        self.auditar(
+        auditar_em(
+            &mut tx,
             "numeracao_ajustada",
-            Some(empresa_id),
-            Some(&format!("série {serie}: próximo {proximo}")),
+            empresa_id,
+            &format!("série {serie}: próximo {proximo}"),
         )
-        .await
+        .await?;
+        tx.commit().await?;
+        Ok(())
     }
 
     pub async fn dps(&self, id: i64) -> Resultado<RegistroDps> {
@@ -530,22 +536,6 @@ impl Banco {
         .await?
         .rows_affected())
     }
-}
-
-async fn auditar_em(
-    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
-    acao: &str,
-    empresa_id: i64,
-    detalhe: &str,
-) -> Resultado<()> {
-    sqlx::query("INSERT INTO auditoria (quando, acao, empresa_id, detalhe) VALUES (?, ?, ?, ?)")
-        .bind(agora())
-        .bind(acao)
-        .bind(empresa_id)
-        .bind(detalhe)
-        .execute(&mut **tx)
-        .await?;
-    Ok(())
 }
 
 #[cfg(test)]

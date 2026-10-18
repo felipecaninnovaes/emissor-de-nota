@@ -198,6 +198,19 @@ function moeda(valor) {
   return inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "," + frac.padEnd(2, "0");
 }
 
+/**
+ * Soma valores do backend ("1250.00") em centavos, sem ponto flutuante; devolve no mesmo formato.
+ * `campo(item)` lê o valor de cada item (nulo conta zero).
+ */
+function somarValores(itens, campo) {
+  let centavos = 0n;
+  for (const item of itens) {
+    const [inteiro, frac = ""] = String(campo(item) ?? "0").split(".");
+    centavos += BigInt(inteiro || "0") * 100n + BigInt((frac + "00").slice(0, 2));
+  }
+  return `${centavos / 100n}.${String(centavos % 100n).padStart(2, "0")}`;
+}
+
 /** "1.500,00" → "1500,00" (o backend aceita vírgula decimal). Vazio → null. */
 function valorDigitado(texto) {
   const t = String(texto ?? "").trim().replace(/\s|R\$/g, "");
@@ -1003,6 +1016,7 @@ async function vincularTomador(t) {
  */
 function ligarCombobox(input, caixa, { rotulo, vazio, contagem, buscar, opcao, aoEscolher }) {
   let pendente = 0;
+  let sequencia = 0;
   let resultados = [];
   let foco = -1;
   caixa.id ||= `${input.id}-lista`;
@@ -1039,6 +1053,8 @@ function ligarCombobox(input, caixa, { rotulo, vazio, contagem, buscar, opcao, a
 
   input.addEventListener("input", () => {
     clearTimeout(pendente);
+    // resposta de uma busca antiga que chega depois da nova é descartada
+    const minha = ++sequencia;
     const termo = input.value.trim();
     if (!termo) {
       caixa.hidden = true;
@@ -1049,8 +1065,10 @@ function ligarCombobox(input, caixa, { rotulo, vazio, contagem, buscar, opcao, a
       try {
         achados = await buscar(termo);
       } catch (e) {
-        return toast(String(e), true);
+        if (minha === sequencia) toast(String(e), true);
+        return;
       }
+      if (minha !== sequencia) return;
       if (!achados) {
         caixa.hidden = true;
         return;
@@ -1146,9 +1164,9 @@ $("#novo-tomador-emitir").addEventListener("click", (ev) => {
 function montarPedido() {
   if (!estado.empresa) throw "Escolha a empresa.";
   const servicoId = Number($("#servico").value);
-  if (!servicoId) throw "Escolha o serviço (cadastre um em \"Serviços\").";
+  if (!servicoId) throw new ErroCampo("servico", 'Escolha o serviço (cadastre um em "Serviços").');
   const valor = valorDigitado($("#valor").value);
-  if (!valor) throw "Informe o valor.";
+  if (!valor) throw new ErroCampo("valor", "Informe o valor.");
   return {
     empresa_id: estado.empresa.id,
     tomador: estado.tomador?.pessoa_id ?? null,
@@ -1171,7 +1189,13 @@ let emissaoEmCurso = false;
 
 function descartarRevisao() {
   // Durante o envio a revisão fica: o pedido já foi capturado e a resposta aparece nela.
-  if ($("#revisao").hidden || emissaoEmCurso) return;
+  if (emissaoEmCurso) return;
+  // revisão pedida e ainda sem resposta: a resposta, com os dados antigos, não abre mais
+  if ($("#revisar").disabled) {
+    revisaoAtual++;
+    $("#revisar").disabled = false;
+  }
+  if ($("#revisao").hidden) return;
   $("#revisao").hidden = true;
   estado.pedido = null;
   anunciar("Os dados mudaram: revise a nota de novo antes de emitir.");
@@ -1186,6 +1210,9 @@ $("#revisar").addEventListener("click", () => {
   return revisar();
 });
 
+/** Cada revisão ganha um número; a resposta de uma revisão mais antiga que a última é ignorada. */
+let revisaoAtual = 0;
+
 async function revisar() {
   $("#resultado").hidden = true;
   const formulario = $('section[data-tela="emitir"] .cartao');
@@ -1196,14 +1223,22 @@ async function revisar() {
   try {
     pedido = montarPedido();
   } catch (e) {
-    return toast(String(e), true);
+    if (e instanceof ErroCampo) return mostrarErros([{ el: $(`#${e.campo}`), msg: e.message }]);
+    return toast(String(e?.message ?? e), true);
   }
+  const minha = ++revisaoAtual;
+  const botao = $("#revisar");
+  botao.disabled = true;
   let previa;
   try {
     previa = await chamar("previa_dps", { pedido });
   } catch (e) {
-    return toast(String(e), true);
+    if (minha === revisaoAtual) toast(String(e), true);
+    return;
+  } finally {
+    if (minha === revisaoAtual) botao.disabled = false;
   }
+  if (minha !== revisaoAtual) return;
   estado.pedido = pedido;
   const aviso = $("#revisao-aviso");
   const partes = [];
@@ -1260,6 +1295,7 @@ $("#confirmar-emissao").addEventListener("click", async () => {
   // O pedido revisado; mudar o formulário durante o envio não troca o que já foi enviado.
   const pedido = estado.pedido;
   if (!pedido) return;
+  if (atualizando) return toast("A atualização do sistema está em andamento; emita depois que ele abrir de novo.", true);
   emissaoEmCurso = true;
   const botao = $("#confirmar-emissao");
   botao.disabled = true;
@@ -1405,10 +1441,10 @@ async function carregarNotas() {
     })
     .join("");
   const autorizadas = notasCarregadas.filter((n) => n.situacao === "autorizada");
-  const total = autorizadas.reduce((soma, n) => soma + Number(n.valor ?? 0), 0);
+  const total = somarValores(autorizadas, (n) => n.valor);
   const outras = notasCarregadas.length - autorizadas.length;
   $("#rodape-notas").innerHTML = `<tr><td colspan="8">${notasCarregadas.length} nota(s) · ${autorizadas.length}
-    autorizada(s), total <span class="dado">R$ ${moeda(total.toFixed(2))}</span>${
+    autorizada(s), total <span class="dado">R$ ${moeda(total)}</span>${
       outras ? ` · ${outras} em outra situação` : ""
     }</td></tr>`;
 }
@@ -1583,6 +1619,8 @@ async function enviarEmailNota(n) {
   });
 }
 
+let cancelamentoEmCurso = false;
+
 function cancelarNota(n) {
   const dlg = $("#dlg-cancelar");
   $("#cancelar-nota").textContent = `NFS-e ${n.numero_nfse ?? ""} — ${n.tomador ?? "sem tomador"} — R$ ${moeda(n.valor)}`;
@@ -1590,7 +1628,13 @@ function cancelarNota(n) {
   abrirDialogo(dlg, $("#erro-cancelar"), async (d) => {
     const justificativa = d.justificativa.trim();
     if (justificativa.length < 15) throw new ErroCampo("justificativa", "Escreva pelo menos 15 caracteres.");
-    await chamar("cancelar", { nfseId: n.nfse_id, motivo: d.motivo, justificativa });
+    if (atualizando) throw "A atualização do sistema está em andamento; cancele depois que ele abrir de novo.";
+    cancelamentoEmCurso = true;
+    try {
+      await chamar("cancelar", { nfseId: n.nfse_id, motivo: d.motivo, justificativa });
+    } finally {
+      cancelamentoEmCurso = false;
+    }
     toast(`NFS-e ${n.numero_nfse ?? ""} cancelada.`);
     return carregarNotas;
   });
@@ -1808,10 +1852,10 @@ function desenharLote() {
     })
     .join("");
   const pendentes = loteCarregado.filter(podeEmitirNoLote);
-  const total = pendentes.reduce((soma, r) => soma + Number(r.valor_efetivo ?? 0), 0);
+  const total = somarValores(pendentes, (r) => r.valor_efetivo);
   const comErro = loteCarregado.filter((r) => r.erros.length).length;
   $("#rodape-lote").innerHTML = `<tr><td colspan="7">${loteCarregado.length} recorrência(s) · ${pendentes.length}
-    pendente(s), total <span class="dado">R$ ${moeda(total.toFixed(2))}</span>${
+    pendente(s), total <span class="dado">R$ ${moeda(total)}</span>${
       comErro ? ` · ${comErro} com erro` : ""
     }</td></tr>`;
   atualizarBotaoLote();
@@ -1888,7 +1932,9 @@ async function emitirEmSequencia({ itens, andamento, celulaDe, descrever, emitir
       try {
         resultado = { ok: true, res: await emitirUm(item) };
       } catch (e) {
-        if (tentativa === 1 && /limite|429|too many/i.test(String(e))) {
+        // só o 429 da Sefin (texto de `ErroSefin::LimiteRequisicoes`): uma rejeição que fale em
+        // "limite" não é reenviada
+        if (tentativa === 1 && String(e).includes("(HTTP 429)")) {
           celula.innerHTML = `<span class="selo enviando">Aguardando a Sefin...</span>`;
           await esperar(15000);
           continue;
@@ -1934,6 +1980,7 @@ async function emitirEmSequencia({ itens, andamento, celulaDe, descrever, emitir
  * vira o resumo, e os controles e o "em andamento" sempre voltam (senão o botão ficava preso).
  */
 async function emitirTravando(controles, marcarAndamento, opcoes) {
+  if (atualizando) return `<div class="aviso erro">${esc("A atualização do sistema está em andamento; emita depois que ele abrir de novo.")}</div>`;
   marcarAndamento(true);
   for (const c of controles) $(c).disabled = true;
   try {
@@ -1949,9 +1996,8 @@ async function emitirTravando(controles, marcarAndamento, opcoes) {
 /** Confirmação antes de emitir em lote: quantidade, total e quantas em Produção. */
 function confirmarEmissao(quantidade, total, producao, referencia) {
   return confirmar(
-    `Emitir ${quantidade} nota(s)${referencia ? ` com referência ${referencia}` : ""}, total R$ ${moeda(
-      total.toFixed(2),
-    )}?` + (producao ? `\n\n${producao} em PRODUÇÃO (valor fiscal).` : ""),
+    `Emitir ${quantidade} nota(s)${referencia ? ` com referência ${referencia}` : ""}, total R$ ${moeda(total)}?` +
+      (producao ? `\n\n${producao} em PRODUÇÃO (valor fiscal).` : ""),
   );
 }
 
@@ -1961,7 +2007,7 @@ $("#lote-emitir").addEventListener("click", async () => {
   if (!itens.length || !mes) return;
   const [ano, m] = mes.split("-");
   const producao = itens.filter((r) => ambienteDe(r.empresa_id) === "producao").length;
-  const total = itens.reduce((soma, r) => soma + Number(r.valor_efetivo ?? 0), 0);
+  const total = somarValores(itens, (r) => r.valor_efetivo);
   if (!(await confirmarEmissao(itens.length, total, producao, `${m}/${ano}`))) return;
 
   for (const c of $$("#lista-lote input[type=checkbox]")) c.disabled = true;
@@ -2094,11 +2140,11 @@ function desenharPlanilha() {
     })
     .join("");
   const prontas = planilhaLida.filter(podeEmitirDaPlanilha);
-  const total = prontas.reduce((soma, it) => soma + Number(it.valor ?? 0), 0);
+  const total = somarValores(prontas, (it) => it.valor);
   const jaEmitidas = planilhaLida.filter((it) => it.anterior && !it.anterior.libera).length;
   const comErro = planilhaLida.length - prontas.length - jaEmitidas;
   $("#planilha-resumo").textContent =
-    `${planilhaLida.length} linha(s): ${prontas.length} pronta(s) para emitir (R$ ${moeda(total.toFixed(2))})` +
+    `${planilhaLida.length} linha(s): ${prontas.length} pronta(s) para emitir (R$ ${moeda(total)})` +
     (jaEmitidas ? `, ${jaEmitidas} já emitida(s)` : "") +
     (comErro ? `, ${comErro} com erro` : "") +
     ".";
@@ -2131,7 +2177,7 @@ $("#planilha-emitir").addEventListener("click", async () => {
   const itens = marcadosPlanilha();
   if (!itens.length) return;
   const producao = itens.filter((it) => ambienteDe(it.empresa_id) === "producao").length;
-  const total = itens.reduce((soma, it) => soma + Number(it.valor ?? 0), 0);
+  const total = somarValores(itens, (it) => it.valor);
   if (!(await confirmarEmissao(itens.length, total, producao, null))) return;
 
   for (const c of $$("#lista-planilha input[type=checkbox]")) c.disabled = true;
@@ -3381,12 +3427,22 @@ async function procurarAtualizacao(silencioso) {
   }
 }
 
+/** Algo foi (ou está indo) para a Sefin: fechar o sistema agora deixaria a nota sem registro da resposta. */
+function envioEmCurso() {
+  return loteEmAndamento || planilhaEmAndamento || emissaoEmCurso || cancelamentoEmCurso;
+}
+
+/** Durante o download e a instalação nenhuma emissão começa (o sistema fecha no fim). */
+let atualizando = false;
+
 async function instalarAtualizacao() {
-  if (!atualizacao) return;
-  if (loteEmAndamento || planilhaEmAndamento) {
-    return toast("Espere terminar a emissão em andamento antes de atualizar.", true);
-  }
+  if (!atualizacao || atualizando) return;
+  const espere = () => toast("Espere terminar a emissão em andamento antes de atualizar.", true);
+  if (envioEmCurso()) return espere();
   if (!(await confirmar(`Atualizar para a versão ${atualizacao.versao}? O sistema fecha, instala e abre de novo.`))) return;
+  // a emissão pode ter começado enquanto a confirmação estava aberta
+  if (envioEmCurso()) return espere();
+  atualizando = true;
   const botoes = $$("#instalar-atualizacao, [data-instalar-atualizacao]");
   for (const b of botoes) b.disabled = true;
   mostrarSituacaoAtualizacao("Baixando a atualização...");
@@ -3405,6 +3461,7 @@ async function instalarAtualizacao() {
     mostrarSituacaoAtualizacao(String(e));
     toast(String(e), true);
     for (const b of botoes) b.disabled = false;
+    atualizando = false;
   } finally {
     parar();
   }

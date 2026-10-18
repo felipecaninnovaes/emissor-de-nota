@@ -8,7 +8,7 @@ use nfse_cert::{CertificadoA1, InfoCertificado};
 use nfse_core::Cnpj;
 use nfse_core::modelo::{Ambiente, RegimeTributario};
 
-use crate::{Banco, Cofre, ErroBanco, Resultado, agora, de_json, json};
+use crate::{Banco, Cofre, ErroBanco, Resultado, agora, auditar_em, de_json, json};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NovaEmpresa {
@@ -143,6 +143,27 @@ pub struct VencimentoCertificado {
     pub valido_ate: DateTime<Utc>,
 }
 
+/// DPS da empresa enviadas e ainda sem resposta da Sefin.
+async fn envios_pendentes(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>, empresa_id: i64) -> Resultado<i64> {
+    Ok(
+        sqlx::query("SELECT COUNT(*) FROM dps WHERE empresa_id = ? AND situacao IN ('enviando', 'incerta')")
+            .bind(empresa_id)
+            .fetch_one(&mut **tx)
+            .await?
+            .get(0),
+    )
+}
+
+/// A empresa lida dentro de uma transação (o pool tem uma conexão só: ler por fora travaria).
+pub(crate) async fn empresa_em(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>, id: i64) -> Resultado<Empresa> {
+    let linha = sqlx::query(&format!("{SELECT_EMPRESA} WHERE e.id = ?"))
+        .bind(id)
+        .fetch_optional(&mut **tx)
+        .await?
+        .ok_or(ErroBanco::NaoEncontrado("empresa"))?;
+    empresa_de(&linha)
+}
+
 impl Banco {
     pub async fn cadastrar_empresa(&self, nova: &NovaEmpresa) -> Resultado<Empresa> {
         validar(nova)?;
@@ -184,9 +205,8 @@ impl Banco {
             .bind(id)
             .execute(&mut *tx)
             .await?;
+            auditar_em(&mut tx, "empresa_reativada", id, nova.cnpj.as_str()).await?;
             tx.commit().await?;
-            self.auditar("empresa_reativada", Some(id), Some(nova.cnpj.as_str()))
-                .await?;
             return self.empresa(id).await;
         }
 
@@ -210,9 +230,8 @@ impl Banco {
             outro => outro.into(),
         })?
         .get(0);
+        auditar_em(&mut tx, "empresa_cadastrada", id, nova.cnpj.as_str()).await?;
         tx.commit().await?;
-        self.auditar("empresa_cadastrada", Some(id), Some(nova.cnpj.as_str()))
-            .await?;
         self.empresa(id).await
     }
 
@@ -245,20 +264,13 @@ impl Banco {
             ));
         }
         let muda_emissao = atual.ambiente != dados.ambiente || atual.serie != dados.serie;
-        if muda_emissao {
-            let pendentes: i64 =
-                sqlx::query("SELECT COUNT(*) FROM dps WHERE empresa_id = ? AND situacao IN ('enviando', 'incerta')")
-                    .bind(id)
-                    .fetch_one(self.pool())
-                    .await?
-                    .get(0);
-            if pendentes > 0 {
-                return Err(ErroBanco::Regra(
-                    "há envio sem resposta da Sefin; verifique-o antes de trocar ambiente ou série".into(),
-                ));
-            }
-        }
+        // A conferência vai na mesma transação da troca: uma emissão não começa entre as duas.
         let mut tx = self.pool().begin().await?;
+        if muda_emissao && envios_pendentes(&mut tx, id).await? > 0 {
+            return Err(ErroBanco::Regra(
+                "há envio sem resposta da Sefin; verifique-o antes de trocar ambiente ou série".into(),
+            ));
+        }
         sqlx::query(
             "UPDATE pessoa SET nome = ?, telefone = ?, email = ?, atualizado_em = ?
              WHERE id = (SELECT pessoa_id FROM empresa WHERE id = ?)",
@@ -282,7 +294,6 @@ impl Banco {
         .bind(id)
         .execute(&mut *tx)
         .await?;
-        tx.commit().await?;
         let detalhe = if muda_emissao {
             format!(
                 "{} série {} → {} série {}",
@@ -294,7 +305,8 @@ impl Banco {
         } else {
             "dados cadastrais".into()
         };
-        self.auditar("empresa_atualizada", Some(id), Some(&detalhe)).await?;
+        auditar_em(&mut tx, "empresa_atualizada", id, &detalhe).await?;
+        tx.commit().await?;
         self.empresa(id).await
     }
 
@@ -303,29 +315,27 @@ impl Banco {
     /// notas são documento fiscal e continuam no banco. Recusa se houver envio sem resposta.
     pub async fn excluir_empresa(&self, id: i64) -> Resultado<Exclusao> {
         let empresa = self.empresa(id).await?;
-        let contar = |sql: &'static str| async move {
-            sqlx::query(sql)
-                .bind(id)
-                .fetch_one(self.pool())
-                .await
-                .map(|r| r.get::<i64, _>(0))
-        };
-        if contar("SELECT COUNT(*) FROM dps WHERE empresa_id = ? AND situacao IN ('enviando', 'incerta')").await? > 0 {
+        let mut tx = self.pool().begin().await?;
+        if envios_pendentes(&mut tx, id).await? > 0 {
             return Err(ErroBanco::Regra(
                 "há envio sem resposta da Sefin para esta empresa; verifique-o antes de excluir".into(),
             ));
         }
-        let notas = contar("SELECT COUNT(*) FROM nfse n JOIN dps d ON d.id = n.dps_id WHERE d.empresa_id = ?").await?;
+        let notas: i64 =
+            sqlx::query("SELECT COUNT(*) FROM nfse n JOIN dps d ON d.id = n.dps_id WHERE d.empresa_id = ?")
+                .bind(id)
+                .fetch_one(&mut *tx)
+                .await?
+                .get(0);
         if notas > 0 {
             sqlx::query("UPDATE empresa SET ativa = 0 WHERE id = ?")
                 .bind(id)
-                .execute(self.pool())
+                .execute(&mut *tx)
                 .await?;
-            self.auditar("empresa_arquivada", Some(id), Some(empresa.cnpj.as_str()))
-                .await?;
+            auditar_em(&mut tx, "empresa_arquivada", id, empresa.cnpj.as_str()).await?;
+            tx.commit().await?;
             return Ok(Exclusao::Arquivada { notas });
         }
-        let mut tx = self.pool().begin().await?;
         sqlx::query("DELETE FROM emissao_importada WHERE dps_id IN (SELECT id FROM dps WHERE empresa_id = ?)")
             .bind(id)
             .execute(&mut *tx)
@@ -353,9 +363,8 @@ impl Banco {
             .bind(id)
             .execute(&mut *tx)
             .await?;
+        auditar_em(&mut tx, "empresa_excluida", id, empresa.cnpj.as_str()).await?;
         tx.commit().await?;
-        self.auditar("empresa_excluida", Some(id), Some(empresa.cnpj.as_str()))
-            .await?;
         Ok(Exclusao::Excluida)
     }
 
@@ -432,9 +441,8 @@ impl Banco {
         .bind(agora())
         .execute(&mut *tx)
         .await?;
+        auditar_em(&mut tx, "certificado_importado", empresa_id, &info.thumbprint).await?;
         tx.commit().await?;
-        self.auditar("certificado_importado", Some(empresa_id), Some(&info.thumbprint))
-            .await?;
         Ok(info)
     }
 

@@ -249,6 +249,7 @@ fn variaveis_do_mes_e_do_valor() {
     assert_eq!(valor_br(Valor::de_centesimos(125_000)), "1.250,00");
     assert_eq!(valor_br(Valor::de_centesimos(5)), "0,05");
     assert_eq!(valor_br(Valor::de_centesimos(123_456_789)), "1.234.567,89");
+    assert_eq!(valor_br(Valor::de_centesimos(-5)), "-0,05");
 }
 
 #[test]
