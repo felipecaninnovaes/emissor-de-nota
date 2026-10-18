@@ -6,6 +6,7 @@
 mod cep;
 mod cnpj;
 mod comandos;
+mod pasta_dados;
 
 use std::path::PathBuf;
 
@@ -80,8 +81,10 @@ fn main() {
         )
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
+            // Antes de qualquer leitura da pasta: no macOS ela muda de nome e é migrada aqui. A
+            // posição da janela (`window-state`) mora na mesma pasta e vai junto.
+            let dados = pasta_dados::resolver(app.path().app_data_dir()?)?;
             dimensionar_primeira_abertura(app)?;
-            let dados: PathBuf = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dados)?;
             app.manage(Estado {
                 dados,

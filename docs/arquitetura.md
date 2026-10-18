@@ -94,5 +94,5 @@ Regras: guardar sempre o XML autorizado original, com hash conferido na leitura;
 
 ## Arquivos em disco
 
-- Banco: `app_data_dir()/emissor.db` (identificador `br.emissor-nfse.app`).
+- Banco: `app_data_dir()/emissor.db` (identificador `br.emissor-nfse.app`; no macOS a pasta é `br.emissor-nfse`, [ADR 0014](decisoes/0014-pasta-de-dados-no-macos.md)).
 - Notas: `<pasta de saída>/<EMPRESA - CNPJ>/<AAAA-MM>/NFSe-<número>-<chave>.xml` (e o PDF), em `crates/nfse-emissor/src/arquivo.rs`. O XML de evento ganha o sufixo do evento.

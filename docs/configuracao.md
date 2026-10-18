@@ -28,7 +28,7 @@ Tabela `configuracao` (chave → valor), lida e gravada por `Banco::configuracao
 
 | O quê | Onde |
 | --- | --- |
-| Banco | `app_data_dir()/emissor.db`, cifrado com SQLCipher, com identificador `br.emissor-nfse.app`. No Windows, `%APPDATA%\br.emissor-nfse.app\`; no Linux, `~/.local/share/br.emissor-nfse.app/` |
+| Banco | `app_data_dir()/emissor.db`, cifrado com SQLCipher, com identificador `br.emissor-nfse.app`. No Windows, `%APPDATA%\br.emissor-nfse.app\`; no Linux, `~/.local/share/br.emissor-nfse.app/`; no macOS, `~/Library/Application Support/br.emissor-nfse/` (sem o `.app`, que o Finder trata como pacote; os dados da pasta antiga são movidos na primeira execução, [ADR 0014](decisoes/0014-pasta-de-dados-no-macos.md)) |
 | Cabeçalho do cofre | `emissor.cofre`, ao lado do banco: sal, parâmetros do Argon2 e verificador da senha mestra (sem segredo). O banco não abre sem ele; copiar sempre os dois arquivos |
 | Aparência | `aparencia.json`, ao lado do banco: `zoom` (`0.9`, `1`, `1.1`, `1.25`, `1.4` ou `1.5`) e `densidade` (`auto`, `confortavel` ou `compacta`; a automática fica compacta em janelas com menos de 700 px de altura). Fica fora do banco porque é lida antes da senha mestra |
 | Tamanho e posição da janela | `app_config_dir()`, arquivo do plugin `window-state`. Na primeira abertura a janela ocupa 90% da área útil do monitor |
