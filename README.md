@@ -9,9 +9,17 @@ Emissor desktop de NFS-e Padrão Nacional (API Sefin Nacional / ADN) para escrit
 
 Uso interno de um escritório; o código é público e usa licença MIT.
 
-## Instalação (Windows)
+## Instalação
 
-Baixe o `Emissor-NFS-e_<versão>_x64_pt-BR.msi` em [Releases](https://github.com/felipecaninnovaes/emissor-de-nota/releases) e execute. Na primeira abertura, crie a senha mestra (ela não pode ser recuperada). O uso está em [docs/usuario.md](docs/usuario.md).
+Baixe o instalador da plataforma em [Releases](https://github.com/felipecaninnovaes/emissor-de-nota/releases):
+
+| Sistema | Arquivo |
+| --- | --- |
+| Windows | `Emissor-NFS-e_<versão>_x64_pt-BR.msi` |
+| macOS (Apple Silicon / Intel) | `Emissor-NFS-e_<versão>_aarch64.dmg` / `..._x64.dmg` (ainda sem assinatura da Apple) |
+| Linux | `Emissor-NFS-e_<versão>_amd64.AppImage` (atualiza-se sozinho) ou `..._amd64.deb` |
+
+Na primeira abertura, crie a senha mestra (ela não pode ser recuperada). O uso está em [docs/usuario.md](docs/usuario.md).
 
 ## Desenvolvimento
 
@@ -50,6 +58,12 @@ O repositório é público: **nunca** versione certificados reais, senhas, banco
 ## Aviso
 
 Este software não substitui a validação contábil e fiscal. Alíquotas, códigos de serviço, retenções e regime tributário são responsabilidade de quem configura o sistema. Antes de emitir em Produção, confirme com a contabilidade e com a prefeitura se o município aceita o emissor e o padrão utilizado. O sistema avisa de retenções que parecem indevidas, mas não valida se uma retenção é cabível ao serviço ([docs/fiscal.md](docs/fiscal.md)). O software é fornecido "como está", sem garantia de qualquer tipo (ver [LICENSE](LICENSE)).
+
+### Segurança dos dados
+
+O banco é cifrado e os certificados ficam protegidos pela senha mestra, mas isso não basta para proteger os dados. **A segurança dos dados é responsabilidade de quem instala e opera o sistema:** a guarda da senha mestra, dos certificados A1 e dos backups (`.nfbk`, `emissor.db`, `emissor.cofre`); o controle de acesso, a atualização e a proteção das máquinas; a pasta onde XML e PDF são gravados, que fica **sem cifra**; e o cumprimento da legislação de proteção de dados (LGPD) sobre as informações de empresas e tomadores.
+
+O desenvolvedor não se responsabiliza por vazamento, perda ou uso indevido de dados, nem por qualquer dano decorrente do uso do software, nos termos da [LICENSE](LICENSE).
 
 ## Licença
 
