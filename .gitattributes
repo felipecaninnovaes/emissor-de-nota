@@ -1,3 +1,4 @@
 # O sqlx guarda no banco o checksum de cada migração, byte a byte. Os bancos em uso foram
 # migrados pelo instalador (compilado no Windows com CRLF): fixar CRLF em todo checkout.
 crates/nfse-db/migrations/*.sql text eol=crlf
+crates/nfse-core/dados/*.tsv text eol=lf

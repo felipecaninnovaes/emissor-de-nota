@@ -64,6 +64,19 @@ Todo comando que lê ou grava dados precisa de `exigir_cofre(&estado)` ou da mac
 
 A logomarca do DANFSe é `crates/app/assets/logo-nfse.png`, gerada a partir de `logo-nfse.svg` (cópia ajustada: fonte Liberation Sans e largura 240).
 
+## Lista de Serviços Nacional
+
+A API do Sistema Nacional não lista os códigos de tributação nacional (`cTribNac`); a lista vem do Anexo B da [documentação técnica](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual) (`anexo_b-nbs2-lista_servico_nacional-snnfse-*.xlsx`, aba `LISTA.SERV.NAC.`). Ela fica embutida em `crates/nfse-core/dados/lista-servicos-nacional.tsv` (módulo `nfse_core::lista_servicos`) e alimenta a busca por nome no cadastro de serviços. A primeira linha do TSV guarda o nome do arquivo de origem, que a tela mostra como versão quando um código não está na lista.
+
+Quando sair uma versão nova do anexo, baixe a planilha **sem renomear** e regenere:
+
+```bash
+cargo run -p nfse-core --example gerar_lista_servicos -- caminho/anexo_b-nbs2-lista_servico_nacional-snnfse-vX-XX-AAAAMMDD.xlsx
+cargo test -p nfse-core lista_servicos
+```
+
+O gerador confere o código de cada linha com item, subitem e desdobro e falha se a planilha mudar de formato. A lista não bloqueia o cadastro: código fora dela só gera um aviso.
+
 ## CLI `nfse-poc`
 
 Diagnóstico direto na Sefin, sem o app. Subcomandos: `cert-info`, `gerar-dps`, `assinar`, `danfse`, `verificar`, `cancelar`, `consultar-dps`, `emitir`. A senha do certificado vem da variável `NFSE_PFX_SENHA` ou é pedida no terminal.

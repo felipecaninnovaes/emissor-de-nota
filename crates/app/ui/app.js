@@ -989,51 +989,38 @@ async function vincularTomador(t) {
 }
 
 /**
- * Busca de tomador no padrão combobox (ARIA 1.2): o foco fica no campo e a opção ativa é indicada
- * por aria-activedescendant; setas, Home/End, Enter, Esc e clique. Usada na emissão e no diálogo de
- * recorrência; `aoEscolher(tomadorDto)` recebe o escolhido.
+ * Campo de busca no padrão combobox (ARIA 1.2): o foco fica no campo e a opção ativa é indicada
+ * por aria-activedescendant; setas, Home/End, Enter, Esc e clique. `buscar(termo)` devolve a lista
+ * (ou null para fechar), `opcao(item)` o HTML de cada opção e `aoEscolher(item)` recebe o escolhido.
  */
-function ligarBuscaTomador(input, caixa, aoEscolher) {
+function ligarCombobox(input, caixa, { rotulo, vazio, contagem, buscar, opcao, aoEscolher }) {
   let pendente = 0;
   let resultados = [];
   let foco = -1;
   caixa.id ||= `${input.id}-lista`;
   caixa.setAttribute("role", "listbox");
-  caixa.setAttribute("aria-label", "Tomadores encontrados");
+  caixa.setAttribute("aria-label", `${rotulo} encontrados`);
   input.setAttribute("role", "combobox");
   input.setAttribute("aria-autocomplete", "list");
   input.setAttribute("aria-controls", caixa.id);
   input.setAttribute("aria-expanded", "false");
 
-  // a lista também é escondida por quem escolhe/troca o tomador: aria-expanded acompanha o atributo hidden
+  // a lista também é escondida por quem escolhe/troca o item: aria-expanded acompanha o atributo hidden
   new MutationObserver(() => {
     input.setAttribute("aria-expanded", String(!caixa.hidden));
     if (caixa.hidden) input.removeAttribute("aria-activedescendant");
   }).observe(caixa, { attributes: true, attributeFilter: ["hidden"] });
-
-  /** Tomador de outra empresa: vincula a esta (sem cadastrar de novo) e só então escolhe. */
-  async function escolher(t) {
-    if (t.de_outra_empresa) {
-      try {
-        t = await vincularTomador(t);
-      } catch (e) {
-        return toast(String(e), true);
-      }
-    }
-    aoEscolher(t);
-  }
 
   function desenhar() {
     caixa.hidden = false;
     caixa.innerHTML = resultados.length
       ? resultados
           .map(
-            (t, i) => `<div role="option" id="${caixa.id}-${i}" data-i="${i}" aria-selected="${i === foco}"
-              class="${i === foco ? "foco" : ""}">${esc(t.tomador.nome)}
-              <small>${esc(formatarDocumento(t.tomador.documento))}${t.de_outra_empresa ? " · de outra empresa: vincular" : ""}</small></div>`,
+            (item, i) => `<div role="option" id="${caixa.id}-${i}" data-i="${i}" aria-selected="${i === foco}"
+              class="${i === foco ? "foco" : ""}">${opcao(item)}</div>`,
           )
           .join("")
-      : `<div class="vazio" role="option" aria-disabled="true" aria-selected="false">Nenhum tomador encontrado.</div>`;
+      : `<div class="vazio" role="option" aria-disabled="true" aria-selected="false">${esc(vazio)}</div>`;
     if (foco >= 0) {
       input.setAttribute("aria-activedescendant", `${caixa.id}-${foco}`);
       document.getElementById(`${caixa.id}-${foco}`)?.scrollIntoView({ block: "nearest" });
@@ -1045,21 +1032,25 @@ function ligarBuscaTomador(input, caixa, aoEscolher) {
   input.addEventListener("input", () => {
     clearTimeout(pendente);
     const termo = input.value.trim();
-    if (!termo || !estado.empresa) {
+    if (!termo) {
       caixa.hidden = true;
       return;
     }
     pendente = setTimeout(async () => {
+      let achados;
       try {
-        resultados = await invoke("buscar_tomadores", { empresaId: estado.empresa.id, termo });
-        const outros = await invoke("buscar_tomadores_de_outras_empresas", { empresaId: estado.empresa.id, termo });
-        resultados.push(...outros.map((t) => ({ ...t, de_outra_empresa: true })));
+        achados = await buscar(termo);
       } catch (e) {
         return toast(String(e), true);
       }
+      if (!achados) {
+        caixa.hidden = true;
+        return;
+      }
+      resultados = achados;
       foco = resultados.length ? 0 : -1;
       desenhar();
-      anunciar(resultados.length ? `${resultados.length} tomador(es) encontrado(s).` : "Nenhum tomador encontrado.");
+      anunciar(resultados.length ? contagem(resultados.length) : vazio);
     }, 200);
   });
 
@@ -1080,7 +1071,7 @@ function ligarBuscaTomador(input, caixa, aoEscolher) {
       desenhar();
     } else if (ev.key === "Enter") {
       ev.preventDefault();
-      if (foco >= 0) escolher(resultados[foco]);
+      if (foco >= 0) aoEscolher(resultados[foco]);
     } else if (ev.key === "Escape") {
       ev.preventDefault();
       caixa.hidden = true;
@@ -1091,11 +1082,42 @@ function ligarBuscaTomador(input, caixa, aoEscolher) {
   caixa.addEventListener("mousedown", (ev) => {
     ev.preventDefault();
     const item = ev.target.closest("[data-i]");
-    if (item) escolher(resultados[Number(item.dataset.i)]);
+    if (item) aoEscolher(resultados[Number(item.dataset.i)]);
   });
 
   input.addEventListener("blur", () => {
     caixa.hidden = true;
+  });
+}
+
+/**
+ * Busca de tomador (emissão e diálogo de recorrência), com os de outras empresas no fim.
+ * `aoEscolher(tomadorDto)` recebe o escolhido.
+ */
+function ligarBuscaTomador(input, caixa, aoEscolher) {
+  ligarCombobox(input, caixa, {
+    rotulo: "Tomadores",
+    vazio: "Nenhum tomador encontrado.",
+    contagem: (n) => `${n} tomador(es) encontrado(s).`,
+    async buscar(termo) {
+      if (!estado.empresa) return null;
+      const resultados = await invoke("buscar_tomadores", { empresaId: estado.empresa.id, termo });
+      const outros = await invoke("buscar_tomadores_de_outras_empresas", { empresaId: estado.empresa.id, termo });
+      return [...resultados, ...outros.map((t) => ({ ...t, de_outra_empresa: true }))];
+    },
+    opcao: (t) => `${esc(t.tomador.nome)}
+              <small>${esc(formatarDocumento(t.tomador.documento))}${t.de_outra_empresa ? " · de outra empresa: vincular" : ""}</small>`,
+    // tomador de outra empresa: vincula a esta (sem cadastrar de novo) e só então escolhe
+    async aoEscolher(t) {
+      if (t.de_outra_empresa) {
+        try {
+          t = await vincularTomador(t);
+        } catch (e) {
+          return toast(String(e), true);
+        }
+      }
+      aoEscolher(t);
+    },
   });
 }
 
@@ -2346,6 +2368,47 @@ $("#lista-servicos").addEventListener("click", async (ev) => {
 
 $("#novo-servico").addEventListener("click", () => editarServico(null));
 
+const ctnServico = $("#servico-codigo-trib-nac");
+const pontuarCtn = (c) => `${c.slice(0, 2)}.${c.slice(2, 4)}.${c.slice(4)}`;
+const AJUDA_LISTA_NACIONAL = "Busca na Lista de Serviços Nacional; ao escolher, o código é preenchido.";
+
+/** Mostra, abaixo da busca, a descrição oficial do código digitado (ou avisa que não está na lista). */
+async function descreverCtn() {
+  const ajuda = $("#servico-ctn-descricao");
+  const codigo = soDigitos(ctnServico.value);
+  if (codigo.length !== 6) {
+    ajuda.textContent = AJUDA_LISTA_NACIONAL;
+    return;
+  }
+  try {
+    const { fonte, itens } = await invoke("buscar_lista_servicos", { termo: codigo });
+    if (soDigitos(ctnServico.value) !== codigo) return; // o usuário já mudou o código
+    ajuda.textContent = itens.length
+      ? `${pontuarCtn(codigo)} · ${itens[0].descricao}`
+      : `O código ${codigo} não está na Lista de Serviços Nacional embutida (${fonte}); confira antes de emitir.`;
+  } catch (e) {
+    toast(String(e), true);
+  }
+}
+
+ctnServico.addEventListener("input", descreverCtn);
+
+ligarCombobox($("#servico-busca-lista"), $("#servico-resultados-lista"), {
+  rotulo: "Códigos de serviço",
+  vazio: "Nenhum código da lista nacional encontrado.",
+  contagem: (n) => `${n} código(s) encontrado(s).`,
+  buscar: async (termo) => (await invoke("buscar_lista_servicos", { termo })).itens,
+  opcao: (i) => `${esc(i.descricao)}<small>${pontuarCtn(i.codigo)} · ${esc(i.grupo)}</small>`,
+  aoEscolher(i) {
+    const busca = $("#servico-busca-lista");
+    busca.value = "";
+    $("#servico-resultados-lista").hidden = true;
+    ctnServico.value = i.codigo;
+    // o input também tira a marca de erro do campo, se havia
+    ctnServico.dispatchEvent(new Event("input", { bubbles: true }));
+  },
+});
+
 /** Percentual digitado ("11,48") → texto aceito pelo backend, ou null. */
 function percentualDigitado(t) {
   const v = vazio(t);
@@ -2419,6 +2482,7 @@ function editarServico(s) {
     preencherForm(form, dados);
   }
   mostrarCamposIbs(form);
+  descreverCtn();
   abrirDialogo(dlg, $("#erro-servico"), async (d) => {
     const retencoes = { aplicar: d.aplicar_fed };
     for (const k of ["irrf", "csll", "cp", "pis", "cofins"]) {
