@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 use std::io::Cursor;
 
 use calamine::{Data, Reader};
+use nfse_core::texto::sem_acento_minusculo;
 
 /// Colunas reconhecidas.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -88,17 +89,8 @@ impl LinhaPlanilha {
 
 /// Sem acento, minúsculo e só letras e dígitos.
 pub(crate) fn normalizar(texto: &str) -> String {
-    texto
+    sem_acento_minusculo(texto)
         .chars()
-        .map(|c| match c {
-            'á' | 'à' | 'ã' | 'â' | 'ä' | 'Á' | 'À' | 'Ã' | 'Â' | 'Ä' => 'a',
-            'é' | 'è' | 'ê' | 'ë' | 'É' | 'È' | 'Ê' | 'Ë' => 'e',
-            'í' | 'ì' | 'î' | 'ï' | 'Í' | 'Ì' | 'Î' | 'Ï' => 'i',
-            'ó' | 'ò' | 'õ' | 'ô' | 'ö' | 'Ó' | 'Ò' | 'Õ' | 'Ô' | 'Ö' => 'o',
-            'ú' | 'ù' | 'û' | 'ü' | 'Ú' | 'Ù' | 'Û' | 'Ü' => 'u',
-            'ç' | 'Ç' => 'c',
-            outro => outro.to_ascii_lowercase(),
-        })
         .filter(char::is_ascii_alphanumeric)
         .collect()
 }

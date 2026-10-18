@@ -4,6 +4,7 @@ pub mod documento;
 pub mod dps;
 pub mod lista_servicos;
 pub mod modelo;
+pub mod texto;
 pub mod valor;
 
 pub use documento::{Cnpj, Cpf, DocumentoInvalido};

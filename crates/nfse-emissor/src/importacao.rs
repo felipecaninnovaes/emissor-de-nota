@@ -6,6 +6,7 @@ use std::collections::HashMap;
 
 use chrono::{Datelike, NaiveDate};
 
+use nfse_core::texto::sem_acento_minusculo;
 use nfse_core::{Cnpj, Cpf, Valor};
 use nfse_db::Banco;
 use nfse_db::recorrencias::TentativaNoMes;
@@ -127,19 +128,10 @@ pub fn documentos_da_planilha(texto: &str) -> Vec<String> {
     }
 }
 
-fn sem_acento_minusculo(texto: &str) -> String {
-    texto
-        .to_lowercase()
+/// Sem acento, minúsculo e sem espaços, para achar o serviço pelo nome.
+fn nome_comparavel(texto: &str) -> String {
+    sem_acento_minusculo(texto)
         .chars()
-        .map(|c| match c {
-            'á' | 'à' | 'ã' | 'â' => 'a',
-            'é' | 'ê' => 'e',
-            'í' => 'i',
-            'ó' | 'õ' | 'ô' => 'o',
-            'ú' | 'ü' => 'u',
-            'ç' => 'c',
-            o => o,
-        })
         .filter(|c| !c.is_whitespace())
         .collect()
 }
@@ -218,11 +210,11 @@ pub async fn resolver(
             let lista = &servicos_por_empresa[&e.id];
             servico = match l.campo(Coluna::Servico) {
                 Some(texto) => {
-                    let alvo = sem_acento_minusculo(texto);
+                    let alvo = nome_comparavel(texto);
                     let s = lista
                         .iter()
                         .find(|s| s.codigo_trib_nac == texto.trim())
-                        .or_else(|| lista.iter().find(|s| sem_acento_minusculo(&s.nome) == alvo));
+                        .or_else(|| lista.iter().find(|s| nome_comparavel(&s.nome) == alvo));
                     if s.is_none() {
                         erros.push(format!("serviço \"{texto}\" não encontrado em {}", e.nome));
                     }

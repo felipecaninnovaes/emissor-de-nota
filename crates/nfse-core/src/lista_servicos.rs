@@ -6,6 +6,8 @@ use std::sync::OnceLock;
 
 use serde::Serialize;
 
+use crate::texto::sem_acento_minusculo as normalizar;
+
 const TSV: &str = include_str!("../dados/lista-servicos-nacional.tsv");
 
 /// Um código da lista, com a descrição do desdobro e a do item da LC 116 a que pertence.
@@ -100,23 +102,6 @@ pub fn buscar(termo: &str, limite: usize) -> Vec<&'static ItemListaServico> {
     pela_descricao.extend(pelo_grupo);
     pela_descricao.truncate(limite);
     pela_descricao
-}
-
-/// Minúsculas e sem acento, para comparar o que o usuário digita com as descrições oficiais.
-fn normalizar(texto: &str) -> String {
-    texto
-        .chars()
-        .flat_map(char::to_lowercase)
-        .map(|c| match c {
-            'á' | 'à' | 'â' | 'ã' | 'ä' => 'a',
-            'é' | 'è' | 'ê' | 'ë' => 'e',
-            'í' | 'ì' | 'î' | 'ï' => 'i',
-            'ó' | 'ò' | 'ô' | 'õ' | 'ö' => 'o',
-            'ú' | 'ù' | 'û' | 'ü' => 'u',
-            'ç' => 'c',
-            c => c,
-        })
-        .collect()
 }
 
 #[cfg(test)]
