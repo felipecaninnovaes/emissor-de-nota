@@ -34,15 +34,95 @@ const P_COST: u32 = 1;
 const M_COST_MAX: u32 = 1024 * 1024;
 const T_COST_MAX: u32 = 10;
 const P_COST_MAX: u32 = 8;
-/// Mínimo de caracteres da senha de um cofre novo.
-const SENHA_MIN: usize = 12;
+/// Mínimo de caracteres da senha de um cofre novo (com [`senha_previsivel`] barrando as óbvias).
+const SENHA_MIN: usize = 10;
+
+/// Palavras que, com números e símbolos em volta, formam as senhas mais tentadas.
+const PALAVRAS_COMUNS: &[&str] = &[
+    "senha",
+    "password",
+    "pass",
+    "admin",
+    "administrador",
+    "root",
+    "usuario",
+    "user",
+    "teste",
+    "test",
+    "qwerty",
+    "abc",
+    "abcd",
+    "abcde",
+    "emissor",
+    "nfse",
+    "nota",
+    "notas",
+    "nfe",
+    "fiscal",
+    "escritorio",
+    "contabil",
+    "contabilidade",
+    "contador",
+    "empresa",
+    "brasil",
+    "mudar",
+    "trocar",
+    "acesso",
+    "segredo",
+    "iloveyou",
+    "welcome",
+    "bemvindo",
+    "master",
+    "mestra",
+    "senhamestra",
+];
+
+/// Senha que cai nos primeiros minutos de um ataque de dicionário: só números (data, telefone,
+/// CPF), um trecho de sequência ou de teclado, um caractere repetido, ou uma palavra comum com
+/// números e símbolos em volta (`Senha@2026`, `admin12345`). Ignora maiúsculas e acentos.
+fn senha_previsivel(senha: &str) -> bool {
+    let normal: String = senha
+        .to_lowercase()
+        .chars()
+        .map(|c| match c {
+            'á' | 'à' | 'â' | 'ã' => 'a',
+            'é' | 'ê' => 'e',
+            'í' => 'i',
+            'ó' | 'ô' | 'õ' => 'o',
+            'ú' | 'ü' => 'u',
+            'ç' => 'c',
+            c => c,
+        })
+        .filter(|c| !c.is_whitespace())
+        .collect();
+    if normal.chars().all(|c| c.is_ascii_digit()) {
+        return true;
+    }
+    let primeiro = normal.chars().next();
+    if normal.chars().all(|c| Some(c) == primeiro) {
+        return true;
+    }
+    const SEQUENCIAS: [&str; 3] = [
+        "01234567890123456789",
+        "abcdefghijklmnopqrstuvwxyz",
+        "qwertyuiopasdfghjklzxcvbnm",
+    ];
+    let invertida: String = normal.chars().rev().collect();
+    if SEQUENCIAS.iter().any(|s| s.contains(&normal) || s.contains(&invertida)) {
+        return true;
+    }
+    let letras: String = normal.chars().filter(|c| c.is_alphabetic()).collect();
+    PALAVRAS_COMUNS.contains(&letras.as_str())
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum ErroCofre {
     #[error("senha mestra incorreta")]
     SenhaIncorreta,
-    #[error("senha mestra muito curta (mínimo 12 caracteres)")]
+    #[error("senha mestra muito curta (mínimo 10 caracteres)")]
     SenhaCurta,
+    #[error("senha mestra fácil de adivinhar (só números, sequência ou palavra comum); use uma frase")]
+    SenhaFraca,
     #[error("dado cifrado corrompido ou de outro registro")]
     Corrompido,
     #[error("parâmetros do cofre inválidos: {0}")]
@@ -81,7 +161,11 @@ fn derivar(senha: &str, sal: &[u8], m: u32, t: u32, p: u32) -> Result<Zeroizing<
 
 impl Cofre {
     /// Cria um cofre novo (Argon2id com [`M_COST`], [`T_COST`] e [`P_COST`]).
+    /// Recusa senha previsível; os atalhos de teste (`criar_com`) só conferem o tamanho.
     pub fn criar(senha: &str) -> Result<(Self, CabecalhoCofre), ErroCofre> {
+        if senha.chars().count() >= SENHA_MIN && senha_previsivel(senha) {
+            return Err(ErroCofre::SenhaFraca);
+        }
         Self::criar_com(senha, M_COST, T_COST, P_COST)
     }
 
@@ -263,7 +347,35 @@ pub(crate) mod testes {
     }
 
     #[test]
+    fn recusa_senha_previsivel() {
+        assert!(matches!(Cofre::criar("Senha@2026"), Err(ErroCofre::SenhaFraca)));
+        for fraca in [
+            "1234567890",
+            "0987654321",
+            "15081990123",
+            "aaaaaaaaaa",
+            "qwertyuiop",
+            "Senha@2026",
+            "senha 12345",
+            "ADMIN12345",
+            "nfse2026!!",
+            "Escritório2026",
+            "senha-mestra",
+        ] {
+            assert!(senha_previsivel(fraca), "{fraca}");
+        }
+        for boa in [
+            "café com notas",
+            "Notas#Caf3-2026",
+            "outra-senha!",
+            "três notas por dia",
+        ] {
+            assert!(!senha_previsivel(boa), "{boa}");
+        }
+    }
+
+    #[test]
     fn recusa_senha_curta() {
-        assert!(matches!(Cofre::criar("12345678901"), Err(ErroCofre::SenhaCurta)));
+        assert!(matches!(Cofre::criar("abc-12345"), Err(ErroCofre::SenhaCurta)));
     }
 }

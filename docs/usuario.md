@@ -4,7 +4,7 @@ Como usar o Emissor de NFS-e no dia a dia, tela por tela. Para quem opera o sist
 
 ## Primeira abertura
 
-1. O sistema pede para **criar a senha mestra** (com confirmação, mínimo de 12 caracteres). Ela cifra o banco inteiro e **não pode ser recuperada**: se for perdida, os dados e os certificados não abrem mais (só um backup feito antes não ajuda, porque usa a mesma senha).
+1. O sistema pede para **criar a senha mestra** (com confirmação, mínimo de 10 caracteres; senhas previsíveis, como só números, sequências ou "Senha@2026", são recusadas). Ela cifra o banco inteiro e **não pode ser recuperada**: se for perdida, os dados e os certificados não abrem mais (só um backup feito antes não ajuda, porque usa a mesma senha).
 2. Nas aberturas seguintes, digite a senha para destravar. O botão **Bloquear** descarta a chave e volta à tela de senha.
 3. Ao abrir, o sistema mostra as notas pendentes (sem resposta da Sefin) e os certificados que vencem em 30 dias, e procura versão nova.
 
