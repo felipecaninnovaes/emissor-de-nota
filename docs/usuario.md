@@ -15,7 +15,7 @@ O menu lateral tem nove telas: Emitir nota, Notas emitidas, Lote do mês, Import
 1. **Empresas → Nova empresa**: informe o CNPJ e use **Consultar** para preencher razão social, município e regime. Depois importe o certificado A1 (`.pfx`) com a senha. O sistema recusa certificado cujo CNPJ não seja da empresa.
 2. Em **Numeração e inscrição municipal**: confira o próximo número por ambiente e, se a série já foi usada por outro emissor, use **Consultar na Sefin** para achar o primeiro número livre. A inscrição municipal pode ir ou não na DPS, por ambiente.
 3. **Tomadores**: PJ com consulta de CNPJ, PF com CPF validado. O tomador é global e cada empresa o vincula, com e-mails de envio e as opções **Retém impostos federais** e **Retém ISS**. Na busca (em Emitir nota e em Tomadores), tomadores já cadastrados por outras empresas aparecem marcados "de outra empresa": **Vincular** (ou escolher na emissão) usa o mesmo cadastro, sem digitar de novo; e-mails e retenções começam vazios e são conferidos por empresa.
-4. **Serviços**: descrição padrão, códigos de tributação (sem saber o código, use **Procurar o código pelo nome**: digite parte do nome, como "contabilidade", e escolha na Lista de Serviços Nacional; abaixo da busca aparece a descrição oficial do código), ISSQN, PIS/COFINS, retenções em percentual (cada uma vale "sempre" ou "só para tomador que retém"), total de tributos e valor sugerido. Dá para **Importar serviços** de uma planilha ou de outra empresa e **Exportar planilha**.
+4. **Serviços**: descrição padrão, códigos de tributação (sem saber o código, use **Procurar o código pelo nome**: digite parte do nome, como "contabilidade", e escolha na Lista de Serviços Nacional; abaixo da busca aparece a descrição oficial do código), ISSQN, PIS/COFINS, retenções em percentual (cada uma vale "sempre" ou "só para tomador que retém"), total de tributos e valor sugerido. Dá para **Importar serviços** de uma planilha ou de outra empresa e **Exportar planilha**. Na planilha, escreva os percentuais como número (2 para 2%; 0,65 para o PIS): célula formatada como porcentagem no Excel chega como fração (2% vira 0,02), e valores abaixo de 0,5% são recusados com essa explicação.
 
 ## Emitir uma nota
 
@@ -57,7 +57,7 @@ Filtro por mês, situação de cada nota, contagem e total. A ação principal d
 
 ## Importar planilha (convênios)
 
-Aceita XLSX, XLS, ODS e CSV, uma nota por linha. **Baixar modelo** dá o formato. **Ler de novo** refaz a leitura; **Marcar prontas** e **Emitir selecionadas** emitem. Reimportar a mesma planilha não repete notas já autorizadas. Se o tomador não existe, dá para cadastrá-lo direto da linha.
+Aceita XLSX, XLS, ODS e CSV, uma nota por linha. **Baixar modelo** dá o formato. **Ler de novo** refaz a leitura; **Marcar prontas** e **Emitir selecionadas** emitem. Reimportar a mesma planilha não repete notas já autorizadas. Se o tomador não existe, dá para cadastrá-lo direto da linha. CNPJ ou CPF digitado como número perde os zeros à esquerda; o sistema completa e, quando o número serve como CPF e como CNPJ, usa o que estiver cadastrado. Valor com mais de duas casas decimais é recusado (não é arredondado). Durante a emissão, o mês e o "Ler de novo" ficam travados.
 
 ## Configurações
 

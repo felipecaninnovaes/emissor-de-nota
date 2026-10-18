@@ -195,7 +195,18 @@ fn linha(numero: usize, campos: &BTreeMap<ColunaServico, String>) -> LinhaServic
     let mut percentual = |c: ColunaServico| -> Option<Percentual> {
         let t = texto(c)?;
         let limpo: String = t.chars().filter(|c| !c.is_whitespace() && *c != '%').collect();
+        // No XLSX, célula formatada como % chega como fração (2% = 0.02, 2,75% = 0.0275).
+        // Nenhuma alíquota usada aqui fica abaixo de 0,5% (a menor comum é o PIS, 0,65%).
+        let fracao = limpo.replace(',', ".").parse::<f64>().is_ok_and(|v| v > 0.0 && v < 0.5);
         match Percentual::parse(&limpo) {
+            _ if fracao => {
+                erros.push(format!(
+                    "{}: \"{t}\" parece uma célula formatada como porcentagem no Excel; \
+                     digite o número sem % (ex.: 2 para 2%) ou formate a coluna como número",
+                    c.titulo()
+                ));
+                None
+            }
             Ok(p) => Some(p),
             Err(_) => {
                 erros.push(format!("{}: \"{t}\" não é um percentual (use 11,48)", c.titulo()));
@@ -558,6 +569,32 @@ mod testes {
             linhas[2].erros.iter().any(|e| e.contains("cIndOp")),
             "{:?}",
             linhas[2].erros
+        );
+    }
+
+    #[test]
+    fn percentual_em_fracao_do_excel_e_apontado() {
+        // Como o XLSX chega depois de `celula`: 2% vira 0.02 e 2,75% vira 0.0275.
+        let csv = "Nome;Descrição;Código;Aliquota ISS %;PIS %\r\n\
+                   A;x;010101;0.02;0,65\r\n\
+                   B;x;010101;0.0275;\r\n\
+                   C;x;010101;2;0.65\r\n";
+        let linhas = ler("servicos.csv", csv.as_bytes()).unwrap();
+        assert!(
+            linhas[0].erros.iter().any(|e| e.contains("porcentagem")),
+            "{:?}",
+            linhas[0].erros
+        );
+        assert_eq!(linhas[0].erros.len(), 1, "PIS 0,65 é válido: {:?}", linhas[0].erros);
+        assert!(
+            linhas[1].erros.iter().any(|e| e.contains("porcentagem")),
+            "{:?}",
+            linhas[1].erros
+        );
+        assert!(linhas[2].erros.is_empty(), "{:?}", linhas[2].erros);
+        assert_eq!(
+            linhas[2].servico.tributacao.issqn.aliquota,
+            Some(Percentual::parse("2").unwrap())
         );
     }
 

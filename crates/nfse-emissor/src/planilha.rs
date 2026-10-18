@@ -187,9 +187,14 @@ fn celula(dado: &Data) -> String {
         Data::Empty | Data::Error(_) => String::new(),
         Data::String(s) => s.clone(),
         Data::Int(i) => i.to_string(),
-        // Números inteiros (CNPJ digitado como número) sem casas; os demais com duas (valores).
+        // Números inteiros (CNPJ digitado como número) sem casas. Os demais com as casas que têm
+        // (sem o ruído de ponto flutuante de fórmulas): quem lê recusa mais de 2, como no CSV, em vez
+        // de arredondar em silêncio. Célula formatada como % chega como fração (2% = 0.02).
         Data::Float(f) if f.fract() == 0.0 && f.abs() < 1e15 => format!("{}", *f as i64),
-        Data::Float(f) => format!("{f:.2}"),
+        Data::Float(f) => {
+            let texto = format!("{f:.6}");
+            texto.trim_end_matches('0').trim_end_matches('.').to_owned()
+        }
         Data::Bool(b) => b.to_string(),
         Data::DateTime(d) => d
             .as_datetime()
@@ -256,7 +261,9 @@ mod testes {
     #[test]
     fn celulas_do_excel() {
         assert_eq!(celula(&Data::Float(191.0)), "191");
-        assert_eq!(celula(&Data::Float(1250.5)), "1250.50");
+        assert_eq!(celula(&Data::Float(1250.5)), "1250.5");
+        assert_eq!(celula(&Data::Float(0.0275)), "0.0275");
+        assert_eq!(celula(&Data::Float(1250.4999999999998)), "1250.5");
         assert_eq!(celula(&Data::Int(11222333000181)), "11222333000181");
         assert_eq!(celula(&Data::Empty), "");
     }
@@ -330,7 +337,11 @@ mod testes_xlsx {
         assert_eq!(linhas.len(), 1);
         assert_eq!(linhas[0].numero, 2);
         assert_eq!(linhas[0].campo(Coluna::Tomador), Some("191"));
-        assert_eq!(linhas[0].campo(Coluna::Valor), Some("1250.50"));
+        assert_eq!(linhas[0].campo(Coluna::Valor), Some("1250.5"));
+        assert_eq!(
+            crate::importacao::valor_da_planilha("1250.5"),
+            Some(nfse_core::Valor::parse("1250.50").unwrap())
+        );
         assert_eq!(linhas[0].campo(Coluna::Mes), Some("09/2026"));
     }
 }

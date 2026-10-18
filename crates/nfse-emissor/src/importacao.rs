@@ -90,32 +90,41 @@ pub fn mes_da_planilha(texto: &str) -> Option<NaiveDate> {
     NaiveDate::from_ymd_opt(ano, mes, 1)
 }
 
-/// CNPJ ou CPF da planilha. Número digitado no Excel perde zeros à esquerda: completa com zeros
-/// e aceita o que tiver dígito verificador válido (CNPJ primeiro).
+/// CNPJ ou CPF da planilha (o mais provável; ver [`documentos_da_planilha`]).
 pub fn documento_da_planilha(texto: &str) -> Option<String> {
+    documentos_da_planilha(texto).into_iter().next()
+}
+
+/// Documentos válidos que o texto da planilha pode ser, do mais provável ao menos. Número
+/// digitado no Excel perde zeros à esquerda, e o mesmo número pode ser CPF e CNPJ válidos
+/// (`00829502378` é CPF e, completado com zeros, também CNPJ): quem chama prefere o cadastrado.
+/// Com 9 a 11 dígitos o CPF vem primeiro; com menos, o CNPJ (CPF raramente perde 3 zeros).
+pub fn documentos_da_planilha(texto: &str) -> Vec<String> {
     let doc: String = texto
         .chars()
         .filter(char::is_ascii_alphanumeric)
         .map(|c| c.to_ascii_uppercase())
         .collect();
     if doc.is_empty() || doc.len() > 14 {
-        return None;
+        return Vec::new();
     }
-    let so_digitos = doc.bytes().all(|b| b.is_ascii_digit());
-    if !so_digitos {
-        return Cnpj::parse(&doc).ok().map(|c| c.as_str().to_owned());
+    if !doc.bytes().all(|b| b.is_ascii_digit()) {
+        return Cnpj::parse(&doc)
+            .ok()
+            .map(|c| c.as_str().to_owned())
+            .into_iter()
+            .collect();
     }
-    let cnpj = format!("{doc:0>14}");
-    if let Ok(c) = Cnpj::parse(&cnpj) {
-        return Some(c.as_str().to_owned());
+    let cnpj = Cnpj::parse(&format!("{doc:0>14}")).ok().map(|c| c.as_str().to_owned());
+    let cpf = (doc.len() <= 11)
+        .then(|| Cpf::parse(&format!("{doc:0>11}")).ok())
+        .flatten()
+        .map(|c| c.as_str().to_owned());
+    if doc.len() >= 9 {
+        cpf.into_iter().chain(cnpj).collect()
+    } else {
+        cnpj.into_iter().chain(cpf).collect()
     }
-    if doc.len() <= 11 {
-        let cpf = format!("{doc:0>11}");
-        if let Ok(c) = Cpf::parse(&cpf) {
-            return Some(c.as_str().to_owned());
-        }
-    }
-    None
 }
 
 fn sem_acento_minusculo(texto: &str) -> String {
@@ -153,8 +162,8 @@ pub async fn resolver(
 
         let empresa = match l.campo(Coluna::Empresa) {
             Some(texto) => {
-                let doc = documento_da_planilha(texto).unwrap_or_default();
-                let achada = empresas.iter().find(|e| e.cnpj.as_str() == doc);
+                let docs = documentos_da_planilha(texto);
+                let achada = docs.iter().find_map(|d| empresas.iter().find(|e| e.cnpj.as_str() == d));
                 if achada.is_none() {
                     erros.push(format!("empresa {texto} não cadastrada"));
                 }
@@ -170,11 +179,23 @@ pub async fn resolver(
         };
 
         let texto_tomador = l.campo(Coluna::Tomador).unwrap_or_default();
-        let documento_tomador = documento_da_planilha(texto_tomador).unwrap_or_default();
+        // O cadastrado ganha quando o número pode ser CPF ou CNPJ.
+        let candidatos = documentos_da_planilha(texto_tomador);
+        let mut cadastrado = None;
+        for doc in &candidatos {
+            if let Some(id) = banco.pessoa_por_documento(doc).await? {
+                cadastrado = Some((doc.clone(), id));
+                break;
+            }
+        }
+        let documento_tomador = match &cadastrado {
+            Some((doc, _)) => doc.clone(),
+            None => candidatos.first().cloned().unwrap_or_default(),
+        };
         let (mut pessoa_id, mut tomador, mut vincular_tomador) = (None, None, false);
         if documento_tomador.is_empty() {
             erros.push(format!("CNPJ/CPF do tomador inválido: \"{texto_tomador}\""));
-        } else if let Some(id) = banco.pessoa_por_documento(&documento_tomador).await? {
+        } else if let Some((_, id)) = cadastrado {
             pessoa_id = Some(id);
             tomador = banco.nome_pessoa(id).await?;
             if let Some(e) = empresa {
@@ -320,5 +341,21 @@ mod testes {
         assert_eq!(documento_da_planilha("191").as_deref(), Some("00000000000191"));
         assert_eq!(documento_da_planilha("529.982.247-25").as_deref(), Some("52998224725"));
         assert_eq!(documento_da_planilha("123"), None);
+    }
+
+    #[test]
+    fn numero_que_e_cpf_e_cnpj() {
+        // CPF válido que, completado com zeros, também passa como CNPJ.
+        assert_eq!(
+            documentos_da_planilha("00829502378"),
+            vec!["00829502378".to_owned(), "00000829502378".to_owned()]
+        );
+        // Excel tirou os zeros do CPF: ainda é CPF primeiro.
+        assert_eq!(documentos_da_planilha("829502378")[0], "00829502378");
+        // Poucos dígitos: CNPJ de zeros à esquerda (00.000.000/0001-91) antes do CPF 000.000.001-91.
+        assert_eq!(
+            documentos_da_planilha("191"),
+            vec!["00000000000191".to_owned(), "00000000191".to_owned()]
+        );
     }
 }
