@@ -4,7 +4,7 @@ Como usar o Emissor de NFS-e no dia a dia, tela por tela. Para quem opera o sist
 
 ## Primeira abertura
 
-1. O sistema pede para **criar a senha mestra** (com confirmação). Ela cifra o banco inteiro e **não pode ser recuperada**: se for perdida, os dados e os certificados não abrem mais (só um backup feito antes não ajuda, porque usa a mesma senha).
+1. O sistema pede para **criar a senha mestra** (com confirmação, mínimo de 12 caracteres). Ela cifra o banco inteiro e **não pode ser recuperada**: se for perdida, os dados e os certificados não abrem mais (só um backup feito antes não ajuda, porque usa a mesma senha).
 2. Nas aberturas seguintes, digite a senha para destravar. O botão **Bloquear** descarta a chave e volta à tela de senha.
 3. Ao abrir, o sistema mostra as notas pendentes (sem resposta da Sefin) e os certificados que vencem em 30 dias, e procura versão nova.
 
@@ -64,7 +64,7 @@ Aceita XLSX, XLS, ODS e CSV, uma nota por linha. **Baixar modelo** dá o formato
 - **Aparência**: tamanho do texto e densidade.
 - **Pasta das notas**: onde XML e PDF são gravados. Digite o caminho ou use **Escolher pasta…** (abre o seletor do sistema, começando na pasta atual); depois clique em **Salvar**. Cancelar o seletor não muda nada. O mesmo vale para a pasta do backup.
 - **Backup do banco**: defina uma pasta fora da máquina (unidade externa ou pasta sincronizada). O sistema faz um backup cifrado ao abrir, no máximo uma vez por dia, e guarda os 10 mais recentes; "Fazer backup agora" força um. O backup só abre com a senha mestra. "Testar restauração" gera um banco novo a partir de um `.nfbk` e confere a integridade; para restaurar de verdade, feche o sistema e troque o `emissor.db` pelo arquivo gerado.
-- **E-mail das notas**: servidor SMTP do escritório; **Enviar teste**. Pode enviar sozinho depois de cada emissão.
+- **E-mail das notas**: servidor SMTP do escritório; **Enviar teste**. Pode enviar sozinho depois de cada emissão. Segurança "Nenhuma" (sem cifra) só serve para servidor da rede local sem login: com usuário preenchido é recusada, porque a senha iria aberta pela rede.
 - **Certificados vencendo** (60 dias) e **Envios sem resposta da Sefin**.
 - **Atualizações**: **Procurar atualizações** e **Atualizar agora**.
 

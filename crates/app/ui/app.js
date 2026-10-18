@@ -667,7 +667,7 @@ async function iniciarTrava() {
   cofreExiste = s.existe;
   if (!cofreExiste) {
     $("#trava-ajuda").textContent =
-      "Primeiro uso: crie a senha mestra. Ela protege os certificados de todas as empresas.";
+      "Primeiro uso: crie a senha mestra (mínimo 12 caracteres; uma frase é mais fácil de lembrar). Ela protege os certificados de todas as empresas.";
     $("#bloco-confirmacao").hidden = false;
     $("#senha2").required = true;
     $("#senha").autocomplete = "new-password";
@@ -682,7 +682,7 @@ $("#form-trava").addEventListener("submit", async (ev) => {
   erro.hidden = true;
   const senha = $("#senha").value;
   if (!cofreExiste) {
-    if (senha.length < 8) return mostrarErro(erro, "A senha mestra precisa ter pelo menos 8 caracteres.");
+    if ([...senha].length < 12) return mostrarErro(erro, "A senha mestra precisa ter pelo menos 12 caracteres.");
     if (senha !== $("#senha2").value) return mostrarErro(erro, "As senhas não conferem.");
   }
   const botao = $("#botao-trava");
@@ -3005,7 +3005,7 @@ async function carregarConfiguracoes() {
     ? venc
         .map(
           (v) => `<tr><td>${esc(v.empresa)}</td><td>${esc(v.valido_ate)}</td>
-            <td class="num" style="color:var(--vermelho)">${v.dias < 0 ? "vencido" : v.dias + " dia(s)"}</td></tr>`,
+            <td class="num alerta">${v.dias < 0 ? "vencido" : v.dias + " dia(s)"}</td></tr>`,
         )
         .join("")
     : `<tr><td class="vazio">Nenhum certificado vence nos próximos 60 dias.</td></tr>`;

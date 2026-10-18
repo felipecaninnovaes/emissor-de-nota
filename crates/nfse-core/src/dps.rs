@@ -10,6 +10,12 @@ use std::fmt;
 
 use crate::{Cnpj, Cpf};
 
+/// Chave de acesso da NFS-e: 50 posições, dígitos ou letras maiúsculas (CNPJ alfanumérico).
+/// A chave vem da Sefin e vira nome de arquivo e caminho de URL: conferir antes de usar.
+pub fn chave_de_acesso_valida(chave: &str) -> bool {
+    chave.len() == 50 && chave.bytes().all(|b| b.is_ascii_digit() || b.is_ascii_uppercase())
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Inscricao {
     Cnpj(Cnpj),

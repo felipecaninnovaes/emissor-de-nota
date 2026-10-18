@@ -36,11 +36,11 @@ pub fn pasta_mes(raiz: &Path, empresa: &Empresa, competencia: NaiveDate) -> Path
 }
 
 pub fn nome_xml_nfse(numero: &str, chave: &str) -> String {
-    format!("NFSe-{}-{chave}.xml", nome_seguro(numero))
+    format!("NFSe-{}-{}.xml", nome_seguro(numero), nome_seguro(chave))
 }
 
 pub fn nome_xml_evento(numero: &str, chave: &str, evento: &str) -> String {
-    format!("NFSe-{}-{chave}-{evento}.xml", nome_seguro(numero))
+    format!("NFSe-{}-{}-{evento}.xml", nome_seguro(numero), nome_seguro(chave))
 }
 
 /// Grava pelo caminho temporário + renomear, para nunca deixar um XML pela metade na pasta.

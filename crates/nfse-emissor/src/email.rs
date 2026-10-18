@@ -30,6 +30,10 @@ pub struct CarteiroSmtp;
 
 impl Carteiro for CarteiroSmtp {
     async fn entregar(&self, cfg: &ConfigSmtp, senha: Option<&str>, mensagem: Message) -> Result<(), String> {
+        // Também na entrega: configuração gravada antes desta regra.
+        if let Some(e) = nfse_db::emails::conferir_seguranca(cfg) {
+            return Err(e.into());
+        }
         let servidor = cfg.servidor.trim();
         let construtor = match cfg.seguranca {
             Seguranca::StartTls => AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(servidor),

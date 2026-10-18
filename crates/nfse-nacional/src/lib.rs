@@ -124,14 +124,25 @@ pub fn gzip_base64(xml: &str) -> String {
     B64.encode(gz.finish().expect("escrita em memória"))
 }
 
+/// Teto do XML descompactado: uma NFS-e ou um evento têm poucos KB; sem teto, uma resposta
+/// adulterada (gzip "bomba") esgotaria a memória.
+const TETO_XML: u64 = 10 * 1024 * 1024;
+
 pub fn de_gzip_base64(dados: &str) -> Result<String, ErroSefin> {
     let bytes = B64
         .decode(dados.trim())
         .map_err(|e| ErroSefin::Formato(format!("base64: {e}")))?;
     let mut xml = String::new();
     GzDecoder::new(bytes.as_slice())
+        .take(TETO_XML + 1)
         .read_to_string(&mut xml)
         .map_err(|e| ErroSefin::Formato(format!("gzip: {e}")))?;
+    if xml.len() as u64 > TETO_XML {
+        return Err(ErroSefin::Formato(format!(
+            "XML descompactado passa de {} MiB",
+            TETO_XML / 1024 / 1024
+        )));
+    }
     Ok(xml)
 }
 
@@ -152,6 +163,10 @@ impl ClienteSefin {
         let http = reqwest::Client::builder()
             .tls_backend_native()
             .identity(identidade)
+            // Um redirecionamento reenviaria a DPS assinada (e apresentaria o certificado) a outro
+            // host; a API não redireciona, então 3xx vira erro HTTP (incerto, no envio).
+            .redirect(reqwest::redirect::Policy::none())
+            .min_tls_version(reqwest::tls::Version::TLS_1_2)
             .connect_timeout(Duration::from_secs(15))
             .timeout(Duration::from_secs(90))
             .user_agent(concat!("emissor-nfse/", env!("CARGO_PKG_VERSION")))
@@ -199,8 +214,9 @@ impl ClienteSefin {
                 // Só o 404 prova que a NFS-e não existe: sucesso sem chave é resposta inesperada.
                 corpo
                     .chave_acesso
-                    .map(Some)
                     .ok_or_else(|| ErroSefin::Formato("consulta da DPS sem chaveAcesso".into()))
+                    .and_then(chave_conferida)
+                    .map(Some)
             }
             s => Err(erro_http(s, texto)),
         }
@@ -390,11 +406,25 @@ async fn ler(resposta: reqwest::Response) -> Result<(StatusCode, String), ErroSe
     Ok((status, texto))
 }
 
+/// A chave vira caminho de URL e nome de arquivo: fora do formato, é resposta inesperada.
+/// Mesma regra de `nfse_core::dps::chave_de_acesso_valida` (este crate não depende do core).
+fn chave_conferida(chave: String) -> Result<String, ErroSefin> {
+    if chave.len() == 50 && chave.bytes().all(|b| b.is_ascii_digit() || b.is_ascii_uppercase()) {
+        Ok(chave)
+    } else {
+        let inicio: String = chave.chars().take(60).collect();
+        Err(ErroSefin::Formato(format!(
+            "chave de acesso fora do formato: {inicio:?}"
+        )))
+    }
+}
+
 fn nfse_da_resposta(texto: &str) -> Result<NfseAutorizada, ErroSefin> {
     let corpo: CorpoResposta = serde_json::from_str(texto).map_err(|e| ErroSefin::Formato(e.to_string()))?;
     let chave_acesso = corpo
         .chave_acesso
-        .ok_or_else(|| ErroSefin::Formato("resposta sem chaveAcesso".into()))?;
+        .ok_or_else(|| ErroSefin::Formato("resposta sem chaveAcesso".into()))
+        .and_then(chave_conferida)?;
     let xml = de_gzip_base64(
         &corpo
             .nfse_xml_g_zip_b64
@@ -432,6 +462,34 @@ fn erro_http(status: StatusCode, corpo: String) -> ErroSefin {
 #[cfg(test)]
 mod testes {
     use super::*;
+
+    #[test]
+    fn gzip_acima_do_teto_e_recusado() {
+        let grande = " ".repeat(TETO_XML as usize + 1);
+        assert!(matches!(
+            de_gzip_base64(&gzip_base64(&grande)),
+            Err(ErroSefin::Formato(_))
+        ));
+        let no_teto = " ".repeat(TETO_XML as usize);
+        assert_eq!(de_gzip_base64(&gzip_base64(&no_teto)).unwrap().len(), no_teto.len());
+    }
+
+    #[test]
+    fn chave_fora_do_formato_e_recusada() {
+        let chave = "35503082246231409000110000000000001526103831923593";
+        assert_eq!(chave_conferida(chave.into()).unwrap(), chave);
+        for ruim in ["../../etc/passwd", "", &format!("{}/", &chave[..49])] {
+            assert!(
+                matches!(chave_conferida(ruim.into()), Err(ErroSefin::Formato(_))),
+                "{ruim}"
+            );
+        }
+        let corpo = format!(
+            r#"{{"chaveAcesso":"../x","nfseXmlGZipB64":"{}"}}"#,
+            gzip_base64("<NFSe/>")
+        );
+        assert!(matches!(nfse_da_resposta(&corpo), Err(ErroSefin::Formato(_))));
+    }
 
     #[test]
     fn evento_da_consulta_no_topo_ou_em_lista() {

@@ -101,6 +101,13 @@ fn de_hex(texto: &str) -> Option<Vec<u8>> {
         .flatten()
 }
 
+/// Sem cifra, usuário e senha iriam abertos pela rede: só vale para servidor local sem login.
+pub fn conferir_seguranca(cfg: &ConfigSmtp) -> Option<&'static str> {
+    let com_login = cfg.usuario.as_deref().is_some_and(|u| !u.trim().is_empty());
+    (cfg.seguranca == Seguranca::Nenhuma && com_login)
+        .then_some("conexão sem cifra não aceita usuário e senha (iriam abertos pela rede); use STARTTLS ou SSL")
+}
+
 impl Banco {
     pub async fn smtp(&self) -> Resultado<Option<ConfigSmtp>> {
         self.configuracao(CHAVE_SMTP)
@@ -112,6 +119,9 @@ impl Banco {
     pub async fn definir_smtp(&self, cfg: &ConfigSmtp) -> Resultado<()> {
         if cfg.servidor.trim().is_empty() || cfg.remetente.trim().is_empty() || cfg.porta == 0 {
             return Err(ErroBanco::Regra("informe servidor, porta e e-mail do remetente".into()));
+        }
+        if let Some(e) = conferir_seguranca(cfg) {
+            return Err(ErroBanco::Regra(e.into()));
         }
         self.definir_configuracao(CHAVE_SMTP, &json(cfg)).await
     }
@@ -244,7 +254,21 @@ mod testes {
             enviar_ao_emitir: true,
         };
         banco.definir_smtp(&cfg).await.unwrap();
-        assert_eq!(banco.smtp().await.unwrap(), Some(cfg));
+        assert_eq!(banco.smtp().await.unwrap(), Some(cfg.clone()));
+
+        // Sem cifra, só sem login (servidor local); com usuário, a senha iria aberta.
+        let aberto = ConfigSmtp {
+            seguranca: Seguranca::Nenhuma,
+            ..cfg.clone()
+        };
+        assert!(matches!(banco.definir_smtp(&aberto).await, Err(ErroBanco::Regra(_))));
+        banco
+            .definir_smtp(&ConfigSmtp {
+                usuario: None,
+                ..aberto
+            })
+            .await
+            .unwrap();
 
         assert!(!banco.tem_senha_smtp().await.unwrap());
         banco.definir_senha_smtp(&cofre, "segredo-teste").await.unwrap();

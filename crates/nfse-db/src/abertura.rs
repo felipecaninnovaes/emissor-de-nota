@@ -66,7 +66,7 @@ async fn pool_unico(opcoes: SqliteConnectOptions) -> Resultado<SqlitePool> {
 }
 
 /// `PRAGMA integrity_check` num arquivo (cifrado, se vier a chave). Erro se não for "ok".
-pub(crate) async fn conferir_integridade(caminho: PathBuf, chave_hex: Option<String>) -> Resultado<()> {
+pub(crate) async fn conferir_integridade(caminho: PathBuf, chave_hex: Option<Zeroizing<String>>) -> Resultado<()> {
     let mut opcoes = SqliteConnectOptions::new().filename(&caminho).read_only(true);
     if let Some(chave) = chave_hex {
         opcoes = opcoes.pragma("key", pragma_chave(&chave));
@@ -123,7 +123,7 @@ async fn cifrar_banco_em_claro(caminho: PathBuf, chave: Zeroizing<String>) -> Re
     sqlx::query("DETACH DATABASE cifrado").execute(&conexao).await?;
     conexao.close().await;
 
-    if let Err(e) = conferir_integridade(novo.clone(), Some(chave.to_string())).await {
+    if let Err(e) = conferir_integridade(novo.clone(), Some(chave.clone())).await {
         let _ = std::fs::remove_file(&novo);
         return Err(e);
     }
@@ -145,6 +145,8 @@ impl Banco {
     /// Primeiro uso: cria o cofre com a senha mestra e o banco cifrado. Recusa se o cofre já existir
     /// (trocar a senha exigiria recifrar tudo).
     pub async fn criar_protegido(caminho: PathBuf, senha: String) -> Resultado<(Self, Cofre)> {
+        // Assume o buffer da senha: zerado quando a derivação terminar.
+        let senha = Zeroizing::new(senha);
         let (cofre, _) = tokio::task::spawn_blocking(move || Cofre::criar(&senha))
             .await
             .map_err(|e| ErroBanco::Regra(format!("falha ao criar o cofre: {e}")))??;
@@ -182,6 +184,7 @@ impl Banco {
 
     /// Abre o banco com a senha mestra. Converte, na primeira vez, um banco em claro de versão anterior.
     pub async fn abrir_protegido(caminho: PathBuf, senha: String) -> Resultado<(Self, Cofre)> {
+        let senha = Zeroizing::new(senha);
         let (cabecalho, legado) = match ler_cabecalho(&caminho)? {
             Some(c) => (c, false),
             None => match cabecalho_legado(caminho.clone()).await? {

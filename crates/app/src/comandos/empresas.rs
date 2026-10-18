@@ -126,6 +126,7 @@ pub async fn importar_certificado(
     pfx: Vec<u8>,
     senha: String,
 ) -> R<CertificadoDto> {
+    let senha = zeroize::Zeroizing::new(senha);
     let guarda = emissor!(estado);
     let cofre = guarda.as_ref().expect("verificado").cofre();
     let info = estado

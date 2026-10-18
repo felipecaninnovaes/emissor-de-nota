@@ -112,6 +112,7 @@ pub(crate) async fn automatico(estado: &Estado) {
 #[tauri::command]
 pub async fn restaurar_backup(estado: State<'_, Estado>, arquivo: String, senha: String, destino: String) -> R<()> {
     exigir_cofre(&estado).await?;
+    let senha = zeroize::Zeroizing::new(senha);
     let destino = PathBuf::from(destino.trim());
     backup::restaurar_backup(Path::new(arquivo.trim()), &senha, &destino)
         .await

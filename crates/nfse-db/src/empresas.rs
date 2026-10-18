@@ -635,7 +635,7 @@ pub(crate) mod testes {
             .importar_certificado(&cofre, empresa.id, PFX, "1234")
             .await
             .unwrap();
-        let (outro_cofre, _) = crate::cofre::testes::cofre_rapido("outra-senha");
+        let (outro_cofre, _) = crate::cofre::testes::cofre_rapido("outra-senha!");
         assert!(matches!(
             banco.certificado_ativo(&outro_cofre, empresa.id).await,
             Err(ErroBanco::Cofre(_))

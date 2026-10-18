@@ -213,6 +213,8 @@ input[data-formato]:not([data-formato="email"]):not([data-formato="emails"]) { f
 label.obrigatorio::after { content: " *"; color: var(--vermelho); }
 [aria-invalid="true"] { border-color: var(--vermelho); box-shadow: inset 0 0 0 1px var(--vermelho); }
 [aria-invalid="true"]:focus { outline-color: var(--vermelho); border-color: var(--vermelho); }
+td.alerta { color: var(--vermelho); }
+.texto-confirmar { white-space: pre-line; margin: 0; }
 .erro-campo { color: var(--vermelho); font-size: 0.7812rem; line-height: 1.125rem; margin: var(--espaco-1) 0 0; font-weight: 500; }
 .contador { display: block; text-align: right; font-family: var(--font-mono); font-size: 0.75rem; color: var(--tinta-suave); margin-top: 0.125rem; }
 .contador.alerta { color: var(--amarelo); }

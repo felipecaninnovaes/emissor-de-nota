@@ -38,6 +38,7 @@ pub fn ler_nfse(xml: &str) -> Result<DadosNfse, ErroLeituraNfse> {
     let chave = inf
         .attribute("Id")
         .and_then(|id| id.strip_prefix("NFS"))
+        .filter(|c| nfse_core::dps::chave_de_acesso_valida(c))
         .ok_or(ErroLeituraNfse::Estrutura("infNFSe/@Id"))?
         .to_owned();
     Ok(DadosNfse {

@@ -10,7 +10,7 @@ Referência para quem mexe na emissão: o que a API Sefin Nacional / ADN exige e
 
 ## Comunicação
 
-- **mTLS** com o e-CNPJ A1 do prestador (EKU "Client Authentication"), via `reqwest` com `native-tls`.
+- **mTLS** com o e-CNPJ A1 do prestador (EKU "Client Authentication"), via `reqwest` com `native-tls`, TLS 1.2 no mínimo e sem seguir redirecionamentos (um 3xx no envio vira resposta incerta). A chave de acesso devolvida precisa ter 50 posições (dígitos ou letras maiúsculas) e o XML descompactado no máximo 10 MiB; fora disso, é resposta em formato inesperado.
 - **Transporte**: corpo JSON com o XML em GZip + Base64 (`dpsXmlGZipB64`, `pedidoRegistroEventoXmlGZipB64`); função `gzip_base64`.
 - **Operações**:
 

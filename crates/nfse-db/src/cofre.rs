@@ -23,11 +23,25 @@ const TAM_NONCE: usize = 12;
 const VERIFICADOR: &[u8] = b"emissor-nfse:cofre:v1";
 const ROTULO_BANCO: &[u8] = b"emissor-nfse:banco:v1";
 
+/// Argon2id dos cofres novos: 64 MiB e 3 passadas (acima do mínimo da OWASP, 19 MiB e 2), para
+/// encarecer força bruta em quem copiar `emissor.db` + `emissor.cofre` ou um `.nfbk`. Cofres
+/// antigos continuam com os parâmetros gravados no cabeçalho.
+const M_COST: u32 = 64 * 1024;
+const T_COST: u32 = 3;
+const P_COST: u32 = 1;
+/// Teto dos parâmetros lidos de um cabeçalho: um `.nfbk` forjado com custo enorme esgotaria a
+/// memória ou travaria o programa ao "testar a restauração".
+const M_COST_MAX: u32 = 1024 * 1024;
+const T_COST_MAX: u32 = 10;
+const P_COST_MAX: u32 = 8;
+/// Mínimo de caracteres da senha de um cofre novo.
+const SENHA_MIN: usize = 12;
+
 #[derive(Debug, thiserror::Error)]
 pub enum ErroCofre {
     #[error("senha mestra incorreta")]
     SenhaIncorreta,
-    #[error("senha mestra muito curta (mínimo 8 caracteres)")]
+    #[error("senha mestra muito curta (mínimo 12 caracteres)")]
     SenhaCurta,
     #[error("dado cifrado corrompido ou de outro registro")]
     Corrompido,
@@ -66,18 +80,13 @@ fn derivar(senha: &str, sal: &[u8], m: u32, t: u32, p: u32) -> Result<Zeroizing<
 }
 
 impl Cofre {
-    /// Cria um cofre novo. Parâmetros do Argon2id: os padrões recomendados (19 MiB, 2 passadas).
+    /// Cria um cofre novo (Argon2id com [`M_COST`], [`T_COST`] e [`P_COST`]).
     pub fn criar(senha: &str) -> Result<(Self, CabecalhoCofre), ErroCofre> {
-        Self::criar_com(
-            senha,
-            Params::DEFAULT_M_COST,
-            Params::DEFAULT_T_COST,
-            Params::DEFAULT_P_COST,
-        )
+        Self::criar_com(senha, M_COST, T_COST, P_COST)
     }
 
     pub(crate) fn criar_com(senha: &str, m: u32, t: u32, p: u32) -> Result<(Self, CabecalhoCofre), ErroCofre> {
-        if senha.chars().count() < 8 {
+        if senha.chars().count() < SENHA_MIN {
             return Err(ErroCofre::SenhaCurta);
         }
         let sal = Key::<Aes256Gcm>::generate().to_vec();
@@ -99,6 +108,12 @@ impl Cofre {
 
     pub fn abrir(senha: &str, cabecalho: &CabecalhoCofre) -> Result<Self, ErroCofre> {
         let c = cabecalho;
+        if c.m_cost > M_COST_MAX || c.t_cost > T_COST_MAX || c.p_cost > P_COST_MAX {
+            return Err(ErroCofre::Parametros(format!(
+                "custo acima do aceito (m={} KiB, t={}, p={})",
+                c.m_cost, c.t_cost, c.p_cost
+            )));
+        }
         let cofre = Self {
             chave: derivar(senha, &c.sal, c.m_cost, c.t_cost, c.p_cost)?,
             cabecalho: c.clone(),
@@ -232,7 +247,23 @@ pub(crate) mod testes {
     }
 
     #[test]
+    fn recusa_cabecalho_com_custo_exagerado() {
+        let (_, mut cab) = cofre_rapido("senha-mestra");
+        cab.m_cost = 4 * 1024 * 1024; // 4 GiB
+        assert!(matches!(
+            Cofre::abrir("senha-mestra", &cab),
+            Err(ErroCofre::Parametros(_))
+        ));
+        let (_, mut cab) = cofre_rapido("senha-mestra");
+        cab.t_cost = 1000;
+        assert!(matches!(
+            Cofre::abrir("senha-mestra", &cab),
+            Err(ErroCofre::Parametros(_))
+        ));
+    }
+
+    #[test]
     fn recusa_senha_curta() {
-        assert!(matches!(Cofre::criar("1234567"), Err(ErroCofre::SenhaCurta)));
+        assert!(matches!(Cofre::criar("12345678901"), Err(ErroCofre::SenhaCurta)));
     }
 }

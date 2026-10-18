@@ -54,8 +54,7 @@ fn escapar(texto: &str) -> String {
 
 /// Gera o pedido de cancelamento sem assinatura. Devolve o XML e o Id de `infPedReg`.
 pub fn gerar_pedido_cancelamento(p: &PedidoCancelamento) -> Result<(String, String), PedidoInvalido> {
-    let chave_ok = p.chave.len() == 50 && p.chave.bytes().all(|b| b.is_ascii_digit() || b.is_ascii_uppercase());
-    if !chave_ok {
+    if !nfse_core::dps::chave_de_acesso_valida(&p.chave) {
         return Err(PedidoInvalido::Chave(p.chave.len()));
     }
     let descricao = p.descricao.trim();

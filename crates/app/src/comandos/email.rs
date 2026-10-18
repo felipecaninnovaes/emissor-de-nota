@@ -43,6 +43,7 @@ pub async fn salvar_email(
     config: nfse_db::emails::ConfigSmtp,
     senha: Option<String>,
 ) -> R<()> {
+    let senha = senha.map(zeroize::Zeroizing::new);
     let guarda = emissor!(estado);
     let cofre = guarda.as_ref().expect("verificado").cofre();
     estado.banco()?.definir_smtp(&config).await.map_err(texto)?;

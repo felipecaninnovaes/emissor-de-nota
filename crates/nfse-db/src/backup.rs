@@ -14,6 +14,8 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use crate::abertura::conferir_integridade;
+use zeroize::Zeroizing;
+
 use crate::cofre::{CabecalhoCofre, Cofre, gravar_cabecalho};
 use crate::{Banco, ErroBanco, Resultado, json};
 
@@ -138,17 +140,21 @@ fn podar(pasta: &Path, manter: usize) {
 /// Serve para restaurar e para testar a restauração. Não mexe no banco em uso: quem restaura
 /// troca os dois arquivos depois, com o aplicativo fechado.
 pub async fn restaurar_backup(arquivo: &Path, senha: &str, destino: &Path) -> Resultado<()> {
-    if destino.exists() {
+    // O cabeçalho vai para `<destino sem extensão>.cofre`: com destino "emissor" (sem extensão) na
+    // pasta de dados, ele sobrescreveria o `emissor.cofre` em uso, e o banco atual deixaria de abrir.
+    let cabecalho = crate::cofre::caminho_cabecalho(destino);
+    if destino.exists() || cabecalho.exists() || cabecalho == destino {
         return Err(ErroBanco::Regra(
-            "o destino já existe; escolha um arquivo novo para não sobrescrever dados".into(),
+            "o destino (ou o .cofre ao lado dele) já existe; escolha um arquivo .db novo para não sobrescrever dados"
+                .into(),
         ));
     }
-    let (arquivo, senha, alvo) = (arquivo.to_owned(), senha.to_owned(), destino.to_owned());
+    let (arquivo, senha, alvo) = (arquivo.to_owned(), Zeroizing::new(senha.to_owned()), destino.to_owned());
     let guarda = ApagarAoSair(destino.to_owned());
     let cofre = tokio::task::spawn_blocking(move || decifrar_arquivo(&arquivo, &senha, &alvo))
         .await
         .map_err(|e| ErroBanco::Regra(format!("falha ao restaurar: {e}")))??;
-    conferir_integridade(destino.to_owned(), Some(cofre.chave_banco_hex().to_string())).await?;
+    conferir_integridade(destino.to_owned(), Some(cofre.chave_banco_hex())).await?;
     // O banco restaurado só abre junto do cabeçalho do cofre.
     gravar_cabecalho(destino, cofre.cabecalho())?;
     guarda.manter();
@@ -296,6 +302,20 @@ mod testes {
                 .await
                 .is_err()
         );
+
+        // Destino sem extensão ao lado do banco em uso: o .cofre dele seria o do banco vivo.
+        let cofre_vivo = crate::cofre::caminho_cabecalho(&dir.join("emissor.db"));
+        let antes = std::fs::read(&cofre_vivo).unwrap();
+        for destino in ["emissor", "emissor.cofre"] {
+            assert!(
+                restaurar_backup(&arquivo, "senha-mestra", &dir.join(destino))
+                    .await
+                    .is_err(),
+                "{destino}"
+            );
+        }
+        assert_eq!(std::fs::read(&cofre_vivo).unwrap(), antes, "cofre em uso intacto");
+        assert!(!dir.join("emissor").exists());
         banco.fechar().await;
         let _ = std::fs::remove_dir_all(&dir);
     }
