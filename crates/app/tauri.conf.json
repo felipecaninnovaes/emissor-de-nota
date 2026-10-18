@@ -44,7 +44,10 @@
       }
     },
     "copyright": "Copyright (c) 2026 Felipe Canin Novaes — Licença MIT",
-    "category": "Business"
+    "category": "Business",
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    }
   },
   "plugins": {
     "updater": {
