@@ -2,6 +2,10 @@
 
 Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. Todas as versões até aqui saíram em 17/10/2026; a versão vem de `crates/app/Cargo.toml`.
 
+## 0.2.9
+
+- Configurações: botão **Escolher pasta…** para a pasta das notas e a do backup, com o seletor de pastas do sistema.
+
 ## 0.2.8
 
 - **Instaladores para macOS e Linux:** a Release passa a trazer DMG e `.app.tar.gz` (Apple Silicon e Intel), AppImage e DEB, além do MSI. O `latest.json` cobre as quatro plataformas e o atualizador funciona em todas (no Linux, só para o AppImage). O macOS ainda não é assinado pela Apple ([deploy.md](docs/deploy.md)).
