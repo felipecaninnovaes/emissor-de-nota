@@ -1,15 +1,19 @@
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
-use nfse_core::Cnpj;
 use nfse_core::Percentual;
+use nfse_core::modelo::Documento;
 use nfse_core::modelo::{ApuracaoSimples, EnderecoNacional, PisCofins, RegimeTributario, SituacaoSimples, Tomador};
 use nfse_core::modelo::{TotalTributos, TributosFederais};
+use nfse_core::{Cnpj, Dps};
+use nfse_db::dps::SituacaoDps;
 use nfse_db::empresas::NovaEmpresa;
-use nfse_db::servicos::Tributacao;
+use nfse_db::servicos::{Servico, Tributacao};
 use nfse_nacional::NfseAutorizada;
+use nfse_xml::MotivoCancelamento;
 
 use super::*;
+use crate::montagem::{mes_anterior, valor_br, valor_liquido};
 
 const PFX: &[u8] = include_bytes!("../../nfse-cert/tests/fixtures/teste-ecnpj-aes.pfx");
 const CHAVE: &str = "35111022211222333000181000000000000126101234567890";

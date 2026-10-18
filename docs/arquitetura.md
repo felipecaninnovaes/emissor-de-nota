@@ -34,7 +34,7 @@ nfse-poc      → cert, core, emissor, nacional, pdf, xml
 
 ## Fluxo de emissão
 
-Implementado em `Emissor::emitir` (`crates/nfse-emissor/src/lib.rs`). A Sefin fica atrás dos traits `Conector` e `Sefin`, que os testes substituem por um simulado.
+Implementado em `Emissor::emitir` (`crates/nfse-emissor/src/lib.rs`). Os demais fluxos do `Emissor` ficam em submódulos do mesmo crate: `montagem.rs` (DPS a partir dos cadastros), `reconciliacao.rs`, `cancelamento.rs`, `copia.rs` (refazer/copiar) e `envio_email.rs`. A Sefin fica atrás dos traits `Conector` e `Sefin`, que os testes substituem por um simulado.
 
 1. Recorrência e planilha: se o item já tem nota autorizada ou em andamento, não emite de novo.
 2. Monta e **valida a DPS antes de reservar número**: DPS inválida não gasta numeração.
