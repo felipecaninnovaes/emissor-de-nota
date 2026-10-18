@@ -80,6 +80,7 @@ fn main() {
                 .build(),
         )
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             // Antes de qualquer leitura da pasta: no macOS ela muda de nome e é migrada aqui. A
             // posição da janela (`window-state`) mora na mesma pasta e vai junto.
@@ -100,6 +101,7 @@ fn main() {
             comandos::cofre::bloquear_cofre,
             comandos::cofre::obter_pasta,
             comandos::cofre::definir_pasta,
+            comandos::dialogo::escolher_pasta,
             comandos::backup::obter_backup,
             comandos::backup::definir_pasta_backup,
             comandos::backup::fazer_backup,
