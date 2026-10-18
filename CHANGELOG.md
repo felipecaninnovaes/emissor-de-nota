@@ -1,6 +1,14 @@
 # Changelog
 
-Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. Todas as versões até aqui saíram em 17/10/2026; a versão vem de `crates/app/Cargo.toml`.
+Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, em 18/10/2026; a versão vem de `crates/app/Cargo.toml`.
+
+## 1.0.0
+
+Primeira versão estável: emissão, cancelamento, consultas, cadastros, recorrências, backup cifrado e atualização automática nas quatro plataformas.
+
+- Serviços: busca do código de tributação nacional (cTribNac) pelo nome, com a Lista de Serviços Nacional embutida.
+- Linux: o **Escolher pasta…** usa o xdg-desktop-portal e abre o diálogo do ambiente (KDE, GNOME), não o do GTK.
+- Linux/KDE com Wayland: o app roda pelo XWayland para a barra de título ser a do KWin (Breeze); `GDK_BACKEND=wayland` desfaz ([configuracao.md](docs/configuracao.md#variáveis-de-ambiente)).
 
 ## 0.2.9
 
