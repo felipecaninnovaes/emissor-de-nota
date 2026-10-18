@@ -10,6 +10,7 @@ Variáveis de ambiente, opções guardadas pelo aplicativo e locais dos arquivos
 | `NFSE_PFX_DIR` | teste `pfx_reais_abrem_ate_o_mac` em `crates/nfse-cert/src/lib.rs` (`#[ignore]`) | — | Pasta com arquivos `.pfx` reais, para conferir que abrem até o MAC |
 | `USERPROFILE` | `crates/app/src/comandos/comum.rs` | — | Base da pasta padrão de notas no Windows |
 | `HOME` | idem | — | Base da pasta padrão quando não há `USERPROFILE` (Linux, macOS) |
+| `GDK_BACKEND` | `preferir_x11_no_kde` em `crates/app/src/main.rs` (só Linux) | `x11` no KDE com Wayland e XWayland; nos demais, o do GTK | No KDE o app roda pelo XWayland para o KWin desenhar a barra de título Breeze. Definir `GDK_BACKEND=wayland` mantém o Wayland nativo (barra do GTK) |
 | `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | build do MSI e `.github/workflows/instalador.yml` | — | Assinatura do MSI para o atualizador ([deploy.md](deploy.md)) |
 
 ## Opções guardadas no banco

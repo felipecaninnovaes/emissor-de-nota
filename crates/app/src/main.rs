@@ -70,8 +70,24 @@ fn dimensionar_primeira_abertura(app: &tauri::App) -> tauri::Result<()> {
     Ok(())
 }
 
+/// No KDE com Wayland, o GTK3 desenha a própria barra de título (não implementa `xdg-decoration`)
+/// e destoa do Breeze. Pelo XWayland, quem desenha a barra é o KWin. Só vale quando há XWayland
+/// (`DISPLAY`) e o operador não escolheu um `GDK_BACKEND`.
+#[cfg(target_os = "linux")]
+fn preferir_x11_no_kde() {
+    use std::env::var_os;
+    let kde = std::env::var("XDG_CURRENT_DESKTOP").is_ok_and(|d| d.split(':').any(|p| p == "KDE"));
+    if kde && var_os("WAYLAND_DISPLAY").is_some() && var_os("DISPLAY").is_some() && var_os("GDK_BACKEND").is_none() {
+        // SAFETY: chamado no início do `main`, antes de qualquer outra thread existir.
+        unsafe { std::env::set_var("GDK_BACKEND", "x11") };
+    }
+}
+
 fn main() {
     use tauri_plugin_window_state::StateFlags;
+
+    #[cfg(target_os = "linux")]
+    preferir_x11_no_kde();
 
     tauri::Builder::default()
         .plugin(
