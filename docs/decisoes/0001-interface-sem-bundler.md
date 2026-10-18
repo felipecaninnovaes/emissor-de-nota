@@ -6,4 +6,4 @@ Estado: aceita (16/10/2026).
 
 **Decisão.** A interface do Tauri 2 é HTML, CSS e JS escritos à mão em `crates/app/ui/` (`frontendDist = "ui"`), com as fontes IBM Plex embutidas (a CSP continua `default-src 'self'`).
 
-**Consequências.** Não há dependência de Node; o `app.js` cresce sem módulos de build. Os argumentos de primeiro nível do `invoke` vão em camelCase (`empresaId`, `nfseId`, `dpsId`).
+**Consequências.** Não há dependência de Node; a interface é dividida em módulos ES nativos (`app.js` importa os de `js/`), que o WebView carrega sem etapa de build. Os argumentos de primeiro nível do `invoke` vão em camelCase (`empresaId`, `nfseId`, `dpsId`).

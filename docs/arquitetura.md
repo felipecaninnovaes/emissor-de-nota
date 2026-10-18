@@ -89,7 +89,7 @@ Regras: guardar sempre o XML autorizado original, com hash conferido na leitura;
 - `crates/app/src/main.rs`: abre o banco, registra os plugins (`updater`, `window-state`) e o `generate_handler!`.
 - `crates/app/src/comandos/`: comandos IPC, um módulo por assunto (`aparencia`, `atualizacao`, `cofre`, `consultas`, `email`, `emissao`, `empresas`, `notas`, `planilha`, `recorrencias`, `servicos`, `tomadores`); `comum.rs` guarda o que é compartilhado (`exigir_cofre`, macro `emissor!`, `abrir_no_sistema`). Todo comando que lê ou grava dados exige o cofre aberto.
 - `crates/app/src/cnpj.rs` (BrasilAPI) e `cep.rs` (ViaCEP): consultas públicas; só o CNPJ ou o CEP saem da máquina.
-- `crates/app/ui/`: `index.html`, `app.js`, `estilo.css` e fontes IBM Plex (OFL); sem Node nem bundler ([ADR 0001](decisoes/0001-interface-sem-bundler.md)). CSP `default-src 'self'` em `tauri.conf.json`.
+- `crates/app/ui/`: `index.html`, `app.js` (entrada), `js/` (módulos ES nativos, um por tela ou assunto: `util.js`, `tabela.js`, `formularios.js`, `componentes.js`, `navegacao.js` e as telas), `estilo.css` e fontes IBM Plex (OFL); sem Node nem bundler ([ADR 0001](decisoes/0001-interface-sem-bundler.md)). CSP `default-src 'self'` em `tauri.conf.json`.
 - Erros dos comandos voltam como `String` pronta para o operador.
 
 ## Arquivos em disco

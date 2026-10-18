@@ -60,7 +60,7 @@ Todo comando que lê ou grava dados precisa de `exigir_cofre(&estado)` ou da mac
 
 ## Interface
 
-`crates/app/ui/` é HTML, CSS e JS sem bundler. Argumentos de primeiro nível do `invoke` vão em camelCase (`empresaId`, `nfseId`, `dpsId`). Critérios usados para validar mudanças visuais: sem rolagem horizontal da página de 960×560 a 2560×1440 (pixels lógicos), fluxos completos só com teclado, todo controle com nome acessível, erro de validação junto do campo, modo de alto contraste do Windows. O histórico da melhoria de usabilidade está em [_arquivo/plano-usabilidade.md](_arquivo/plano-usabilidade.md).
+`crates/app/ui/` é HTML, CSS e JS sem bundler. O JS fica em módulos ES nativos: `app.js` é a entrada e importa `js/<tela ou assunto>.js`; código de uma tela vai no módulo dela, e o que mais de uma tela usa vai em `util.js`, `tabela.js`, `formularios.js` ou `componentes.js` (`util`, `formularios` e `componentes` não importam telas). Variável `let` exportada só é reatribuída pelo próprio módulo (import é somente leitura); para mudá-la de fora, exporte uma função. Argumentos de primeiro nível do `invoke` vão em camelCase (`empresaId`, `nfseId`, `dpsId`). Critérios usados para validar mudanças visuais: sem rolagem horizontal da página de 960×560 a 2560×1440 (pixels lógicos), fluxos completos só com teclado, todo controle com nome acessível, erro de validação junto do campo, modo de alto contraste do Windows. O histórico da melhoria de usabilidade está em [_arquivo/plano-usabilidade.md](_arquivo/plano-usabilidade.md).
 
 A logomarca do DANFSe é `crates/app/assets/logo-nfse.png`, gerada a partir de `logo-nfse.svg` (cópia ajustada: fonte Liberation Sans e largura 240).
 
