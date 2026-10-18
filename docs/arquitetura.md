@@ -8,7 +8,7 @@ Workspace Cargo (`Cargo.toml`, membros `crates/*`). O núcleo fiscal não depend
 
 | Crate | Papel |
 | --- | --- |
-| `nfse-core` | Domínio sem I/O: CNPJ (inclusive alfanumérico), CPF, Id da DPS, valores em centavos, modelo da DPS e validações do leiaute |
+| `nfse-core` | Domínio sem I/O: CNPJ (inclusive alfanumérico), CPF, Id da DPS, valores em centavos, modelo da DPS e validações do leiaute; Lista de Serviços Nacional embutida (`lista_servicos`) |
 | `nfse-cert` | Certificado A1: leitura do `.pfx` (inclusive BER, em `ber.rs`), diagnóstico, assinatura RSA |
 | `nfse-xml` | DPS e eventos na ordem do XSD, C14N inclusivo e exclusivo, assinatura e verificação XMLDSIG, leitura da NFS-e |
 | `nfse-nacional` | Cliente mTLS da Sefin Nacional (trait `Sefin`), GZip + Base64, orientações por código de rejeição (`mensagens.rs`) |

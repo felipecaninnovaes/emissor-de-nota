@@ -2,6 +2,7 @@
 
 pub mod documento;
 pub mod dps;
+pub mod lista_servicos;
 pub mod modelo;
 pub mod valor;
 

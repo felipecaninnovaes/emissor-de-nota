@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use nfse_core::Valor;
+use nfse_core::lista_servicos::{self, ItemListaServico};
 use nfse_db::servicos::{Servico, Tributacao};
 
 use super::comum::{R, exigir_cofre, gravar_e_abrir_csv, texto, vazio_para_none};
@@ -71,6 +72,22 @@ impl From<ServicoDto> for Servico {
 pub async fn salvar_servico(estado: State<'_, Estado>, servico: ServicoDto) -> R<i64> {
     exigir_cofre(&estado).await?;
     estado.banco()?.salvar_servico(&servico.into()).await.map_err(texto)
+}
+
+#[derive(Serialize)]
+pub struct ListaNacionalDto {
+    fonte: &'static str,
+    itens: Vec<&'static ItemListaServico>,
+}
+
+/// Busca na Lista de Serviços Nacional embutida (por nome ou código), para o cadastro do serviço.
+/// Não lê dados do usuário: dispensa o cofre.
+#[tauri::command]
+pub fn buscar_lista_servicos(termo: String) -> ListaNacionalDto {
+    ListaNacionalDto {
+        fonte: lista_servicos::fonte(),
+        itens: lista_servicos::buscar(&termo, 30),
+    }
 }
 
 #[derive(Serialize)]
