@@ -793,6 +793,7 @@ async fn recorrencia_do_cenario(c: &Cenario) -> i64 {
             valor: Some(c.pedido.valor),
             descricao: None,
             informacoes_complementares: None,
+            obra: None,
         })
         .await
         .unwrap()
@@ -1193,5 +1194,49 @@ async fn cancelar_nota_ja_cancelada_no_portal_registra_o_evento() {
     assert_eq!(
         c.emissor.banco().dps(nfse.dps_id).await.unwrap().situacao,
         SituacaoDps::Cancelada
+    );
+}
+
+#[tokio::test]
+async fn recorrencia_de_obra_leva_a_obra_na_nota() {
+    let c = cenario(vec![Resposta::Emitir(Ok(nfse_autorizada()))]).await;
+    let banco = c.emissor.banco();
+    // Serviço de construção civil: a DPS exige o grupo obra (E0370).
+    let mut servico = banco.servico(c.pedido.servico_id).await.unwrap();
+    servico.codigo_trib_nac = "070201".into();
+    banco.salvar_servico(&servico).await.unwrap();
+    let setembro = NaiveDate::from_ymd_opt(2026, 9, 17).unwrap();
+
+    let sem_obra = recorrencia_do_cenario(&c).await;
+    let erro = c.emissor.emitir_recorrencia(sem_obra, setembro).await.unwrap_err();
+    assert!(erro.to_string().contains("E0370"), "{erro:?}");
+    assert!(c.sefin.recebidos().is_empty(), "barrada antes de reservar número");
+
+    let com_obra = banco
+        .salvar_recorrencia(&nfse_db::recorrencias::Recorrencia {
+            id: None,
+            empresa_id: c.pedido.empresa_id,
+            tomador: c.pedido.tomador,
+            servico_id: c.pedido.servico_id,
+            valor: Some(c.pedido.valor),
+            descricao: None,
+            informacoes_complementares: None,
+            obra: Some(Obra {
+                inscricao_imobiliaria: None,
+                identificacao: nfse_core::modelo::IdentificacaoObra::Cno("123456789012".into()),
+            }),
+        })
+        .await
+        .unwrap();
+    assert!(
+        banco.recorrencia(com_obra).await.unwrap().recorrencia.obra.is_some(),
+        "obra gravada"
+    );
+    let r = c.emissor.emitir_recorrencia(com_obra, setembro).await.unwrap();
+    assert!(matches!(r, ResultadoEmissao::Autorizada { .. }));
+    assert!(
+        c.sefin.recebidos()[0].contains("<cObra>123456789012</cObra>"),
+        "{}",
+        c.sefin.recebidos()[0]
     );
 }

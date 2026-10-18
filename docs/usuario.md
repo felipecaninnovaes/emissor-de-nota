@@ -52,7 +52,7 @@ Filtro por mês, situação de cada nota, contagem e total. A ação principal d
 
 ## Recorrentes e lote do mês
 
-- **Recorrentes → Nova recorrência**: modelo de uma mensalidade (tomador, serviço, valor, descrição com variáveis).
+- **Recorrentes → Nova recorrência**: modelo de uma mensalidade (tomador, serviço, valor, descrição com variáveis). Se o serviço é de construção civil, o diálogo pede os dados da obra (CNO, CIB ou endereço), que vão em todas as notas da recorrência; recorrência de obra salva antes desta versão precisa ser editada para incluir a obra.
 - **Lote do mês**: lista as recorrências de todas as empresas; **Marcar pendentes** e **Emitir selecionadas**. Emite uma nota por recorrência e mês, mostra o andamento e não para o lote em caso de falha. Se a Sefin limitar as requisições (429), o lote espera e tenta mais uma vez.
 
 ## Importar planilha (convênios)

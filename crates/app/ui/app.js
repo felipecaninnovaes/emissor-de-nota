@@ -898,57 +898,60 @@ const CODIGOS_COM_OBRA = [
   "071901", "141403", "141404",
 ];
 
-function ajustarTipoObra() {
-  const tipo = $("#obra-tipo").value;
-  $("#obra-campo-codigo").hidden = tipo === "endereco";
-  $("#obra-endereco").hidden = tipo !== "endereco";
-  $("#obra-codigo-rotulo").textContent = tipo === "cib" ? "Código CIB (8 caracteres)" : "Número do CNO / CEI";
-  $("#obra-codigo").maxLength = tipo === "cib" ? 8 : 30;
+// O bloco da obra existe na emissão (ids `obra-*`) e no diálogo da recorrência (`rec-obra-*`).
+
+function ajustarTipoObra(p = "obra") {
+  const tipo = $(`#${p}-tipo`).value;
+  $(`#${p}-campo-codigo`).hidden = tipo === "endereco";
+  $(`#${p}-endereco`).hidden = tipo !== "endereco";
+  $(`#${p}-codigo-rotulo`).textContent = tipo === "cib" ? "Código CIB (8 caracteres)" : "Número do CNO / CEI";
+  $(`#${p}-codigo`).maxLength = tipo === "cib" ? 8 : 30;
 }
 
-$("#obra-tipo").addEventListener("change", ajustarTipoObra);
+for (const p of ["obra", "rec-obra"]) $(`#${p}-tipo`).addEventListener("change", () => ajustarTipoObra(p));
 
-function limparObra() {
-  for (const el of $$("#bloco-obra input")) el.value = "";
-  $("#obra-cep-cidade").textContent = "";
-  $("#obra-tipo").value = "cno";
-  ajustarTipoObra();
+function limparObra(p = "obra") {
+  for (const el of $$(`#bloco-${p} input`)) el.value = "";
+  $(`#${p}-cep-cidade`).textContent = "";
+  $(`#${p}-tipo`).value = "cno";
+  ajustarTipoObra(p);
 }
 
 /** Grupo `obra` do pedido (`nfse_core::modelo::Obra` em JSON), ou null se o serviço não pede. */
-function obraDigitada() {
-  if ($("#bloco-obra").hidden) return null;
-  const tipo = $("#obra-tipo").value;
+function obraDigitada(p = "obra") {
+  if ($(`#bloco-${p}`).hidden) return null;
+  const valor = (campo) => $(`#${p}-${campo}`).value;
+  const tipo = valor("tipo");
   const identificacao =
     tipo === "endereco"
       ? {
           endereco: {
-            cep: soDigitos($("#obra-cep").value),
-            logradouro: $("#obra-logradouro").value.trim(),
-            numero: $("#obra-numero").value.trim(),
-            complemento: vazio($("#obra-complemento").value),
-            bairro: $("#obra-bairro").value.trim(),
+            cep: soDigitos(valor("cep")),
+            logradouro: valor("logradouro").trim(),
+            numero: valor("numero").trim(),
+            complemento: vazio(valor("complemento")),
+            bairro: valor("bairro").trim(),
           },
         }
-      : { [tipo]: $("#obra-codigo").value.trim() };
-  return { inscricao_imobiliaria: vazio($("#obra-inscricao").value), identificacao };
+      : { [tipo]: valor("codigo").trim() };
+  return { inscricao_imobiliaria: vazio(valor("inscricao")), identificacao };
 }
 
-function preencherObra(obra) {
-  limparObra();
+function preencherObra(obra, p = "obra") {
+  limparObra(p);
   if (!obra) return;
-  $("#obra-inscricao").value = obra.inscricao_imobiliaria ?? "";
+  $(`#${p}-inscricao`).value = obra.inscricao_imobiliaria ?? "";
   const [tipo, dado] = Object.entries(obra.identificacao)[0];
-  $("#obra-tipo").value = tipo;
-  ajustarTipoObra();
+  $(`#${p}-tipo`).value = tipo;
+  ajustarTipoObra(p);
   if (tipo === "endereco") {
-    $("#obra-cep").value = FORMATOS.cep.mascara(dado.cep);
-    $("#obra-logradouro").value = dado.logradouro;
-    $("#obra-numero").value = dado.numero;
-    $("#obra-complemento").value = dado.complemento ?? "";
-    $("#obra-bairro").value = dado.bairro;
+    $(`#${p}-cep`).value = FORMATOS.cep.mascara(dado.cep);
+    $(`#${p}-logradouro`).value = dado.logradouro;
+    $(`#${p}-numero`).value = dado.numero;
+    $(`#${p}-complemento`).value = dado.complemento ?? "";
+    $(`#${p}-bairro`).value = dado.bairro;
   } else {
-    $("#obra-codigo").value = dado;
+    $(`#${p}-codigo`).value = dado;
   }
 }
 
@@ -1311,6 +1314,7 @@ $("#confirmar-emissao").addEventListener("click", async () => {
           valor: emitido.valor.replace(",", "."),
           descricao: emitido.descricao,
           informacoes_complementares: emitido.informacoes_complementares,
+          obra: emitido.obra,
         });
       // Prepara a próxima nota (mesmo serviço e mês) sem permitir reenviar a anterior por engano.
       escolherTomador(null);
@@ -1685,10 +1689,12 @@ function editarRecorrencia(r, base = null) {
   form.elements.valor.value = dados.valor ? moeda(dados.valor) : "";
   form.elements.descricao.value = dados.descricao ?? "";
   form.elements.info.value = dados.informacoes_complementares ?? "";
+  preencherObra(dados.obra ?? null, "rec-obra");
   const dicas = () => {
     const s = estado.servicos.find((x) => x.id === Number(form.elements.servico.value));
     form.elements.valor.placeholder = s?.valor_sugerido ? `${moeda(s.valor_sugerido)} (do serviço)` : "obrigatório";
     form.elements.descricao.placeholder = s?.descricao ?? "";
+    $("#bloco-rec-obra").hidden = !CODIGOS_COM_OBRA.includes(s?.codigo_trib_nac);
   };
   form.elements.servico.onchange = dicas;
   dicas();
@@ -1702,6 +1708,7 @@ function editarRecorrencia(r, base = null) {
         valor: valorDigitado(d.valor),
         descricao: vazio(d.descricao),
         informacoes_complementares: vazio(d.info),
+        obra: obraDigitada("rec-obra"),
       },
     });
     toast("Recorrência salva.");
@@ -2361,20 +2368,22 @@ function ligarConsultaCep(campo, preencher, aviso) {
   });
 }
 
-ligarConsultaCep(
-  $("#obra-cep"),
-  (d) => {
-    for (const [id, valor] of [
-      ["#obra-logradouro", d.logradouro],
-      ["#obra-bairro", d.bairro],
-      ["#obra-complemento", d.complemento],
-    ]) {
-      if (valor) $(id).value = valor;
-    }
-    $(d.logradouro ? "#obra-numero" : "#obra-logradouro").focus();
-  },
-  $("#obra-cep-cidade"),
-);
+for (const p of ["obra", "rec-obra"]) {
+  ligarConsultaCep(
+    $(`#${p}-cep`),
+    (d) => {
+      for (const [campo, valor] of [
+        ["logradouro", d.logradouro],
+        ["bairro", d.bairro],
+        ["complemento", d.complemento],
+      ]) {
+        if (valor) $(`#${p}-${campo}`).value = valor;
+      }
+      $(d.logradouro ? `#${p}-numero` : `#${p}-logradouro`).focus();
+    },
+    $(`#${p}-cep-cidade`),
+  );
+}
 
 ligarConsultaCep(
   $("#form-tomador").elements.cep,

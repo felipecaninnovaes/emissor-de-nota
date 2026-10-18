@@ -5,6 +5,7 @@ use sqlx::Row;
 use sqlx::sqlite::SqliteRow;
 
 use nfse_core::Valor;
+use nfse_core::modelo::Obra;
 
 use crate::dps::SituacaoDps;
 use crate::{Banco, ErroBanco, Resultado, agora};
@@ -22,6 +23,8 @@ pub struct Recorrencia {
     /// `None` = descrição padrão do serviço.
     pub descricao: Option<String>,
     pub informacoes_complementares: Option<String>,
+    /// Dados da obra, para serviço de construção civil (regra E0370).
+    pub obra: Option<Obra>,
 }
 
 /// Linha das telas de recorrentes e do lote: o modelo com nomes e valores já resolvidos e a
@@ -73,7 +76,8 @@ fn mes_valido(mes: &str) -> Resultado<()> {
 }
 
 const SELECT_ITEM: &str = "SELECT r.id, r.empresa_id, r.pessoa_id, r.servico_id, r.valor, r.descricao,
-        r.informacoes_complementares, pe.nome, pt.nome, s.nome, s.ativo, s.valor_sugerido, s.descricao
+        r.informacoes_complementares, pe.nome, pt.nome, s.nome, s.ativo, s.valor_sugerido, s.descricao,
+        r.obra_json
     FROM recorrencia r
     JOIN empresa e ON e.id = r.empresa_id
     JOIN pessoa pe ON pe.id = e.pessoa_id
@@ -94,6 +98,10 @@ fn item_de(r: &SqliteRow) -> ItemRecorrente {
             valor,
             descricao,
             informacoes_complementares: r.get(6),
+            // Gravado por `salvar_recorrencia`; ilegível vira "sem obra" e a validação da DPS aponta.
+            obra: r
+                .get::<Option<String>, _>(13)
+                .and_then(|j| serde_json::from_str(&j).ok()),
         },
         empresa: r.get(7),
         tomador: r.get(8),
@@ -122,11 +130,11 @@ impl Banco {
         let consulta = match r.id {
             None => sqlx::query(
                 "INSERT INTO recorrencia (empresa_id, pessoa_id, servico_id, valor, descricao, informacoes_complementares,
-                     criado_em) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
+                     obra_json, criado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
             ),
             Some(_) => sqlx::query(
                 "UPDATE recorrencia SET empresa_id = ?, pessoa_id = ?, servico_id = ?, valor = ?, descricao = ?,
-                     informacoes_complementares = ? WHERE id = ? AND ativa = 1 RETURNING id",
+                     informacoes_complementares = ?, obra_json = ? WHERE id = ? AND ativa = 1 RETURNING id",
             ),
         };
         let consulta = consulta
@@ -135,7 +143,8 @@ impl Banco {
             .bind(r.servico_id)
             .bind(r.valor.map(|v| v.centesimos()))
             .bind(vazio(&r.descricao))
-            .bind(vazio(&r.informacoes_complementares));
+            .bind(vazio(&r.informacoes_complementares))
+            .bind(r.obra.as_ref().map(crate::json));
         let consulta = match r.id {
             None => consulta.bind(agora()),
             Some(id) => consulta.bind(id),
@@ -275,6 +284,7 @@ pub(crate) mod testes {
             valor: None,
             descricao: Some("   ".into()),
             informacoes_complementares: None,
+            obra: None,
         };
         let id = banco.salvar_recorrencia(&r).await.unwrap();
         let item = banco.recorrencia(id).await.unwrap();
@@ -316,6 +326,7 @@ pub(crate) mod testes {
             valor: None,
             descricao: None,
             informacoes_complementares: None,
+            obra: None,
         };
         assert!(matches!(banco.salvar_recorrencia(&r).await, Err(ErroBanco::Regra(_))));
         assert!(matches!(

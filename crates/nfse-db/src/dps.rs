@@ -630,6 +630,7 @@ mod testes {
                 valor: None,
                 descricao: None,
                 informacoes_complementares: None,
+                obra: None,
             })
             .await
             .unwrap();

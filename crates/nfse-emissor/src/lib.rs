@@ -940,7 +940,7 @@ impl<C: Conector> Emissor<C> {
             valor,
             descricao: r.descricao,
             mes_referencia: Some(mes.with_day(1).expect("dia 1 existe")),
-            obra: None,
+            obra: r.obra,
             informacoes_complementares: r.informacoes_complementares,
             reter: Default::default(),
             origem: Origem::Recorrencia(recorrencia_id),

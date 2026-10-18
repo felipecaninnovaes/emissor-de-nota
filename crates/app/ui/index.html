@@ -511,6 +511,36 @@
           <div class="variaveis" data-alvo="recorrencia-descricao"></div>
           <p class="ajuda">Em branco: a descrição do serviço. As variáveis são trocadas a cada nota (o mês é o do lote).</p></div>
         <div class="c12"><label for="recorrencia-info">Informações complementares</label><textarea id="recorrencia-info" name="info" rows="2"></textarea></div>
+        <fieldset class="c12 bloco" id="bloco-rec-obra" hidden>
+          <legend>Dados da obra</legend>
+          <div class="grade">
+            <div class="c4">
+              <label for="rec-obra-tipo">Identificar a obra por</label>
+              <select id="rec-obra-tipo" name="obra_tipo">
+                <option value="cno">CNO / CEI</option>
+                <option value="cib">CIB (Cadastro Imobiliário Brasileiro)</option>
+                <option value="endereco">Endereço da obra</option>
+              </select>
+            </div>
+            <div class="c4" id="rec-obra-campo-codigo">
+              <label for="rec-obra-codigo" id="rec-obra-codigo-rotulo">Número do CNO / CEI</label>
+              <input id="rec-obra-codigo" name="obra_codigo" required maxlength="30" autocomplete="off">
+            </div>
+            <div class="c4">
+              <label for="rec-obra-inscricao">Inscrição imobiliária (opcional)</label>
+              <input id="rec-obra-inscricao" name="obra_inscricao" maxlength="30" autocomplete="off">
+            </div>
+          </div>
+          <div class="grade" id="rec-obra-endereco" hidden>
+            <div class="c3"><label for="rec-obra-cep">CEP</label><input id="rec-obra-cep" name="obra_cep" required maxlength="9" data-formato="cep" inputmode="numeric">
+              <p class="ajuda" id="rec-obra-cep-cidade" aria-live="polite"></p></div>
+            <div class="c7"><label for="rec-obra-logradouro">Logradouro</label><input id="rec-obra-logradouro" name="obra_logradouro" required maxlength="255"></div>
+            <div class="c2"><label for="rec-obra-numero">Número</label><input id="rec-obra-numero" name="obra_numero" required maxlength="60"></div>
+            <div class="c6"><label for="rec-obra-complemento">Complemento</label><input id="rec-obra-complemento" name="obra_complemento" maxlength="156"></div>
+            <div class="c6"><label for="rec-obra-bairro">Bairro</label><input id="rec-obra-bairro" name="obra_bairro" required maxlength="60"></div>
+          </div>
+          <p class="ajuda">Este código de serviço (construção civil) exige a identificação da obra na nota (regra E0370 da Sefin). A mesma obra vai em todas as notas desta recorrência.</p>
+        </fieldset>
       </div>
       <div id="erro-recorrencia" class="aviso erro" role="alert" hidden></div>
     </div>

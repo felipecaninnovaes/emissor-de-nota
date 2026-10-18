@@ -44,7 +44,7 @@ As migrações (`crates/nfse-db/migrations/`) precisam ficar em CRLF: o sqlx gua
 
 Se aparecer `migration N was previously applied but has been modified` ao usar um banco copiado, o arquivo local está com LF: apague `crates/nfse-db/migrations/*.sql` e rode `git checkout -- crates/nfse-db/migrations` para o `.gitattributes` valer. Se persistir, `touch` nos `.sql` ou `cargo clean -p nfse-db` (o `sqlx::migrate!` embute os arquivos na compilação).
 
-Nova migração: próximo número é o `0007`, arquivo em CRLF. Mudança na tabela `dps` não vai em migração: o ajuste `dps_unica_por_ambiente` recria a tabela depois das migrações num banco novo; use `crates/nfse-db/src/ajustes.rs` ([arquitetura.md](arquitetura.md#banco-de-dados)).
+Nova migração: próximo número é o `0008`, arquivo em CRLF. Mudança na tabela `dps` não vai em migração: o ajuste `dps_unica_por_ambiente` recria a tabela depois das migrações num banco novo; use `crates/nfse-db/src/ajustes.rs` ([arquitetura.md](arquitetura.md#banco-de-dados)).
 
 ## Comandos Tauri
 

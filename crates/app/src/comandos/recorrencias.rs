@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use nfse_core::Valor;
+use nfse_core::modelo::Obra;
 use nfse_emissor::{Origem, PedidoEmissao};
 
 use super::comum::{R, emissor, exigir_cofre, mes_de, texto, vazio_para_none};
@@ -48,6 +49,7 @@ pub struct RecorrenciaDto {
     /// Descrição que vai na nota, com o mês aplicado.
     descricao_no_mes: String,
     informacoes_complementares: Option<String>,
+    obra: Option<Obra>,
     no_mes: Option<TentativaDto>,
     /// O que impede a emissão no mês (vazio = pode emitir).
     erros: Vec<String>,
@@ -82,7 +84,7 @@ pub async fn listar_recorrencias(
                     valor,
                     descricao: r.descricao.clone(),
                     mes_referencia: Some(data),
-                    obra: None,
+                    obra: r.obra.clone(),
                     informacoes_complementares: r.informacoes_complementares.clone(),
                     reter: Default::default(),
                     origem: r.id.map(Origem::Recorrencia).unwrap_or_default(),
@@ -108,6 +110,7 @@ pub async fn listar_recorrencias(
             descricao: r.descricao.clone(),
             descricao_no_mes: nfse_emissor::aplicar_mes_ref(&item.descricao_efetiva, data),
             informacoes_complementares: r.informacoes_complementares.clone(),
+            obra: r.obra.clone(),
             no_mes: item.no_mes.map(|t| TentativaDto {
                 libera: t.libera_o_mes(),
                 dps_id: t.dps_id,
@@ -131,6 +134,8 @@ pub struct RecorrenciaEntrada {
     valor: Option<Valor>,
     descricao: Option<String>,
     informacoes_complementares: Option<String>,
+    #[serde(default)]
+    obra: Option<Obra>,
 }
 
 #[tauri::command]
@@ -146,6 +151,7 @@ pub async fn salvar_recorrencia(estado: State<'_, Estado>, recorrencia: Recorren
             valor: recorrencia.valor,
             descricao: vazio_para_none(recorrencia.descricao),
             informacoes_complementares: vazio_para_none(recorrencia.informacoes_complementares),
+            obra: recorrencia.obra,
         })
         .await
         .map_err(texto)
