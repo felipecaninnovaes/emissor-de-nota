@@ -28,7 +28,8 @@ Referência para quem mexe na emissão: o que a API Sefin Nacional / ADN exige e
 Implementação própria em `crates/nfse-xml/src/assinatura.rs` e `c14n.rs`, conferida contra `xmlsec1` nos testes.
 
 - **DPS e eventos que enviamos**: C14N inclusiva, RSA-SHA1, só o certificado final no `KeyInfo`, **sem prefixo `ds:`** (prefixo gera E1228). Confirmado em Produção.
-- **NFS-e devolvida pela Sefin**: C14N exclusiva, RSA-SHA256. O sistema confere a assinatura antes de arquivar, mas só registra aviso se não conferir ([ADR 0007](decisoes/0007-assinatura-da-sefin-como-aviso.md)). A cadeia ICP-Brasil não é validada.
+- **NFS-e devolvida pela Sefin**: C14N exclusiva, RSA-SHA256. O sistema confere a assinatura antes de arquivar, mas só registra aviso se não conferir ([ADR 0007](decisoes/0007-assinatura-da-sefin-como-aviso.md)). A cadeia ICP-Brasil não é validada. Confirmado em Produção Restrita: as duas assinaturas de uma NFS-e real (emitente na DPS e Sefin no `infNFSe`, `exc-c14n#WithComments`) conferem.
+- **Evento devolvido pela consulta** (`GET /nfse/{chave}/eventos/…`): a assinatura da Sefin sobre o `infEvento` **não confere**, nem no nosso verificador nem no `xmllint --exc-c14n` (que gera a mesma canonicalização que a nossa). O `pedRegEvento` vem sem a assinatura do autor do pedido; o mais provável é que a Sefin tenha assinado com ela dentro e a removido ao devolver. Por isso o evento não tem a assinatura conferida: vale a conexão mTLS e a conferência de estrutura e chave (`e_cancelamento_da_nfse`).
 
 ## Leiaute e XSD
 
