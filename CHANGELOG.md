@@ -1,6 +1,35 @@
 # Changelog
 
-Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0 e a 1.1.0, em 18/10/2026; a versão vem de `crates/app/Cargo.toml`.
+Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0 e a 1.2.0, em 18/10/2026; a versão vem de `crates/app/Cargo.toml`.
+
+## 1.2.0
+
+Robustez do banco e da interface, e reorganização interna do código (sem mudança de esquema do banco).
+
+**Banco**
+
+- Empresas, certificado, numeração, importação de serviços e tomador com vínculo são gravados numa transação só, com a auditoria dentro dela.
+- A conferência de envios pendentes e a leitura da empresa ao reservar número acontecem na mesma transação da escrita.
+- Alterar serviço ou recorrência confere a empresa dona do cadastro.
+
+**Emissão e DANFSe**
+
+- Cálculo de percentual sobre valor sem risco de estouro; valores negativos aparecem com sinal.
+- O DANFSe confere o formato dos campos antes de formatá-los, em vez de falhar com dado inesperado.
+- A importação de planilha só vincula o tomador à empresa quando ele ainda não está vinculado.
+- Busca de serviço pelo nome na importação acha nomes com qualquer acento (è, ì, ò, ä…).
+
+**Interface**
+
+- Busca e Revisar descartam respostas antigas; Revisar não dispara duas vezes e mostra o erro junto do campo.
+- Totais do lote e da planilha somados em centavos.
+- O lote só reenvia automaticamente quando a Sefin responde 429 (limite de requisições).
+- Atualização do sistema bloqueada durante emissão ou cancelamento.
+- "Marcar prontas" na importação de planilha fica desligado durante o envio, como no lote.
+
+**Código**
+
+- Interface dividida em módulos ES nativos (`crates/app/ui/js/`), ainda sem bundler; `nfse-emissor` dividido em submódulos; normalização de texto única no `nfse-core` (issue #10).
 
 ## 1.1.0
 
