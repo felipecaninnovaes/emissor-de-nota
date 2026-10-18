@@ -2,6 +2,11 @@
 
 Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. Todas as versões até aqui saíram em 17/10/2026; a versão vem de `crates/app/Cargo.toml`.
 
+## 0.2.8
+
+- **Instaladores para macOS e Linux:** a Release passa a trazer DMG e `.app.tar.gz` (Apple Silicon e Intel), AppImage e DEB, além do MSI. O `latest.json` cobre as quatro plataformas e o atualizador funciona em todas (no Linux, só para o AppImage). O macOS ainda não é assinado pela Apple ([deploy.md](docs/deploy.md)).
+- macOS: a pasta de dados deixa de ter o sufixo `.app`; a pasta antiga é migrada.
+
 ## 0.2.7
 
 - **Banco cifrado em repouso** (SQLCipher): o `emissor.db` inteiro passa a ser cifrado com a chave da senha mestra. O sal e o verificador ficam em `emissor.cofre`, ao lado do banco ([ADR 0013](docs/decisoes/0013-banco-cifrado-sqlcipher.md)).
