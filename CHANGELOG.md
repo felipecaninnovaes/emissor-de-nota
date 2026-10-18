@@ -1,6 +1,56 @@
 # Changelog
 
-Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, em 18/10/2026; a versão vem de `crates/app/Cargo.toml`.
+Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0 e a 1.1.0, em 18/10/2026; a versão vem de `crates/app/Cargo.toml`.
+
+## 1.1.0
+
+Correções da revisão do projeto (emissão, segurança, planilhas e interface) e conferência de cancelamentos feitos fora do sistema.
+
+**Atenção ao atualizar**
+
+- O banco ganha a coluna `recorrencia.obra_json` (migração `0007`) e `dps.enviado_em` na primeira abertura. Depois de aberto na 1.1.0, não volte para a 1.0.0.
+- E-mail com segurança "Nenhuma" (sem cifra) e usuário preenchido deixa de enviar: troque para STARTTLS ou SSL em Configurações.
+- Recorrências de serviço de construção civil precisam ser editadas para incluir os dados da obra.
+
+**Emissão**
+
+- NFS-e autorizada pela Sefin que não pôde ser gravada localmente fica **incerta** (com a chave no motivo) e é buscada de novo na reconciliação, em vez de aparecer como erro e permitir emitir outra.
+- Um 404 logo após um envio sem resposta não libera mais a DPS na hora: ela continua incerta por 5 minutos (`JANELA_RECONCILIACAO`), porque a Sefin pode ainda não mostrá-la. "Verificar" num envio ainda em curso é recusado. Resposta de sucesso sem `chaveAcesso` passa a ser erro de formato.
+- DPS que ficava presa em `reservada` (falha entre a reserva e o envio, ou programa fechado) passa a `rejeitada` e não bloqueia mais a recorrência ou a linha da planilha.
+- Autorização e cancelamento são gravados numa transação só, com a auditoria.
+- Textos fora do padrão do XSD (travessão ou aspas curvas coladas de outro programa, quebra de linha, espaço nas pontas) em endereço, e-mail, informações complementares e justificativa são recusados na revisão, antes de reservar número.
+
+**Cancelamento**
+
+- **Conferir na Sefin** (Mais ▾) e **Conferir cancelamentos** (Notas emitidas): registram cancelamentos feitos no portal nacional, com o XML do evento e o PDF com a marca d'água.
+- Cancelamento recusado ou sem resposta consulta o evento antes de dar erro: nota já cancelada no portal passa a cancelada.
+
+**Recorrências**
+
+- Dados da obra (CNO, CIB ou endereço) na recorrência, para serviço de construção civil (regra E0370); **Tornar recorrente** leva a obra da nota.
+
+**Planilhas**
+
+- Percentual de célula formatada como % no Excel (2% chega como 0,02) é apontado na importação de serviços, em vez de entrar como 0,02%. Valor com mais de duas casas é recusado, não arredondado.
+- Número que pode ser CPF ou CNPJ usa o documento cadastrado.
+
+**Interface**
+
+- Durante a emissão em lote ou da planilha, o mês, os filtros e o "Ler de novo" ficam travados; um erro no meio não deixa mais o botão preso.
+- A revisão fecha quando o formulário muda, para o "Emitir nota" (e o Ctrl+Enter) não enviar o pedido antigo.
+- Depois de salvar num diálogo, a recarga da lista não reabre o diálogo com erro (evitava e-mail e cadastro duplicados).
+- A tela de criação da senha mestra avisa que ela cifra o banco, os certificados e os backups, sem recuperação.
+
+**Segurança**
+
+- Senha mestra de cofre novo: mínimo de 10 caracteres, e senhas previsíveis (só números, sequências, "Senha@2026") são recusadas. Cofres novos usam Argon2id com 64 MiB e 3 passadas; os existentes mantêm os parâmetros.
+- Restaurar backup recusa destino que sobrescreveria o `emissor.cofre` em uso.
+- Cliente da Sefin sem redirecionamentos e com TLS 1.2 no mínimo; chave de acesso conferida antes de virar nome de arquivo; XML descompactado limitado a 10 MiB; cabeçalho de backup com custo de Argon2 exagerado é recusado.
+- CSP sem `'unsafe-inline'`; senhas e chave do banco zeradas da memória depois do uso.
+
+**Diagnóstico**
+
+- `nfse-poc consultar-eventos`: mostra a resposta bruta da consulta de eventos de uma NFS-e.
 
 ## 1.0.0
 
