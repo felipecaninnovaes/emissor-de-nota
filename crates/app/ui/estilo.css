@@ -231,6 +231,7 @@ legend {
 .acoes.entre { justify-content: space-between; flex-wrap: wrap; }
 .teste-email { flex: 0 1 24rem; }
 .trava-campo { margin-top: var(--espaco-4); }
+.aviso-senha { margin: var(--espaco-3) 0 0; text-align: left; }
 
 /* barra de ferramentas de uma tela: filtros à esquerda, ações à direita; quebra junta, sem separar
    a ação principal das secundárias */

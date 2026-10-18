@@ -667,7 +667,7 @@ async function iniciarTrava() {
   cofreExiste = s.existe;
   if (!cofreExiste) {
     $("#trava-ajuda").textContent =
-      "Primeiro uso: crie a senha mestra (mínimo 10 caracteres; uma frase é mais fácil de lembrar). Ela protege os certificados de todas as empresas.";
+      "Primeiro uso: crie a senha mestra (mínimo 10 caracteres; uma frase é mais fácil de lembrar).";
     $("#bloco-confirmacao").hidden = false;
     $("#senha2").required = true;
     $("#senha").autocomplete = "new-password";
