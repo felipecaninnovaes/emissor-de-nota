@@ -128,6 +128,35 @@ function detalheLinha({ id, colunas, alvo, itens, motivo = "", erro = false, abe
   return { botao, linha };
 }
 
+/**
+ * Tabela com caixas de marcar (lote, planilha, importar serviços). `itens()` é a lista desenhada (a
+ * caixa diz o índice em `data-i`); o botão de ação mostra quantos estão marcados. Com `emAndamento`,
+ * o botão fica desligado sem marcados ou durante o envio, assim como o "Marcar" (`marcar`).
+ */
+function selecaoEmTabela({ lista, itens, botao, rotulo, todos, marcar, emAndamento }) {
+  const caixas = () => $$(`${lista} input[type=checkbox]`);
+  const marcados = () =>
+    caixas()
+      .filter((c) => c.checked)
+      .map((c) => itens()[Number(c.dataset.i)]);
+  const atualizar = () => {
+    const n = marcados().length;
+    const b = $(botao);
+    b.textContent = n ? `${rotulo} (${n})` : rotulo;
+    if (!emAndamento) return;
+    b.disabled = emAndamento() || !n;
+    if (marcar) $(marcar).disabled = emAndamento();
+  };
+  const marcarTodos = (sim) => {
+    for (const c of caixas()) if (!c.disabled) c.checked = sim;
+    atualizar();
+  };
+  $(lista).addEventListener("change", atualizar);
+  $(todos).addEventListener("change", (ev) => marcarTodos(ev.target.checked));
+  if (marcar) $(marcar).addEventListener("click", () => marcarTodos(true));
+  return { marcados, atualizar };
+}
+
 function abrirDetalhe(botao, abrir) {
   const linha = document.getElementById(botao.getAttribute("aria-controls"));
   if (!linha) return;
@@ -987,14 +1016,31 @@ function limparEmissao() {
   $("#resultado").hidden = true;
 }
 
+/**
+ * Alterna entre a busca de tomador e o cartão do escolhido (com "Trocar"). `texto` vazio volta para a
+ * busca. Serve à emissão e ao diálogo de recorrência.
+ */
+function mostrarTomadorEscolhido({ escolhido, busca, resultados, termo, rotulo }, texto) {
+  escolhido.hidden = !texto;
+  busca.hidden = !!texto;
+  resultados.hidden = true;
+  termo.value = "";
+  if (texto) rotulo.textContent = texto;
+}
+
 function escolherTomador(t) {
   if (t !== estado.tomador) descartarRevisao();
   estado.tomador = t;
-  $("#tomador-escolhido").hidden = !t;
-  $("#busca-tomador").hidden = !!t;
-  $("#resultados-tomador").hidden = true;
-  $("#termo-tomador").value = "";
-  if (t) $("#tomador-escolhido-texto").textContent = `${t.tomador.nome} — ${formatarDocumento(t.tomador.documento)}`;
+  mostrarTomadorEscolhido(
+    {
+      escolhido: $("#tomador-escolhido"),
+      busca: $("#busca-tomador"),
+      resultados: $("#resultados-tomador"),
+      termo: $("#termo-tomador"),
+      rotulo: $("#tomador-escolhido-texto"),
+    },
+    t && `${t.tomador.nome} — ${formatarDocumento(t.tomador.documento)}`,
+  );
 }
 
 $("#trocar-tomador").addEventListener("click", () => {
@@ -1533,42 +1579,15 @@ $("#lista-notas").addEventListener("click", async (ev) => {
   }
 });
 
-/** Leva os dados de uma nota rejeitada para a tela de emissão (sai com o próximo número). */
-async function refazerNota(n) {
-  let r;
-  try {
-    r = await chamar("dados_para_refazer", { dpsId: n.dps_id });
-  } catch (e) {
-    return toast(String(e), true);
-  }
-  irPara("emitir");
-  limparEmissao();
-  escolherTomador(r.tomador);
-  if (r.servico_id && estado.servicos.some((s) => s.id === r.servico_id)) {
-    $("#servico").value = String(r.servico_id);
-  }
-  aplicarServico(); // mostra ou esconde os dados da obra; descrição e valor vêm da nota abaixo
-  $("#valor").value = moeda(r.valor);
-  $("#descricao").value = r.descricao; // já com o mês de referência aplicado
-  $("#info-compl").value = r.informacoes_complementares ?? "";
-  preencherObra(r.obra);
-  const avisos = [`Refazendo a DPS ${n.serie}/${n.numero_dps}, rejeitada: ${n.erro ?? ""}`];
-  if (!r.servico_id) avisos.push("Nenhum serviço do cadastro tem o mesmo código: escolha o serviço.");
-  if (n.tomador && !r.tomador) avisos.push(`O tomador "${n.tomador}" não foi encontrado no cadastro desta empresa.`);
-  const res = $("#resultado");
-  res.innerHTML = `<div class="aviso atencao">${avisos.map(esc).join("<br>")}
-    <br>Corrija o que causou a rejeição e clique em Revisar. A nota sai com o próximo número da série.</div>`;
-  res.hidden = false;
-}
-
 /**
- * Leva os dados de uma nota autorizada ou cancelada para a tela de emissão. A descrição vem do
- * modelo do serviço (com o mês de referência da tela): copiar o texto antigo repetiria o mês velho.
+ * Preenche a tela de emissão com os dados de uma nota (`comando`: dados_para_refazer ou
+ * dados_para_copiar). Com `manterDescricao`, fica o texto enviado; senão, o do modelo do serviço,
+ * a não ser que o serviço não exista mais no cadastro.
  */
-async function copiarNota(n) {
+async function levarParaEmissao(comando, n, { manterDescricao, aviso, orientacao }) {
   let r;
   try {
-    r = await chamar("dados_para_copiar", { dpsId: n.dps_id });
+    r = await chamar(comando, { dpsId: n.dps_id });
   } catch (e) {
     return toast(String(e), true);
   }
@@ -1579,16 +1598,37 @@ async function copiarNota(n) {
   if (servicoAchado) $("#servico").value = String(r.servico_id);
   aplicarServico(); // descrição do modelo do serviço e dados da obra
   $("#valor").value = moeda(r.valor);
-  if (!servicoAchado) $("#descricao").value = r.descricao; // sem serviço no cadastro: fica o texto da nota
+  if (manterDescricao || !servicoAchado) $("#descricao").value = r.descricao;
   $("#info-compl").value = r.informacoes_complementares ?? "";
   preencherObra(r.obra);
-  const avisos = [`Copiando a nota ${n.numero_nfse ?? `DPS ${n.serie}/${n.numero_dps}`}.`];
+  const avisos = [aviso];
   if (!servicoAchado) avisos.push("Nenhum serviço do cadastro tem o mesmo código: escolha o serviço.");
   if (n.tomador && !r.tomador) avisos.push(`O tomador "${n.tomador}" não foi encontrado no cadastro desta empresa.`);
   const res = $("#resultado");
   res.innerHTML = `<div class="aviso atencao">${avisos.map(esc).join("<br>")}
-    <br>Confira o mês de referência e o valor e clique em Revisar. A nota sai com o próximo número da série.</div>`;
+    <br>${orientacao} A nota sai com o próximo número da série.</div>`;
   res.hidden = false;
+}
+
+/** Leva os dados de uma nota rejeitada para a tela de emissão (sai com o próximo número). */
+function refazerNota(n) {
+  return levarParaEmissao("dados_para_refazer", n, {
+    manterDescricao: true, // já com o mês de referência aplicado
+    aviso: `Refazendo a DPS ${n.serie}/${n.numero_dps}, rejeitada: ${n.erro ?? ""}`,
+    orientacao: "Corrija o que causou a rejeição e clique em Revisar.",
+  });
+}
+
+/**
+ * Leva os dados de uma nota autorizada ou cancelada para a tela de emissão. A descrição vem do
+ * modelo do serviço (com o mês de referência da tela): copiar o texto antigo repetiria o mês velho.
+ */
+function copiarNota(n) {
+  return levarParaEmissao("dados_para_copiar", n, {
+    manterDescricao: false,
+    aviso: `Copiando a nota ${n.numero_nfse ?? `DPS ${n.serie}/${n.numero_dps}`}.`,
+    orientacao: "Confira o mês de referência e o valor e clique em Revisar.",
+  });
 }
 
 /** "2026-10-16T22:07:26Z" → "16/10/2026 19:07" (horário local). */
@@ -1699,11 +1739,16 @@ let tomadorRecorrencia = null; // { pessoa_id, nome } escolhido no diálogo
 
 function escolherTomadorRecorrencia(t) {
   tomadorRecorrencia = t;
-  $("[data-rec-escolhido]", dlgRecorrencia).hidden = !t;
-  $("[data-rec-busca]", dlgRecorrencia).hidden = !!t;
-  $("[data-rec-termo]", dlgRecorrencia).value = "";
-  $("[data-rec-resultados]", dlgRecorrencia).hidden = true;
-  if (t) $("[data-rec-tomador]", dlgRecorrencia).textContent = t.nome;
+  mostrarTomadorEscolhido(
+    {
+      escolhido: $("[data-rec-escolhido]", dlgRecorrencia),
+      busca: $("[data-rec-busca]", dlgRecorrencia),
+      resultados: $("[data-rec-resultados]", dlgRecorrencia),
+      termo: $("[data-rec-termo]", dlgRecorrencia),
+      rotulo: $("[data-rec-tomador]", dlgRecorrencia),
+    },
+    t?.nome,
+  );
 }
 
 ligarBuscaTomador($("[data-rec-termo]", dlgRecorrencia), $("[data-rec-resultados]", dlgRecorrencia), (t) =>
@@ -1767,8 +1812,15 @@ let loteEmAndamento = false;
 
 const podeEmitirNoLote = (r) => !r.erros.length && (!r.no_mes || r.no_mes.libera);
 const ambienteDe = (empresaId) => estado.empresas.find((e) => e.id === empresaId)?.ambiente;
-const marcadosLote = () =>
-  $$("#lista-lote input[type=checkbox]:checked").map((c) => loteCarregado[Number(c.dataset.i)]);
+const selecaoLote = selecaoEmTabela({
+  lista: "#lista-lote",
+  itens: () => loteCarregado,
+  botao: "#lote-emitir",
+  rotulo: "Emitir selecionadas",
+  todos: "#lote-todos",
+  marcar: "#lote-marcar",
+  emAndamento: () => loteEmAndamento,
+});
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function carregarLote() {
@@ -1820,7 +1872,7 @@ function desenharLote() {
       `Nenhuma recorrência cadastrada${$("#lote-so-empresa").checked ? " nesta empresa" : ""}.`,
       { ir: "recorrentes", texto: "Cadastrar recorrência" },
     );
-    atualizarBotaoLote();
+    selecaoLote.atualizar();
     return;
   }
   corpo.innerHTML = loteCarregado
@@ -1858,25 +1910,9 @@ function desenharLote() {
     pendente(s), total <span class="dado">R$ ${moeda(total)}</span>${
       comErro ? ` · ${comErro} com erro` : ""
     }</td></tr>`;
-  atualizarBotaoLote();
+  selecaoLote.atualizar();
 }
 
-function atualizarBotaoLote() {
-  const n = marcadosLote().length;
-  const botao = $("#lote-emitir");
-  botao.textContent = n ? `Emitir selecionadas (${n})` : "Emitir selecionadas";
-  botao.disabled = loteEmAndamento || !n;
-  $("#lote-marcar").disabled = loteEmAndamento;
-}
-
-function marcarPendentes(marcar) {
-  for (const c of $$("#lista-lote input[type=checkbox]")) if (!c.disabled) c.checked = marcar;
-  atualizarBotaoLote();
-}
-
-$("#lista-lote").addEventListener("change", atualizarBotaoLote);
-$("#lote-marcar").addEventListener("click", () => marcarPendentes(true));
-$("#lote-todos").addEventListener("change", (ev) => marcarPendentes(ev.target.checked));
 $("#mes-lote").addEventListener("change", () => carregarLote().catch((e) => toast(String(e), true)));
 $("#lote-so-empresa").addEventListener("change", () => carregarLote().catch((e) => toast(String(e), true)));
 
@@ -2002,7 +2038,7 @@ function confirmarEmissao(quantidade, total, producao, referencia) {
 }
 
 $("#lote-emitir").addEventListener("click", async () => {
-  const itens = marcadosLote();
+  const itens = selecaoLote.marcados();
   const mes = $("#mes-lote").value;
   if (!itens.length || !mes) return;
   const [ano, m] = mes.split("-");
@@ -2013,7 +2049,7 @@ $("#lote-emitir").addEventListener("click", async () => {
   for (const c of $$("#lista-lote input[type=checkbox]")) c.disabled = true;
   const andamento = (sim) => {
     loteEmAndamento = sim;
-    atualizarBotaoLote();
+    selecaoLote.atualizar();
   };
   const resumo = await emitirTravando(["#mes-lote", "#lote-so-empresa"], andamento, {
     itens,
@@ -2034,8 +2070,15 @@ let planilhaArquivo = null; // { nome, bytes }
 let planilhaEmAndamento = false;
 
 const podeEmitirDaPlanilha = (it) => !it.erros.length && (!it.anterior || it.anterior.libera);
-const marcadosPlanilha = () =>
-  $$("#lista-planilha input[type=checkbox]:checked").map((c) => planilhaLida[Number(c.dataset.i)]);
+const selecaoPlanilha = selecaoEmTabela({
+  lista: "#lista-planilha",
+  itens: () => planilhaLida,
+  botao: "#planilha-emitir",
+  rotulo: "Emitir selecionadas",
+  todos: "#planilha-todos",
+  marcar: "#planilha-marcar",
+  emAndamento: () => planilhaEmAndamento,
+});
 
 $("#modelo-planilha").addEventListener("click", async () => {
   try {
@@ -2106,7 +2149,7 @@ function desenharPlanilha() {
       planilhaArquivo ? "Nenhuma linha com dados na planilha." : "Escolha a planilha (.xlsx, .xls, .ods ou .csv)."
     }</td></tr>`;
     $("#planilha-resumo").textContent = "";
-    atualizarBotaoPlanilha();
+    selecaoPlanilha.atualizar();
     return;
   }
   corpo.innerHTML = planilhaLida
@@ -2148,33 +2191,18 @@ function desenharPlanilha() {
     (jaEmitidas ? `, ${jaEmitidas} já emitida(s)` : "") +
     (comErro ? `, ${comErro} com erro` : "") +
     ".";
-  atualizarBotaoPlanilha();
+  selecaoPlanilha.atualizar();
 }
 
-function atualizarBotaoPlanilha() {
-  const n = marcadosPlanilha().length;
-  const botao = $("#planilha-emitir");
-  botao.textContent = n ? `Emitir selecionadas (${n})` : "Emitir selecionadas";
-  botao.disabled = planilhaEmAndamento || !n;
-}
-
-function marcarProntas(marcar) {
-  for (const c of $$("#lista-planilha input[type=checkbox]")) if (!c.disabled) c.checked = marcar;
-  atualizarBotaoPlanilha();
-}
-
-$("#lista-planilha").addEventListener("change", atualizarBotaoPlanilha);
 $("#lista-planilha").addEventListener("click", (ev) => {
   const b = ev.target.closest("[data-cadastrar-tomador]");
   if (!b) return;
   const it = planilhaLida[Number(b.dataset.cadastrarTomador)];
   editarTomador(null, () => lerPlanilha(), { empresaId: it.empresa_id, documento: it.documento_tomador });
 });
-$("#planilha-todos").addEventListener("change", (ev) => marcarProntas(ev.target.checked));
-$("#planilha-marcar").addEventListener("click", () => marcarProntas(true));
 
 $("#planilha-emitir").addEventListener("click", async () => {
-  const itens = marcadosPlanilha();
+  const itens = selecaoPlanilha.marcados();
   if (!itens.length) return;
   const producao = itens.filter((it) => ambienteDe(it.empresa_id) === "producao").length;
   const total = somarValores(itens, (it) => it.valor);
@@ -2183,7 +2211,7 @@ $("#planilha-emitir").addEventListener("click", async () => {
   for (const c of $$("#lista-planilha input[type=checkbox]")) c.disabled = true;
   const andamento = (sim) => {
     planilhaEmAndamento = sim;
-    atualizarBotaoPlanilha();
+    selecaoPlanilha.atualizar();
   };
   const controles = ["#mes-planilha", "#reler-planilha", "#arquivo-planilha"];
   const resumo = await emitirTravando(controles, andamento, {
@@ -2742,16 +2770,16 @@ function desenharServicosAImportar(vazioTexto) {
         })
         .join("")
     : `<tr><td colspan="5" class="vazio">${esc(vazioTexto)}</td></tr>`;
-  atualizarBotaoImportar();
+  selecaoImportar.atualizar();
 }
 
-const marcadosImportar = () =>
-  $$("#lista-importar-servicos input[type=checkbox]:checked").map((c) => servicosAImportar[Number(c.dataset.i)]);
-
-function atualizarBotaoImportar() {
-  const n = marcadosImportar().length;
-  $("#importar-servicos-ok").textContent = n ? `Importar (${n})` : "Importar";
-}
+const selecaoImportar = selecaoEmTabela({
+  lista: "#lista-importar-servicos",
+  itens: () => servicosAImportar,
+  botao: "#importar-servicos-ok",
+  rotulo: "Importar",
+  todos: "#importar-todos",
+});
 
 async function carregarOrigemImportacao() {
   const form = $("#form-importar-servicos");
@@ -2789,11 +2817,6 @@ async function carregarOrigemImportacao() {
 $("#importar-origem").addEventListener("change", carregarOrigemImportacao);
 $("#importar-empresa").addEventListener("change", carregarOrigemImportacao);
 $("#importar-arquivo").addEventListener("change", carregarOrigemImportacao);
-$("#lista-importar-servicos").addEventListener("change", atualizarBotaoImportar);
-$("#importar-todos").addEventListener("change", (ev) => {
-  for (const c of $$("#lista-importar-servicos input[type=checkbox]")) if (!c.disabled) c.checked = ev.target.checked;
-  atualizarBotaoImportar();
-});
 
 $("#importar-servicos").addEventListener("click", () => {
   if (!estado.empresa) return toast("Escolha a empresa.", true);
@@ -2814,7 +2837,7 @@ $("#importar-servicos").addEventListener("click", () => {
   carregarOrigemImportacao();
 
   abrirDialogo(dlg, $("#erro-importar-servicos"), async () => {
-    const servicos = marcadosImportar().map((it) => it.servico);
+    const servicos = selecaoImportar.marcados().map((it) => it.servico);
     if (!servicos.length) throw "Marque os serviços a importar.";
     const empresaIds = $$("#importar-destinos input:checked").map((c) => Number(c.value));
     if (!empresaIds.length) throw "Marque ao menos uma empresa em \"Importar para\".";
