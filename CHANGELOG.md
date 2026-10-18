@@ -1,6 +1,16 @@
 # Changelog
 
-Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0 e a 1.2.0, em 18/10/2026; a versão vem de `crates/app/Cargo.toml`.
+Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0, a 1.2.0 e a 1.3.0, em 18/10/2026; a versão vem de `crates/app/Cargo.toml`.
+
+## 1.3.0
+
+Busca de códigos no cadastro de serviços (sem mudança de esquema do banco).
+
+**Serviços**
+
+- O campo Cód. tributação nacional aceita o código ou parte do nome e mostra a lista para escolher, com a descrição oficial embaixo; o campo separado de busca saiu.
+- O campo NBS ganhou a mesma busca, com a tabela de códigos NBS de 9 dígitos embutida a partir do Anexo B (issue #9).
+- Sair do campo não apaga mais um nome digitado; ao salvar, continua exigindo 6 dígitos no código nacional e 9 na NBS.
 
 ## 1.2.0
 
