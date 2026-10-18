@@ -2934,6 +2934,19 @@ $("#testar-email").addEventListener("click", async () => {
   }
 });
 
+// "Escolher pasta…": o seletor só preenche o campo (cancelar não muda nada); salvar valida como antes.
+document.querySelectorAll("[data-escolher]").forEach((botao) => {
+  botao.addEventListener("click", async () => {
+    const campo = $(botao.dataset.escolher);
+    try {
+      const pasta = await invoke("escolher_pasta", { inicial: campo.value });
+      if (pasta) campo.value = pasta;
+    } catch (e) {
+      toast(String(e), true);
+    }
+  });
+});
+
 $("#salvar-pasta").addEventListener("click", async () => {
   try {
     await chamar("definir_pasta", { pasta: $("#pasta-saida").value });

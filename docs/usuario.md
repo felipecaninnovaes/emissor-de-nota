@@ -61,7 +61,7 @@ Aceita XLSX, XLS, ODS e CSV, uma nota por linha. **Baixar modelo** dá o formato
 ## Configurações
 
 - **Aparência**: tamanho do texto e densidade.
-- **Pasta das notas**: onde XML e PDF são gravados.
+- **Pasta das notas**: onde XML e PDF são gravados. Digite o caminho ou use **Escolher pasta…** (abre o seletor do sistema, começando na pasta atual); depois clique em **Salvar**. Cancelar o seletor não muda nada. O mesmo vale para a pasta do backup.
 - **Backup do banco**: defina uma pasta fora da máquina (unidade externa ou pasta sincronizada). O sistema faz um backup cifrado ao abrir, no máximo uma vez por dia, e guarda os 10 mais recentes; "Fazer backup agora" força um. O backup só abre com a senha mestra. "Testar restauração" gera um banco novo a partir de um `.nfbk` e confere a integridade; para restaurar de verdade, feche o sistema e troque o `emissor.db` pelo arquivo gerado.
 - **E-mail das notas**: servidor SMTP do escritório; **Enviar teste**. Pode enviar sozinho depois de cada emissão.
 - **Certificados vencendo** (60 dias) e **Envios sem resposta da Sefin**.
