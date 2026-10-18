@@ -19,6 +19,7 @@ enum Resposta {
     ConsultarDps(Result<Option<String>, ErroSefin>),
     ConsultarNfse(Result<NfseAutorizada, ErroSefin>),
     Evento(Result<String, ErroSefin>),
+    ConsultarEvento(Result<Option<String>, ErroSefin>),
 }
 
 /// Sefin que responde na ordem de um roteiro e guarda o que recebeu.
@@ -80,6 +81,13 @@ impl Sefin for SefinSimulada {
         match self.proxima(pedido) {
             Resposta::Evento(r) => r,
             _ => panic!("esperava registrar_evento"),
+        }
+    }
+
+    async fn consultar_evento(&self, chave: &str, tipo: &str, seq: u32) -> Result<Option<String>, ErroSefin> {
+        match self.proxima(&format!("{chave}/{tipo}/{seq}")) {
+            Resposta::ConsultarEvento(r) => r,
+            _ => panic!("esperava consultar_evento"),
         }
     }
 }
@@ -1078,6 +1086,8 @@ async fn cancelamento_sem_resposta_mantem_autorizada() {
     let c = cenario(vec![
         Resposta::Emitir(Ok(nfse_autorizada())),
         Resposta::Evento(Err(ErroSefin::Incerto("timeout".into()))),
+        // A consulta também não acha o evento.
+        Resposta::ConsultarEvento(Ok(None)),
     ])
     .await;
     let ResultadoEmissao::Autorizada { nfse, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
@@ -1098,5 +1108,90 @@ async fn cancelamento_sem_resposta_mantem_autorizada() {
     assert_eq!(
         c.emissor.banco().dps(nfse.dps_id).await.unwrap().situacao,
         SituacaoDps::Autorizada
+    );
+}
+
+/// Evento de cancelamento homologado, no formato da Sefin, para a chave do cenário.
+fn evento_cancelamento() -> String {
+    format!(
+        concat!(
+            r#"<evento xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.01"><infEvento Id="EVT{chave}1011010001">"#,
+            r#"<nSeqEvento>1</nSeqEvento><pedRegEvento versao="1.01"><infPedReg Id="PRE{chave}101101">"#,
+            "<chNFSe>{chave}</chNFSe><e101101><xDesc>Cancelamento de NFS-e</xDesc><cMotivo>1</cMotivo>",
+            "<xMotivo>Cancelada no portal nacional</xMotivo></e101101></infPedReg></pedRegEvento></infEvento></evento>"
+        ),
+        chave = CHAVE
+    )
+}
+
+#[tokio::test]
+async fn sincroniza_cancelamento_feito_no_portal() {
+    let c = cenario(vec![
+        Resposta::Emitir(Ok(nfse_autorizada())),
+        Resposta::ConsultarEvento(Ok(None)),
+        Resposta::ConsultarEvento(Ok(Some(evento_cancelamento()))),
+    ])
+    .await;
+    let ResultadoEmissao::Autorizada { nfse, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+        panic!()
+    };
+    let banco = c.emissor.banco();
+    assert!(
+        !c.emissor.sincronizar_cancelamento(nfse.id).await.unwrap(),
+        "ainda não cancelada"
+    );
+    assert_eq!(banco.dps(nfse.dps_id).await.unwrap().situacao, SituacaoDps::Autorizada);
+
+    assert!(c.emissor.sincronizar_cancelamento(nfse.id).await.unwrap());
+    assert_eq!(banco.dps(nfse.dps_id).await.unwrap().situacao, SituacaoDps::Cancelada);
+    assert_eq!(c.sefin.recebidos()[2], format!("{CHAVE}/101101/1"));
+    // Já cancelada: não consulta de novo.
+    assert!(!c.emissor.sincronizar_cancelamento(nfse.id).await.unwrap());
+    assert!(c.sefin.roteiro_vazio());
+}
+
+#[tokio::test]
+async fn evento_de_outra_nota_nao_cancela() {
+    let c = cenario(vec![
+        Resposta::Emitir(Ok(nfse_autorizada())),
+        Resposta::ConsultarEvento(Ok(Some(evento_cancelamento().replace(CHAVE, &"9".repeat(50))))),
+    ])
+    .await;
+    let ResultadoEmissao::Autorizada { nfse, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+        panic!()
+    };
+    assert!(matches!(
+        c.emissor.sincronizar_cancelamento(nfse.id).await,
+        Err(ErroEmissao::Regra(_))
+    ));
+    assert_eq!(
+        c.emissor.banco().dps(nfse.dps_id).await.unwrap().situacao,
+        SituacaoDps::Autorizada
+    );
+}
+
+#[tokio::test]
+async fn cancelar_nota_ja_cancelada_no_portal_registra_o_evento() {
+    let c = cenario(vec![
+        Resposta::Emitir(Ok(nfse_autorizada())),
+        // A Sefin recusa o pedido porque a nota já tem cancelamento.
+        Resposta::Evento(Err(rejeicao("X0000"))),
+        Resposta::ConsultarEvento(Ok(Some(evento_cancelamento()))),
+    ])
+    .await;
+    let ResultadoEmissao::Autorizada { nfse, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+        panic!()
+    };
+    c.emissor
+        .cancelar(
+            nfse.id,
+            MotivoCancelamento::ErroNaEmissao,
+            "Valor informado errado na emissão",
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        c.emissor.banco().dps(nfse.dps_id).await.unwrap().situacao,
+        SituacaoDps::Cancelada
     );
 }

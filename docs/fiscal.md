@@ -20,7 +20,8 @@ Referência para quem mexe na emissão: o que a API Sefin Nacional / ADN exige e
 | Consultar NFS-e | `GET /nfse/{chaveAcesso}` | feito (reconciliação) |
 | Consultar DPS | `GET /dps/{id}` | feito (reconciliação e "Consultar na Sefin") |
 | Registrar evento | `POST /nfse/{chave}/eventos` | feito para cancelamento (e101101) |
-| Consultar eventos, distribuição DF-e, parâmetros municipais | — | não implementado |
+| Consultar evento | `GET /nfse/{chave}/eventos/{tipo}/{nSeq}` | feito para cancelamento (101101, nº 1): "Conferir na Sefin" e "Conferir cancelamentos" em Notas emitidas, e no cancelamento recusado ou sem resposta. Rota confirmada em Produção Restrita (SefinNacional 1.6): responde `{"eventos": [{"chaveAcesso", "tipoEvento", "numeroPedidoRegistroEvento", ...}]}`; o XML vem em `arquivoXml`, codificado em base64 do gzip+base64 (diferente das outras respostas, que usam gzip+base64 simples). Diagnóstico: `nfse-poc consultar-eventos` |
+| Distribuição DF-e, parâmetros municipais | — | não implementado |
 
 ## Assinatura XMLDSIG
 
@@ -50,7 +51,7 @@ Implementação própria em `crates/nfse-xml/src/assinatura.rs` e `c14n.rs`, con
 - **Retenções do serviço** são percentuais (IRRF, CSLL, INSS, PIS, COFINS) e os valores são calculados sobre o valor de cada nota. PIS/COFINS retidos são somados em `vRetCSLL` (NT 007/2026). O serviço define quais retenções valem (sempre, ou só para tomador que retém); o tomador define se retém, por empresa. Ver [ADR 0012](decisoes/0012-retencoes-em-percentual.md). Tomador pessoa física não retém tributos federais: a DPS com essa retenção é rejeitada na validação (`Dps::validar`), antes de reservar número. A revisão só **avisa** (não bloqueia) de retenção federal para optante do Simples e de PIS/COFINS/CSLL em nota de até R$ 215,05; o sistema não valida se a retenção é cabível para o item da LC 116.
 - **Texto dos campos `TSString`** (endereço do tomador e da obra, e-mail, informações complementares, motivo da substituição e justificativa do cancelamento): o XSD só aceita caracteres de U+0020 a U+00FF, sem quebra de linha e sem espaço nas pontas. Travessão, aspas curvas ou emoji colados de outro programa são recusados por `Dps::validar`, antes de reservar número (`conferir_tsstring` em `nfse-core`). A descrição do serviço (`TSDesc2000`) aceita quebra de linha. O endereço do tomador é gravado sem espaços nas pontas.
 - **Obra**: grupo de obra na DPS (regra E0370). **IBS/CBS**: grupo `IBSCBS` no cadastro de serviço (CST, cClassTrib, cIndOp).
-- **Cancelamento**: motivos `erro-na-emissao`, `servico-nao-prestado`, `outros`; justificativa de 15 a 255 caracteres, sem quebra de linha. Sem resposta da Sefin, a nota continua `autorizada` e basta repetir o cancelamento (o Id do pedido é fixo, não duplica). Prazos variam por município. O PDF é regerado com marca d'água.
+- **Cancelamento**: motivos `erro-na-emissao`, `servico-nao-prestado`, `outros`; justificativa de 15 a 255 caracteres, sem quebra de linha. Sem resposta da Sefin, ou com o pedido recusado, o emissor consulta o evento: se a nota já está cancelada na Sefin (inclusive pelo portal nacional), registra o cancelamento; senão, a nota continua `autorizada` e basta repetir (o Id do pedido é fixo, não duplica). O evento consultado só é aceito se for o `e101101` homologado com a chave da nota (`e_cancelamento_da_nfse`). Cancelamento por substituição (105102) e por análise fiscal (105104) ainda não são consultados. Prazos variam por município. O PDF é regerado com marca d'água.
 - **DANFSe**: PDF gerado localmente a partir do XML autorizado (layout v2.0, NT 008/2026), com QR Code da consulta pública, logomarca oficial e marca d'água de cancelada. Fontes procuradas no sistema (`nfse-pdf/src/fontes.rs`).
 
 ## Falhas e contingência

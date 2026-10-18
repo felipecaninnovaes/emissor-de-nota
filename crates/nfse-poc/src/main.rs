@@ -131,6 +131,16 @@ enum Comando {
         #[arg(long, value_enum, default_value = "restrita")]
         ambiente: AmbienteArg,
     },
+    /// Consulta os eventos de uma NFS-e (só leitura) e mostra as respostas brutas da Sefin:
+    /// diagnóstico do formato da consulta de eventos.
+    ConsultarEventos {
+        #[arg(long)]
+        pfx: PathBuf,
+        #[arg(long)]
+        chave: String,
+        #[arg(long, value_enum, default_value = "restrita")]
+        ambiente: AmbienteArg,
+    },
     /// Envia uma DPS já assinada. Em Produção exige --confirmo-producao.
     Emitir {
         #[arg(long)]
@@ -313,6 +323,22 @@ async fn main() -> Result<()> {
             match cliente.consultar_dps(id).await? {
                 Some(chave) => println!("DPS com NFS-e gerada. Chave de acesso: {chave}"),
                 None => println!("Conexão mTLS ok; não há NFS-e para esta DPS."),
+            }
+        }
+        Comando::ConsultarEventos { pfx, chave, ambiente } => {
+            let cert = abrir_certificado(&pfx)?;
+            let cliente = ClienteSefin::novo(&cert, ambiente.into())?;
+            for caminho in [
+                format!("/nfse/{chave}/eventos"),
+                format!("/nfse/{chave}/eventos/101101"),
+                format!("/nfse/{chave}/eventos/101101/1"),
+            ] {
+                let (status, corpo) = cliente.consulta_bruta(&caminho).await?;
+                println!("GET {caminho} -> HTTP {status}\n{corpo}\n");
+            }
+            match cliente.consultar_evento(&chave, "101101", 1).await? {
+                Some(xml) => println!("Cancelamento encontrado. Evento:\n{xml}"),
+                None => println!("A Sefin não tem evento de cancelamento para esta NFS-e."),
             }
         }
         Comando::Emitir {

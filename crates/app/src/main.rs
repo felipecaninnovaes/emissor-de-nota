@@ -150,6 +150,7 @@ fn main() {
             comandos::notas::listar_notas,
             comandos::notas::cancelar,
             comandos::notas::reconciliar,
+            comandos::notas::sincronizar_cancelamento,
             comandos::notas::dados_para_refazer,
             comandos::notas::dados_para_copiar,
             comandos::notas::pendentes,

@@ -92,6 +92,22 @@ pub fn gerar_pedido_cancelamento(p: &PedidoCancelamento) -> Result<(String, Stri
     Ok((xml, id))
 }
 
+/// Confere se o XML é o evento de cancelamento (e101101) registrado pela Sefin para a NFS-e
+/// `chave`: o `infEvento` homologado, com o pedido dessa chave dentro.
+pub fn e_cancelamento_da_nfse(xml: &str, chave: &str) -> bool {
+    let Ok(doc) = roxmltree::Document::parse(xml) else {
+        return false;
+    };
+    let tem = |nome: &str| {
+        doc.descendants()
+            .any(|n| n.tag_name().namespace() == Some(NS_NFSE) && n.tag_name().name() == nome)
+    };
+    let chave_confere = doc.descendants().any(|n| {
+        n.tag_name().namespace() == Some(NS_NFSE) && n.tag_name().name() == "chNFSe" && n.text() == Some(chave)
+    });
+    tem("infEvento") && tem("e101101") && chave_confere
+}
+
 #[cfg(test)]
 pub(crate) mod testes {
     use super::*;
@@ -107,6 +123,21 @@ pub(crate) mod testes {
             motivo: MotivoCancelamento::ErroNaEmissao,
             descricao: "Nota emitida em teste de integração".into(),
         }
+    }
+
+    #[test]
+    fn reconhece_evento_de_cancelamento() {
+        let p = pedido();
+        let (pedido_xml, _) = gerar_pedido_cancelamento(&p).unwrap();
+        let pedido_xml = pedido_xml.trim_start_matches(r#"<?xml version="1.0" encoding="UTF-8"?>"#);
+        let evento = format!(
+            r#"<evento xmlns="{NS_NFSE}" versao="1.01"><infEvento Id="EVT{}1011010001"><nSeqEvento>1</nSeqEvento>{pedido_xml}</infEvento></evento>"#,
+            p.chave
+        );
+        assert!(e_cancelamento_da_nfse(&evento, &p.chave));
+        assert!(!e_cancelamento_da_nfse(&evento, "outra-chave"));
+        assert!(!e_cancelamento_da_nfse(pedido_xml, &p.chave), "pedido sem homologação");
+        assert!(!e_cancelamento_da_nfse("<evento", &p.chave));
     }
 
     #[test]

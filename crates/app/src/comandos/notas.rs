@@ -75,6 +75,18 @@ pub async fn cancelar(
         .map_err(texto)
 }
 
+/// Confere na Sefin se a nota foi cancelada fora do sistema (portal nacional). `true` se cancelou.
+#[tauri::command]
+pub async fn sincronizar_cancelamento(estado: State<'_, Estado>, nfse_id: i64) -> R<bool> {
+    let guarda = emissor!(estado);
+    guarda
+        .as_ref()
+        .expect("verificado")
+        .sincronizar_cancelamento(nfse_id)
+        .await
+        .map_err(texto)
+}
+
 #[tauri::command]
 pub async fn reconciliar(estado: State<'_, Estado>, dps_id: i64) -> R<String> {
     let guarda = emissor!(estado);

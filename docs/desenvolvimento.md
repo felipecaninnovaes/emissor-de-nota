@@ -79,7 +79,7 @@ O gerador confere o código de cada linha com item, subitem e desdobro e falha s
 
 ## CLI `nfse-poc`
 
-Diagnóstico direto na Sefin, sem o app. Subcomandos: `cert-info`, `gerar-dps`, `assinar`, `danfse`, `verificar`, `cancelar`, `consultar-dps`, `emitir`. A senha do certificado vem da variável `NFSE_PFX_SENHA` ou é pedida no terminal.
+Diagnóstico direto na Sefin, sem o app. Subcomandos: `cert-info`, `gerar-dps`, `assinar`, `danfse`, `verificar`, `cancelar`, `consultar-dps`, `consultar-eventos`, `emitir`. A senha do certificado vem da variável `NFSE_PFX_SENHA` ou é pedida no terminal.
 
 ```bash
 cargo run -p nfse-poc -- cert-info --pfx caminho/empresa.pfx
@@ -89,7 +89,7 @@ cargo run -p nfse-poc -- cert-info --pfx caminho/empresa.pfx
 cargo run -p nfse-poc -- consultar-dps --pfx caminho/empresa.pfx --id DPS351110221122233300018100001000000000000001
 ```
 
-Se o mTLS funcionar, a consulta responde que não há NFS-e para a DPS (404) ou devolve a chave. Para gerar, assinar e emitir em Produção Restrita, parta de [exemplos/dps-exemplo.json](../exemplos/dps-exemplo.json), guarde a cópia em `certs/` (ignorada pelo git) e use:
+Se o mTLS funcionar, a consulta responde que não há NFS-e para a DPS (404) ou devolve a chave. `consultar-eventos --pfx … --chave <chave> --ambiente restrita` só lê: mostra as respostas brutas de três rotas de eventos e se o cancelamento foi encontrado. Para gerar, assinar e emitir em Produção Restrita, parta de [exemplos/dps-exemplo.json](../exemplos/dps-exemplo.json), guarde a cópia em `certs/` (ignorada pelo git) e use:
 
 ```bash
 cargo run -p nfse-poc -- gerar-dps --entrada certs/dps.json --saida certs/dps-assinada.xml --agora --pfx caminho/empresa.pfx

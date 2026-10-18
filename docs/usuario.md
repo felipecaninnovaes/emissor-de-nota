@@ -48,6 +48,7 @@ Filtro por mês, situação de cada nota, contagem e total. A ação principal d
 - **Corrigir e emitir**: refaz uma rejeitada com o próximo número.
 - **Verificar**: consulta a Sefin para uma nota incerta (sem resposta). Nunca emita de novo antes de verificar. Nos primeiros 5 minutos depois do envio, se a Sefin ainda não mostrar a nota, ela continua incerta: verifique de novo depois do horário indicado.
 - **Cancelar**: escolha o motivo e escreva a justificativa (15 a 255 caracteres). O PDF é regerado com a marca d'água.
+- **Conferir na Sefin** (em **Mais ▾**, nota autorizada) e **Conferir cancelamentos** (barra da tela, todas as autorizadas da lista): consultam se a nota foi cancelada fora do sistema, por exemplo no portal nacional. Se foi, o cancelamento é registrado aqui, com o XML do evento e o PDF com a marca d'água. O sistema não confere sozinho: depois de cancelar no portal, use um dos dois.
 
 ## Recorrentes e lote do mês
 

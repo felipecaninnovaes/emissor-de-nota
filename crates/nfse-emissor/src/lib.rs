@@ -1148,40 +1148,97 @@ impl<C: Conector> Emissor<C> {
         let (xml, id) = nfse_xml::gerar_pedido_cancelamento(&pedido)?;
         let assinado = assinar_em_thread(xml, id, cert.clone()).await?;
         // O Id do pedido é fixo por chave e tipo de evento: repetir após falha não duplica.
-        let evento = sefin
-            .registrar_evento(&nfse.chave, &assinado)
-            .await
-            .map_err(|e| match e {
-                ErroSefin::Rejeitada { erros, .. } => ErroEmissao::Rejeitada {
-                    dps_id: None,
-                    mensagem: mensagem_rejeicao(&erros),
-                },
-                e @ (ErroSefin::Incerto(_) | ErroSefin::Http { .. } | ErroSefin::Formato(_)) => {
-                    ErroEmissao::Regra(format!(
-                        "a Sefin não confirmou o cancelamento ({e}); ele pode ter sido registrado. \
-                         Tente cancelar de novo: o pedido repetido não duplica o evento"
-                    ))
+        let evento = match sefin.registrar_evento(&nfse.chave, &assinado).await {
+            Ok(evento) => evento,
+            // Rejeitado (ex.: já cancelada no portal) ou sem resposta: a Sefin pode já ter o evento.
+            Err(e) => match self.evento_de_cancelamento(&sefin, &nfse.chave).await {
+                Some(evento) => evento,
+                None => {
+                    return Err(match e {
+                        ErroSefin::Rejeitada { erros, .. } => ErroEmissao::Rejeitada {
+                            dps_id: None,
+                            mensagem: mensagem_rejeicao(&erros),
+                        },
+                        e @ (ErroSefin::Incerto(_) | ErroSefin::Http { .. } | ErroSefin::Formato(_)) => {
+                            ErroEmissao::Regra(format!(
+                                "a Sefin não confirmou o cancelamento ({e}); ele pode ter sido registrado. \
+                                 Tente cancelar de novo: o pedido repetido não duplica o evento"
+                            ))
+                        }
+                        outro => ErroEmissao::Sefin(outro),
+                    });
                 }
-                outro => ErroEmissao::Sefin(outro),
-            })?;
-        self.banco.registrar_cancelamento(nfse_id, &evento).await?;
+            },
+        };
+        self.registrar_cancelamento(&empresa, &nfse, &evento).await
+    }
+
+    /// Confere na Sefin se a nota autorizada foi cancelada fora do sistema (ex.: no portal
+    /// nacional) e, se foi, registra o evento como no cancelamento feito aqui. Devolve se cancelou.
+    pub async fn sincronizar_cancelamento(&self, nfse_id: i64) -> Result<bool, ErroEmissao> {
+        let nfse = self.banco.nfse(nfse_id).await?;
+        let dps = self.banco.dps(nfse.dps_id).await?;
+        match dps.situacao {
+            SituacaoDps::Autorizada => {}
+            SituacaoDps::Cancelada => return Ok(false),
+            outra => {
+                return Err(ErroEmissao::Regra(format!(
+                    "a nota está \"{}\" e não tem o que sincronizar",
+                    outra.texto()
+                )));
+            }
+        }
+        let empresa = self.banco.empresa(dps.empresa_id).await?;
+        let (_, sefin) = self.conectar(&empresa, dps.ambiente).await?;
+        let evento = sefin
+            .consultar_evento(&nfse.chave, EVENTO_CANCELAMENTO, 1)
+            .await
+            .map_err(ErroEmissao::Sefin)?;
+        let Some(evento) = evento else {
+            return Ok(false);
+        };
+        if !nfse_xml::e_cancelamento_da_nfse(&evento, &nfse.chave) {
+            return Err(ErroEmissao::Regra(format!(
+                "a Sefin devolveu um evento que não é o cancelamento da NFS-e {}",
+                nfse.chave
+            )));
+        }
+        self.registrar_cancelamento(&empresa, &nfse, &evento).await?;
+        Ok(true)
+    }
+
+    /// Evento de cancelamento já registrado na Sefin para a chave, se a consulta o encontrar.
+    async fn evento_de_cancelamento(&self, sefin: &C::S, chave: &str) -> Option<String> {
+        let evento = sefin.consultar_evento(chave, EVENTO_CANCELAMENTO, 1).await.ok()??;
+        nfse_xml::e_cancelamento_da_nfse(&evento, chave).then_some(evento)
+    }
+
+    /// Grava o evento homologado, marca a nota como cancelada e refaz o PDF com a marca d'água.
+    /// Depois da gravação, falha ao arquivar vira só aviso na auditoria.
+    async fn registrar_cancelamento(
+        &self,
+        empresa: &Empresa,
+        nfse: &NfseGravada,
+        evento: &str,
+    ) -> Result<(), ErroEmissao> {
+        self.banco.registrar_cancelamento(nfse.id, evento).await?;
 
         if let Some(raiz) = &self.pasta {
             let competencia = nfse_xml::ler_nfse(&nfse.xml)?
                 .competencia
                 .and_then(|c| NaiveDate::parse_from_str(&c, "%Y-%m-%d").ok())
                 .unwrap_or_else(|| agora_brasilia().date_naive());
-            let caminho = arquivo::pasta_mes(raiz, &empresa, competencia).join(arquivo::nome_xml_evento(
+            let caminho = arquivo::pasta_mes(raiz, empresa, competencia).join(arquivo::nome_xml_evento(
                 nfse.numero.as_deref().unwrap_or("sem-numero"),
                 &nfse.chave,
                 "cancelamento",
             ));
-            if let Err(e) = arquivo::gravar(&caminho, &evento) {
+            if let Err(e) = arquivo::gravar(&caminho, evento) {
                 let aviso = format!("cancelamento registrado, mas não gravado em {}: {e}", caminho.display());
-                self.banco.auditar("aviso", Some(empresa.id), Some(&aviso)).await?;
+                let _ = self.banco.auditar("aviso", Some(empresa.id), Some(&aviso)).await;
             }
             // O PDF da nota passa a ter a marca d'água CANCELADA.
-            let caminho_xml = arquivo::pasta_mes(raiz, &empresa, competencia).join(arquivo::nome_xml_nfse(
+            let caminho_xml = arquivo::pasta_mes(raiz, empresa, competencia).join(arquivo::nome_xml_nfse(
                 nfse.numero.as_deref().unwrap_or("sem-numero"),
                 &nfse.chave,
             ));
@@ -1190,12 +1247,15 @@ impl<C: Conector> Emissor<C> {
                 .await
             {
                 let aviso = format!("cancelamento registrado, mas o PDF não foi atualizado: {e}");
-                self.banco.auditar("aviso", Some(empresa.id), Some(&aviso)).await?;
+                let _ = self.banco.auditar("aviso", Some(empresa.id), Some(&aviso)).await;
             }
         }
         Ok(())
     }
 }
+
+/// Tipo do evento de cancelamento da NFS-e (e101101).
+const EVENTO_CANCELAMENTO: &str = "101101";
 
 #[cfg(test)]
 mod testes;

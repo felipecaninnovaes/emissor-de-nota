@@ -1339,7 +1339,10 @@ async function carregarNotas() {
         if (n.situacao === "autorizada" || n.situacao === "cancelada") {
           acoes.push({ acao: "email", texto: "E-mail" }, { acao: "copiar", texto: "Copiar" });
         }
-        if (n.situacao === "autorizada") acoes.push({ acao: "cancelar", texto: "Cancelar nota", perigo: true });
+        if (n.situacao === "autorizada") {
+          acoes.push({ acao: "conferir", texto: "Conferir na Sefin" });
+          acoes.push({ acao: "cancelar", texto: "Cancelar nota", perigo: true });
+        }
       }
       const alvo = n.numero_nfse ? `nota ${n.numero_nfse}` : `DPS ${n.serie}/${n.numero_dps}`;
       const motivo = n.erro && n.situacao !== "autorizada" ? esc(n.erro) : "";
@@ -1384,6 +1387,36 @@ $("#todas-notas").addEventListener("click", () => {
   carregarNotas().catch((e) => toast(String(e), true));
 });
 
+// Notas canceladas fora do sistema (portal nacional) só aparecem aqui depois desta conferência.
+$("#conferir-cancelamentos").addEventListener("click", async () => {
+  const botao = $("#conferir-cancelamentos");
+  const autorizadas = notasCarregadas.filter((n) => n.situacao === "autorizada" && n.nfse_id);
+  if (!autorizadas.length) return toast("Nenhuma nota autorizada na lista para conferir.");
+  botao.disabled = true;
+  let canceladas = 0;
+  let falhas = 0;
+  let primeiraFalha = "";
+  try {
+    for (const [i, n] of autorizadas.entries()) {
+      botao.textContent = `Conferindo ${i + 1} de ${autorizadas.length}...`;
+      try {
+        if (await chamar("sincronizar_cancelamento", { nfseId: n.nfse_id })) canceladas++;
+      } catch (e) {
+        falhas++;
+        primeiraFalha ||= `nota ${n.numero_nfse ?? ""}: ${e}`;
+      }
+    }
+  } finally {
+    botao.disabled = false;
+    botao.textContent = "Conferir cancelamentos";
+  }
+  const resumo =
+    `${autorizadas.length} nota(s) conferida(s); ` +
+    (canceladas ? `${canceladas} cancelada(s) na Sefin, agora registrada(s).` : "nenhuma cancelada fora do sistema.");
+  toast(falhas ? `${resumo} ${falhas} sem resposta (${primeiraFalha}).` : resumo, falhas > 0);
+  if (canceladas) await carregarNotas().catch((e) => toast(String(e), true));
+});
+
 $("#abrir-pasta-mes").addEventListener("click", async () => {
   const comArquivo = notasCarregadas.find((n) => n.nfse_id);
   if (comArquivo) return abrirNota(comArquivo.nfse_id, true);
@@ -1411,6 +1444,15 @@ $("#lista-notas").addEventListener("click", async (ev) => {
       return refazerNota(n);
     case "copiar":
       return copiarNota(n);
+    case "conferir":
+      try {
+        const cancelada = await chamar("sincronizar_cancelamento", { nfseId: n.nfse_id });
+        toast(cancelada ? "A nota foi cancelada na Sefin; cancelamento registrado." : "A nota continua autorizada na Sefin.");
+        if (cancelada) await carregarNotas();
+      } catch (e) {
+        toast(String(e), true);
+      }
+      return;
     case "verificar":
       b.disabled = true;
       try {

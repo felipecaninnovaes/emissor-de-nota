@@ -247,6 +247,94 @@ impl ClienteSefin {
             (None, None) => Err(ErroSefin::Formato("resposta sem eventoXmlGZipB64".into())),
         }
     }
+
+    /// XML do evento `tipo` (ex.: `101101`, cancelamento) de número `seq` registrado para a NFS-e,
+    /// ou `None` se não existe. Pega eventos feitos fora do sistema (ex.: no portal nacional).
+    pub async fn consultar_evento(
+        &self,
+        chave_acesso: &str,
+        tipo: &str,
+        seq: u32,
+    ) -> Result<Option<String>, ErroSefin> {
+        let (status, texto) = self.get(&format!("/nfse/{chave_acesso}/eventos/{tipo}/{seq}")).await?;
+        match status {
+            StatusCode::NOT_FOUND => Ok(None),
+            s if s.is_success() => evento_da_consulta(&texto).map(Some),
+            s => Err(erro_http(s, texto)),
+        }
+    }
+
+    /// GET num caminho da API, devolvendo status HTTP e corpo sem interpretar (diagnóstico no `nfse-poc`).
+    pub async fn consulta_bruta(&self, caminho: &str) -> Result<(u16, String), ErroSefin> {
+        let (status, texto) = self.get(caminho).await?;
+        Ok((status.as_u16(), texto))
+    }
+
+    async fn get(&self, caminho: &str) -> Result<(StatusCode, String), ErroSefin> {
+        let resposta = self
+            .http
+            .get(format!("{}{caminho}", self.base))
+            .send()
+            .await
+            .map_err(classificar_consulta)?;
+        ler(resposta).await
+    }
+}
+
+/// XML do evento na resposta da consulta. A Sefin (SefinNacional 1.6) devolve
+/// `{"eventos": [{"arquivoXml", "chaveAcesso", "dataHoraRecebimento", "numeroPedidoRegistroEvento",
+/// "tipoEvento"}]}`, e o `arquivoXml` vem em base64 do gzip+base64 (confirmado em Produção
+/// Restrita: o texto começa com `SDRzSUFB`, base64 de `H4sI`). Aceita também XML puro, base64
+/// simples e gzip+base64, preferindo `arquivoXml` e `eventoXmlGZipB64`.
+fn evento_da_consulta(texto: &str) -> Result<String, ErroSefin> {
+    fn xml_de(v: &serde_json::Value) -> Option<String> {
+        decodificar(v.as_str()?, 2)
+    }
+    /// `camadas`: quantos base64 a mais (sem gzip) podem envolver o conteúdo.
+    fn decodificar(s: &str, camadas: u8) -> Option<String> {
+        // Sem BOM e espaços na frente: o XML começa em `<`.
+        let xml = |x: String| {
+            let x = x.trim_start_matches('\u{feff}').trim_start();
+            x.starts_with('<').then(|| x.to_owned())
+        };
+        let s = s.trim();
+        xml(s.to_owned())
+            .or_else(|| de_gzip_base64(s).ok().and_then(xml))
+            .or_else(|| {
+                let texto = String::from_utf8(B64.decode(s).ok()?).ok()?;
+                (camadas > 0).then(|| decodificar(&texto, camadas - 1)).flatten()
+            })
+    }
+    fn procurar(v: &serde_json::Value) -> Option<String> {
+        match v {
+            serde_json::Value::Object(campos) => campos
+                .iter()
+                .filter(|(k, _)| k.eq_ignore_ascii_case("arquivoXml") || k.eq_ignore_ascii_case("eventoXmlGZipB64"))
+                .find_map(|(_, v)| xml_de(v))
+                .or_else(|| campos.values().find_map(xml_de))
+                .or_else(|| campos.values().find_map(procurar)),
+            serde_json::Value::Array(itens) => itens.iter().find_map(procurar),
+            _ => None,
+        }
+    }
+    /// Só os nomes dos campos, para o erro mostrar o formato sem despejar o conteúdo.
+    fn estrutura(v: &serde_json::Value) -> String {
+        match v {
+            serde_json::Value::Object(campos) => {
+                let itens: Vec<String> = campos.iter().map(|(k, v)| format!("{k}{}", estrutura(v))).collect();
+                format!("{{{}}}", itens.join(", "))
+            }
+            serde_json::Value::Array(itens) => format!("[{}]", itens.first().map(estrutura).unwrap_or_default()),
+            _ => String::new(),
+        }
+    }
+    let json: serde_json::Value = serde_json::from_str(texto).map_err(|e| ErroSefin::Formato(e.to_string()))?;
+    procurar(&json).ok_or_else(|| {
+        ErroSefin::Formato(format!(
+            "consulta de evento sem XML do evento; campos: {}",
+            estrutura(&json)
+        ))
+    })
 }
 
 /// Operações da Sefin usadas pelo emissor. Existe para trocar o cliente real por um simulado nos testes.
@@ -256,6 +344,7 @@ pub trait Sefin {
     async fn consultar_dps(&self, id_dps: &str) -> Result<Option<String>, ErroSefin>;
     async fn consultar_nfse(&self, chave_acesso: &str) -> Result<NfseAutorizada, ErroSefin>;
     async fn registrar_evento(&self, chave_acesso: &str, pedido_assinado: &str) -> Result<String, ErroSefin>;
+    async fn consultar_evento(&self, chave_acesso: &str, tipo: &str, seq: u32) -> Result<Option<String>, ErroSefin>;
 }
 
 impl Sefin for ClienteSefin {
@@ -273,6 +362,10 @@ impl Sefin for ClienteSefin {
 
     async fn registrar_evento(&self, chave_acesso: &str, pedido_assinado: &str) -> Result<String, ErroSefin> {
         ClienteSefin::registrar_evento(self, chave_acesso, pedido_assinado).await
+    }
+
+    async fn consultar_evento(&self, chave_acesso: &str, tipo: &str, seq: u32) -> Result<Option<String>, ErroSefin> {
+        ClienteSefin::consultar_evento(self, chave_acesso, tipo, seq).await
     }
 }
 
@@ -339,6 +432,33 @@ fn erro_http(status: StatusCode, corpo: String) -> ErroSefin {
 #[cfg(test)]
 mod testes {
     use super::*;
+
+    #[test]
+    fn evento_da_consulta_no_topo_ou_em_lista() {
+        let gz = gzip_base64("<evento/>");
+        let topo = format!(r#"{{"eventoXmlGZipB64":"{gz}"}}"#);
+        assert_eq!(evento_da_consulta(&topo).unwrap(), "<evento/>");
+        // Formato da SefinNacional 1.6: `arquivoXml` em base64 (sem gzip), em gzip+base64 ou puro.
+        for arquivo in [
+            B64.encode(&gz),
+            B64.encode("<evento/>"),
+            B64.encode("\u{feff}<evento/>"),
+            gz.clone(),
+            "<evento/>".into(),
+        ] {
+            let lista = serde_json::json!({
+                "tipoAmbiente": 2,
+                "eventos": [{"arquivoXml": arquivo, "chaveAcesso": "X", "tipoEvento": 101101}]
+            });
+            assert_eq!(evento_da_consulta(&lista.to_string()).unwrap(), "<evento/>");
+        }
+        let Err(ErroSefin::Formato(erro)) =
+            evento_da_consulta(r#"{"eventos":[{"chaveAcesso":"X","tipoEvento":101101}]}"#)
+        else {
+            panic!()
+        };
+        assert!(erro.contains("eventos[{chaveAcesso, tipoEvento}]"), "{erro}");
+    }
 
     #[test]
     fn gzip_base64_ida_e_volta() {

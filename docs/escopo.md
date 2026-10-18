@@ -63,7 +63,7 @@ Desde 1º/01/2026 todo município precisa operar no padrão nacional, mas pode e
 
 **Pós-emissão**
 - **Feito** — cancelamento com motivo e justificativa; reconciliação das incertas.
-- **Pendente** — substituição de nota; consulta de eventos e sincronização periódica; download pelo ADN de notas emitidas fora do sistema; manifestação do tomador.
+- **Pendente** — substituição de nota; consulta dos demais eventos (o cancelamento já é conferido sob demanda) e sincronização periódica; download pelo ADN de notas emitidas fora do sistema; manifestação do tomador.
 
 **Relatórios e integração contábil**
 - **Feito** — lista de notas por empresa e mês, com situação, e-mail enviado e abertura do PDF/pasta. O XML autorizado é gravado puro na pasta, para importação por sistema contábil.
@@ -112,7 +112,7 @@ O banco concentra os certificados de todos os clientes; quem copia o arquivo e d
 - **Feito** — instalador MSI, CI que o gera, atualização automática, logomarca oficial no DANFSe.
 - **Pendente** — assinatura de código (evita o alerta do SmartScreen); log de erros exportável; tabela de municípios IBGE; validação da cadeia ICP-Brasil; cache da consulta de CNPJ; testes de integração dos comandos do app.
 
-**Fase 3 — pós-emissão e integração** · pendente: substituição; consulta de eventos; distribuição DF-e pelo ADN; manifestação do tomador; parâmetros municipais; relatórios e ZIP mensal; tomador estrangeiro e intermediário.
+**Fase 3 — pós-emissão e integração** · pendente: substituição; consulta dos demais eventos; distribuição DF-e pelo ADN; manifestação do tomador; parâmetros municipais; relatórios e ZIP mensal; tomador estrangeiro e intermediário.
 
 ## Fora do escopo
 
