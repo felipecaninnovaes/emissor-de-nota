@@ -602,8 +602,11 @@ function abrirDialogo(dlg, erroEl, salvar) {
     const botao = ev.submitter;
     botao.disabled = true;
     try {
-      await salvar(lerForm(form), form);
+      // `salvar` pode devolver o que fazer depois (recarregar a lista): roda com o diálogo já
+      // fechado, para uma falha ali não parecer falha da ação e levar a repeti-la.
+      const depois = await salvar(lerForm(form), form);
       dlg.close();
+      if (typeof depois === "function") Promise.resolve().then(depois).catch((e) => toast(String(e), true));
     } catch (e) {
       if (e instanceof ErroCampo && form.elements[e.campo]) {
         mostrarErros([{ el: form.elements[e.campo], msg: e.message }], erroEl);
@@ -825,6 +828,7 @@ $("#empresa-atual").addEventListener("change", (ev) => {
 });
 
 async function trocarEmpresa(empresa) {
+  if (empresa?.id !== estado.empresa?.id) descartarRevisao();
   estado.empresa = empresa;
   const selo = $("#selo-ambiente");
   const info = $("#info-certificado");
@@ -968,6 +972,7 @@ function limparEmissao() {
 }
 
 function escolherTomador(t) {
+  if (t !== estado.tomador) descartarRevisao();
   estado.tomador = t;
   $("#tomador-escolhido").hidden = !t;
   $("#busca-tomador").hidden = !!t;
@@ -1155,6 +1160,24 @@ function montarPedido() {
   };
 }
 
+/**
+ * A revisão mostra o que será emitido (`estado.pedido`); se o formulário muda depois, ela deixa de
+ * valer e fecha, para o "Emitir nota" (ou o Ctrl+Enter) não mandar o pedido antigo.
+ */
+let emissaoEmCurso = false;
+
+function descartarRevisao() {
+  // Durante o envio a revisão fica: o pedido já foi capturado e a resposta aparece nela.
+  if ($("#revisao").hidden || emissaoEmCurso) return;
+  $("#revisao").hidden = true;
+  estado.pedido = null;
+  anunciar("Os dados mudaram: revise a nota de novo antes de emitir.");
+}
+
+for (const evento of ["input", "change"]) {
+  $('section[data-tela="emitir"] .cartao').addEventListener(evento, descartarRevisao);
+}
+
 $("#revisar").addEventListener("click", () => {
   estado.reter = null; // volta ao que o cadastro do tomador diz
   return revisar();
@@ -1231,12 +1254,16 @@ $("#voltar-edicao").addEventListener("click", () => {
 });
 
 $("#confirmar-emissao").addEventListener("click", async () => {
+  // O pedido revisado; mudar o formulário durante o envio não troca o que já foi enviado.
+  const pedido = estado.pedido;
+  if (!pedido) return;
+  emissaoEmCurso = true;
   const botao = $("#confirmar-emissao");
   botao.disabled = true;
   botao.textContent = "Enviando à Sefin...";
   const res = $("#resultado");
   try {
-    const r = await chamar("emitir", { pedido: estado.pedido });
+    const r = await chamar("emitir", { pedido });
     $("#revisao").hidden = true;
     if (r.autorizada) {
       res.innerHTML = `<div class="aviso ok"><strong>NFS-e ${esc(r.numero ?? "")} autorizada.</strong><br>
@@ -1253,7 +1280,7 @@ $("#confirmar-emissao").addEventListener("click", async () => {
         </div>`;
       res.querySelector('[data-abrir="pdf"]').onclick = () => abrirNota(r.nfse_id, false);
       res.querySelector('[data-abrir="pasta"]').onclick = () => abrirNota(r.nfse_id, true);
-      const emitido = estado.pedido;
+      const emitido = pedido;
       const tomadorEmitido = estado.tomador;
       const nota = {
         nfse_id: r.nfse_id,
@@ -1298,6 +1325,7 @@ $("#confirmar-emissao").addEventListener("click", async () => {
   } catch (e) {
     res.innerHTML = `<div class="aviso erro"><strong>Nota não emitida.</strong><br>${esc(e)}</div>`;
   } finally {
+    emissaoEmCurso = false;
     res.hidden = false;
     botao.disabled = false;
     botao.textContent = "Emitir nota";
@@ -1547,7 +1575,7 @@ async function enviarEmailNota(n) {
   form.elements.para.value = para.join("; ");
   abrirDialogo(dlg, $("#erro-email"), async (d) => {
     toast(await chamar("enviar_email", { nfseId: n.nfse_id, para: d.para }));
-    await carregarNotas();
+    return carregarNotas;
   });
 }
 
@@ -1560,7 +1588,7 @@ function cancelarNota(n) {
     if (justificativa.length < 15) throw new ErroCampo("justificativa", "Escreva pelo menos 15 caracteres.");
     await chamar("cancelar", { nfseId: n.nfse_id, motivo: d.motivo, justificativa });
     toast(`NFS-e ${n.numero_nfse ?? ""} cancelada.`);
-    await carregarNotas();
+    return carregarNotas;
   });
 }
 
@@ -1677,7 +1705,7 @@ function editarRecorrencia(r, base = null) {
       },
     });
     toast("Recorrência salva.");
-    if (!$('section[data-tela="recorrentes"]').hidden) await carregarRecorrencias();
+    if (!$('section[data-tela="recorrentes"]').hidden) return carregarRecorrencias;
   });
 }
 
@@ -1693,6 +1721,8 @@ const marcadosLote = () =>
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function carregarLote() {
+  // Durante a emissão a lista mostra o andamento; recarrega ao terminar.
+  if (loteEmAndamento) return;
   const mes = $("#mes-lote").value;
   if (!mes) {
     $("#lista-lote").innerHTML = `<tr><td colspan="6" class="vazio">Escolha o mês de referência.</td></tr>`;
@@ -1838,9 +1868,13 @@ function desenharAndamento(el, total, situacoes, atual) {
 async function emitirEmSequencia({ itens, andamento, celulaDe, descrever, emitirUm }) {
   const contagem = { autorizada: 0, falha: 0, incerta: 0 };
   const situacoes = []; // "ok" | "erro" | "incerta", na ordem da fila
+  // As células são achadas antes de começar: se a lista for redesenhada no meio, a fila continua
+  // (escrevendo em células que já saíram da tela) em vez de parar com a nota em curso sem registro.
+  const sobra = document.createElement("td");
+  const celulas = new Map(itens.map((item) => [item, celulaDe(item) ?? sobra]));
   for (const item of itens) {
     desenharAndamento(andamento, itens.length, situacoes, descrever(item));
-    const celula = celulaDe(item);
+    const celula = celulas.get(item);
     celula.innerHTML = `<span class="selo enviando">Enviando...</span>`;
     let resultado;
     for (let tentativa = 1; !resultado; tentativa++) {
@@ -1857,22 +1891,23 @@ async function emitirEmSequencia({ itens, andamento, celulaDe, descrever, emitir
     }
     // o carimbo fica na célula; avisos e motivos vão para o detalhe da linha (aberto quando não emitiu)
     const linha = celula.closest("tr");
+    const motivo = (html, opcoes) => linha && definirMotivo(linha, html, opcoes);
     if (resultado.ok && resultado.res.autorizada) {
       contagem.autorizada++;
       situacoes.push("ok");
       celula.innerHTML = `<span class="selo autorizada">Autorizada nº ${esc(resultado.res.numero ?? "")}</span>`;
-      definirMotivo(linha, resultado.res.avisos.map((a) => `<p>${esc(a)}</p>`).join(""));
+      motivo(resultado.res.avisos.map((a) => `<p>${esc(a)}</p>`).join(""));
     } else if (resultado.ok) {
       contagem.incerta++;
       situacoes.push("incerta");
       celula.innerHTML = `<span class="selo incerta">Sem resposta</span>`;
-      definirMotivo(linha, `<p>${esc(resultado.res.motivo)}</p>`, { abrir: true });
+      motivo(`<p>${esc(resultado.res.motivo)}</p>`, { abrir: true });
       anunciar(`${descrever(item)}: sem resposta da Sefin.`);
     } else {
       contagem.falha++;
       situacoes.push("erro");
       celula.innerHTML = `<span class="selo rejeitada">Não emitida</span>`;
-      definirMotivo(linha, `<p>${esc(resultado.erro)}</p>`, { erro: true, abrir: true });
+      motivo(`<p>${esc(resultado.erro)}</p>`, { erro: true, abrir: true });
       anunciar(`${descrever(item)}: não emitida.`);
     }
   }
@@ -1885,6 +1920,23 @@ async function emitirEmSequencia({ itens, andamento, celulaDe, descrever, emitir
     (contagem.incerta ? `, ${contagem.incerta} sem resposta — confira em "Notas emitidas" (Verificar)` : "") +
     ".</div>"
   );
+}
+
+/**
+ * Roda a fila travando os controles que redesenham a lista (mês, filtros, reler). Erro inesperado
+ * vira o resumo, e os controles e o "em andamento" sempre voltam (senão o botão ficava preso).
+ */
+async function emitirTravando(controles, marcarAndamento, opcoes) {
+  marcarAndamento(true);
+  for (const c of controles) $(c).disabled = true;
+  try {
+    return await emitirEmSequencia(opcoes);
+  } catch (e) {
+    return `<div class="aviso erro">A emissão parou: ${esc(String(e))}. Confira a situação das notas em "Notas emitidas".</div>`;
+  } finally {
+    for (const c of controles) $(c).disabled = false;
+    marcarAndamento(false);
+  }
 }
 
 /** Confirmação antes de emitir em lote: quantidade, total e quantas em Produção. */
@@ -1905,17 +1957,18 @@ $("#lote-emitir").addEventListener("click", async () => {
   const total = itens.reduce((soma, r) => soma + Number(r.valor_efetivo ?? 0), 0);
   if (!(await confirmarEmissao(itens.length, total, producao, `${m}/${ano}`))) return;
 
-  loteEmAndamento = true;
-  atualizarBotaoLote();
   for (const c of $$("#lista-lote input[type=checkbox]")) c.disabled = true;
-  const resumo = await emitirEmSequencia({
+  const andamento = (sim) => {
+    loteEmAndamento = sim;
+    atualizarBotaoLote();
+  };
+  const resumo = await emitirTravando(["#mes-lote", "#lote-so-empresa"], andamento, {
     itens,
     andamento: $("#lote-andamento"),
     celulaDe: (r) => $(`#lista-lote tr[data-i="${loteCarregado.indexOf(r)}"] [data-situacao]`),
     descrever: (r) => `${r.empresa} → ${r.tomador ?? "sem tomador"}`,
     emitirUm: (r) => invoke("emitir_recorrencia", { recorrenciaId: r.id, mes }),
   });
-  loteEmAndamento = false;
   // Recarrega para mostrar a situação gravada (as rejeitadas voltam a ficar pendentes).
   await carregarLote().catch((e) => toast(String(e), true));
   $("#lote-andamento").innerHTML = resumo;
@@ -1950,6 +2003,8 @@ $("#mes-planilha").addEventListener("change", () => planilhaArquivo && lerPlanil
 $("#reler-planilha").addEventListener("click", () => planilhaArquivo && lerPlanilha());
 
 async function lerPlanilha() {
+  // Durante a emissão a lista mostra o andamento; relê ao terminar.
+  if (planilhaEmAndamento) return;
   $("#planilha-andamento").innerHTML = "";
   try {
     planilhaLida = await chamar("ler_planilha", {
@@ -2072,17 +2127,19 @@ $("#planilha-emitir").addEventListener("click", async () => {
   const total = itens.reduce((soma, it) => soma + Number(it.valor ?? 0), 0);
   if (!(await confirmarEmissao(itens.length, total, producao, null))) return;
 
-  planilhaEmAndamento = true;
-  atualizarBotaoPlanilha();
   for (const c of $$("#lista-planilha input[type=checkbox]")) c.disabled = true;
-  const resumo = await emitirEmSequencia({
+  const andamento = (sim) => {
+    planilhaEmAndamento = sim;
+    atualizarBotaoPlanilha();
+  };
+  const controles = ["#mes-planilha", "#reler-planilha", "#arquivo-planilha"];
+  const resumo = await emitirTravando(controles, andamento, {
     itens,
     andamento: $("#planilha-andamento"),
     celulaDe: (it) => $(`#lista-planilha tr[data-i="${planilhaLida.indexOf(it)}"] [data-situacao]`),
     descrever: (it) => `linha ${it.linha}: ${it.tomador ?? it.documento_tomador}`,
     emitirUm: (it) => invoke("emitir_planilha", { item: it, arquivo: planilhaArquivo?.nome ?? null }),
   });
-  planilhaEmAndamento = false;
   await lerPlanilha();
   $("#planilha-andamento").innerHTML = resumo;
 });
@@ -2582,7 +2639,7 @@ function editarServico(s) {
     };
     await chamar("salvar_servico", { servico });
     toast("Serviço salvo.");
-    await carregarServicos();
+    return carregarServicos;
   });
 }
 
@@ -2713,7 +2770,7 @@ $("#importar-servicos").addEventListener("click", () => {
     if (avisos.length) {
       alert(`Importado, mas estes serviços precisam de ajuste antes de emitir:\n\n${avisos.join("\n")}`);
     }
-    if (empresaIds.includes(estado.empresa.id)) await carregarServicos();
+    if (empresaIds.includes(estado.empresa.id)) return carregarServicos;
   });
 });
 
@@ -2847,8 +2904,10 @@ function editarEmpresa(empresa) {
         ? `Empresa agora emite em ${NOME_AMBIENTE[d.ambiente]}, série ${d.serie.trim()}. Confira o próximo número e a IM em "Numeração / IM".`
         : "Empresa atualizada.",
     );
-    await carregarEmpresas();
-    await renderizarEmpresas();
+    return async () => {
+      await carregarEmpresas();
+      await renderizarEmpresas();
+    };
   });
 }
 
@@ -2863,8 +2922,10 @@ function importarCertificado(empresa) {
     const info = await chamar("importar_certificado", { empresaId: empresa.id, pfx, senha: d.senha });
     form.elements.senha.value = "";
     toast(`Certificado de ${info.titular} importado (válido até ${info.valido_ate}).`);
-    await carregarEmpresas();
-    await renderizarEmpresas();
+    return async () => {
+      await carregarEmpresas();
+      await renderizarEmpresas();
+    };
   });
 }
 
@@ -2915,8 +2976,10 @@ function editarNumeracao(empresa) {
       await chamar("definir_im_na_dps", { empresaId: empresa.id, ambiente: "homologacao", informar: d.im_hom });
     }
     toast("Configuração salva.");
-    await carregarEmpresas();
-    await renderizarEmpresas();
+    return async () => {
+      await carregarEmpresas();
+      await renderizarEmpresas();
+    };
   });
 }
 
