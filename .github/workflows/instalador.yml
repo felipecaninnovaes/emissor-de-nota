@@ -60,9 +60,6 @@ jobs:
             bundles: appimage,deb
             atualizador: target/release/bundle/appimage/*.AppImage
             extras: target/release/bundle/deb/*.deb
-    defaults:
-      run:
-        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -86,6 +83,7 @@ jobs:
 
       - name: Conferir a versão da tag
         if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
         run: |
           versao=$(grep -m1 '^version = ' crates/app/Cargo.toml | sed 's/version = "\(.*\)"/\1/')
           if [ "v$versao" != "${{ github.ref_name }}" ]; then
@@ -103,14 +101,13 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: |
-          alvo=""
-          if [ -n "${{ matrix.alvo }}" ]; then alvo="--target ${{ matrix.alvo }}"; fi
-          cargo tauri build --config tauri.release.conf.json --bundles ${{ matrix.bundles }} $alvo
+        # Sem shell: bash de propósito: no Git Bash do Windows o perl do MSYS não compila o OpenSSL.
+        run: cargo tauri build --config tauri.release.conf.json --bundles ${{ matrix.bundles }} ${{ matrix.alvo && format('--target {0}', matrix.alvo) || '' }}
 
       # Nomes sem espaços (o GitHub troca espaço por ponto nos anexos). Cada plataforma deixa um
       # fragmento com a assinatura e o endereço; a publicação junta tudo no latest.json.
       - name: Preparar os arquivos da Release
+        shell: bash
         run: |
           versao=$(grep -m1 '^version = ' crates/app/Cargo.toml | sed 's/version = "\(.*\)"/\1/')
           mkdir -p publicar
