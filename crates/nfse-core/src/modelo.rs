@@ -597,6 +597,15 @@ impl Dps {
             v.digitos("ibs_cbs.indicador_operacao", &i.indicador_operacao, 6, 6);
             v.digitos("ibs_cbs.cst", &i.cst, 3, 3);
             v.digitos("ibs_cbs.classificacao_tributaria", &i.classificacao_tributaria, 6, 6);
+            // código fora da tabela embutida não bloqueia (ela pode atrasar); o par errado, sim
+            if let Some(c) = crate::class_trib::por_codigo(&i.classificacao_tributaria)
+                && c.cst != i.cst
+            {
+                v.erro(
+                    "ibs_cbs.cst",
+                    format!("o cClassTrib {} pertence ao CST {}, não ao {}", c.codigo, c.cst, i.cst),
+                );
+            }
         }
         v.erros
     }
@@ -823,6 +832,25 @@ pub(crate) mod testes {
             classificacao_tributaria: "000001".into(),
         });
         assert!(!erro(&dps));
+    }
+
+    #[test]
+    fn cst_precisa_ser_o_do_class_trib() {
+        let mut dps = dps_exemplo();
+        let erro = |dps: &Dps| dps.validar().iter().any(|e| e.starts_with("ibs_cbs.cst:"));
+        let mut ibs = |cst: &str, class: &str| {
+            dps.ibs_cbs = Some(IbsCbs {
+                consumo_pessoal: None,
+                indicador_operacao: "030101".into(),
+                destinatario_diferente_do_tomador: false,
+                cst: cst.into(),
+                classificacao_tributaria: class.into(),
+            });
+            erro(&dps)
+        };
+        assert!(!ibs("200", "200029"), "saúde humana: alíquota reduzida");
+        assert!(ibs("000", "200029"), "CST de outro código");
+        assert!(!ibs("000", "999999"), "código fora da tabela não bloqueia");
     }
 
     #[test]

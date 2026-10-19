@@ -655,9 +655,13 @@
               <option value="040101">040101 · Feiras, congressos, espetáculos e eventos</option>
               <option value="100501">100501 · Bens imateriais ou direitos, operação onerosa</option></select></div>
             <div data-ibs-campo class="c3"><label for="servico-ibs-cst">CST IBS/CBS</label><input id="servico-ibs-cst" name="ibs_cst" required value="000" maxlength="3" data-formato="cst_ibs" inputmode="numeric">
-              <p class="ajuda">000 = tributação integral.</p></div>
-            <div data-ibs-campo class="c3"><label for="servico-ibs-class">cClassTrib</label><input id="servico-ibs-class" name="ibs_class" required value="000001" maxlength="6" data-formato="class_trib" inputmode="numeric">
-              <p class="ajuda">000001 = tributação integral.</p></div>
+              <p class="ajuda">Preenchido ao escolher o cClassTrib.</p></div>
+            <div data-ibs-campo class="c9"><label for="servico-ibs-class">cClassTrib</label>
+              <div class="busca">
+                <input id="servico-ibs-class" name="ibs_class" required value="000001" placeholder="000001 ou parte do nome (ex.: saúde)" data-formato="class_trib" autocomplete="off" aria-describedby="servico-class-descricao">
+                <div class="resultados" id="servico-resultados-class" hidden></div>
+              </div>
+              <p class="ajuda" id="servico-class-descricao" aria-live="polite"></p></div>
             <div data-ibs-campo class="c6"><label for="servico-ibs-final">Uso ou consumo pessoal (indFinal)</label><select id="servico-ibs-final" name="ibs_final">
               <option value="">Não</option><option value="1">Sim (tomador pessoa física, consumo próprio)</option></select></div>
           </div>
@@ -738,7 +742,8 @@
           <div class="c6"><label for="empresa-regime-especial">Regime especial</label><select id="empresa-regime-especial" name="regime_especial">
             <option value="0">Nenhum</option><option value="1">Ato cooperado</option><option value="2">Estimativa</option>
             <option value="3">Microempresa municipal</option><option value="4">Notário ou registrador</option>
-            <option value="5">Profissional autônomo</option><option value="6">Sociedade de profissionais</option><option value="9">Outros</option></select></div>
+            <option value="5">Profissional autônomo</option><option value="6">Sociedade de profissionais (ISS fixo)</option><option value="9">Outros</option></select>
+            <p class="ajuda">Para ISS fixo por profissional, escolha "Sociedade de profissionais": a nota sai sem ISS calculado pela alíquota do município.</p></div>
           <div class="c6"><label for="empresa-ambiente">Ambiente</label><select id="empresa-ambiente" name="ambiente">
             <option value="homologacao">Homologação (testes, sem valor fiscal)</option><option value="producao">Produção</option></select></div>
         </div>

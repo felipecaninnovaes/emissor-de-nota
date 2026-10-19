@@ -77,6 +77,20 @@ cargo test -p nfse-core -- lista_servicos nbs
 
 O gerador grava os dois TSV, confere o código de cada linha da lista de serviços com item, subitem e desdobro e falha se a planilha mudar de formato (na NBS, código com mais de 9 dígitos); as linhas de modelo sem descrição no fim da aba da NBS são ignoradas. As tabelas não bloqueiam o cadastro: código fora delas só gera um aviso.
 
+## Classificação tributária do IBS/CBS (cClassTrib)
+
+O `cClassTrib` (6 dígitos) e o CST (3 dígitos) do grupo `IBSCBS` são informados no cadastro do serviço; a DPS só leva os dois códigos e a Sefin calcula alíquotas, reduções e valores (por exemplo, `200029`, serviços de saúde humana, vem com CST `200` e redução de 60% no IBS e na CBS). A tabela oficial fica embutida em `crates/nfse-core/dados/class-trib.tsv` (módulo `nfse_core::class_trib`) e vem da página [Classificação Tributária](https://dfe-portal.svrs.rs.gov.br/Cff/ClassificacaoTributaria) do Portal DFe (SVRS), que não oferece planilha: a tabela está embutida no HTML da página, em JSON. Cada `cClassTrib` pertence a um único CST, então o par é conferido em `Dps::validar`, em `Servico::validar` (cadastro e importação) e, na tela, escolher o código preenche o CST. Código fora da tabela não bloqueia (a tabela pode atrasar); par CST/`cClassTrib` errado bloqueia. O campo do cadastro busca por código ou nome (comando `buscar_class_trib`) e mostra o CST e a redução do código escolhido. Na planilha de serviços, CST em branco com `cClassTrib` conhecido assume o CST da tabela.
+
+Para atualizar, baixe a página e regenere:
+
+```bash
+curl -sL https://dfe-portal.svrs.rs.gov.br/Cff/ClassificacaoTributaria -o class-trib.html
+cargo run -p nfse-core --example gerar_class_trib -- class-trib.html
+cargo test -p nfse-core -- class_trib
+```
+
+A primeira linha do TSV guarda a origem e a data da geração. O gerador falha se o portal mudar de formato, se um código não tiver 6 dígitos, se o CST de um código diferir do grupo dele ou se houver código repetido.
+
 ## CLI `nfse-poc`
 
 Diagnóstico direto na Sefin, sem o app. Subcomandos: `cert-info`, `gerar-dps`, `assinar`, `danfse`, `verificar`, `cancelar`, `consultar-dps`, `consultar-eventos`, `emitir`. A senha do certificado vem da variável `NFSE_PFX_SENHA` ou é pedida no terminal.

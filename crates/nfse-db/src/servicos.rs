@@ -116,6 +116,16 @@ impl Servico {
         if self.nome.trim().is_empty() || self.descricao.trim().is_empty() {
             return Err(ErroBanco::Regra("nome e descrição do serviço são obrigatórios".into()));
         }
+        // código fora da tabela embutida passa (ela pode atrasar); o par CST/cClassTrib errado, não
+        if let Some(i) = &self.tributacao.ibs_cbs
+            && let Some(c) = nfse_core::class_trib::por_codigo(&i.classificacao_tributaria)
+            && c.cst != i.cst
+        {
+            return Err(ErroBanco::Regra(format!(
+                "o cClassTrib {} pertence ao CST {}, não ao {}",
+                c.codigo, c.cst, i.cst
+            )));
+        }
         Ok(())
     }
 }

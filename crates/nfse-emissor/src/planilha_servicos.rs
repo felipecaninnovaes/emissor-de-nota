@@ -310,12 +310,20 @@ fn linha(numero: usize, campos: &BTreeMap<ColunaServico, String>) -> LinhaServic
                 None
             }
         };
+        let classificacao = completar(texto(C::IbsClassificacao), 6);
+        // CST em branco: o da tabela oficial para o cClassTrib informado (cada código tem um só)
+        let cst = completar(texto(C::IbsCst), 3)
+            .or_else(|| {
+                let c = classificacao.as_deref()?;
+                nfse_core::class_trib::por_codigo(c).map(|i| i.cst.to_owned())
+            })
+            .unwrap_or_else(|| "000".into());
         Some(IbsCbs {
             consumo_pessoal,
             indicador_operacao: indicador.unwrap_or_default(),
             destinatario_diferente_do_tomador: false,
-            cst: completar(texto(C::IbsCst), 3).unwrap_or_else(|| "000".into()),
-            classificacao_tributaria: completar(texto(C::IbsClassificacao), 6).unwrap_or_else(|| "000001".into()),
+            cst,
+            classificacao_tributaria: classificacao.unwrap_or_else(|| "000001".into()),
         })
     } else {
         None
@@ -569,6 +577,25 @@ mod testes {
             linhas[2].erros.iter().any(|e| e.contains("cIndOp")),
             "{:?}",
             linhas[2].erros
+        );
+    }
+
+    #[test]
+    fn cst_vem_da_tabela_do_class_trib_e_par_errado_e_apontado() {
+        let csv = "Nome;Descrição;Código;cIndOp;cClassTrib;CST IBS
+\
+                   A;x;040101;030101;200029;
+\
+                   B;y;040101;030101;200029;000
+";
+        let linhas = ler("s.csv", csv.as_bytes()).unwrap();
+        let a = linhas[0].servico.tributacao.ibs_cbs.as_ref().unwrap();
+        assert_eq!((a.cst.as_str(), a.classificacao_tributaria.as_str()), ("200", "200029"));
+        assert!(linhas[0].erros.is_empty(), "{:?}", linhas[0].erros);
+        assert!(
+            linhas[1].erros.iter().any(|e| e.contains("CST 200")),
+            "{:?}",
+            linhas[1].erros
         );
     }
 

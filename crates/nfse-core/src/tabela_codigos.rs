@@ -55,30 +55,41 @@ impl Tabela {
     /// começam com eles. Texto: itens que têm todas as palavras, sem diferenciar acento nem
     /// maiúscula; quem casa pela descrição vem antes de quem casa só pelo grupo.
     pub(crate) fn buscar(&self, termo: &str, limite: usize) -> Vec<&ItemCodigo> {
+        self.posicoes(termo, limite)
+            .into_iter()
+            .map(|p| &self.itens[p])
+            .collect()
+    }
+
+    /// Posição de `codigo` em `itens`.
+    pub(crate) fn posicao(&self, codigo: &str) -> Option<usize> {
+        self.itens.iter().position(|i| i.codigo == codigo)
+    }
+
+    /// Mesma busca de `buscar`, devolvendo a posição em `itens` (para tabelas com colunas a mais).
+    pub(crate) fn posicoes(&self, termo: &str, limite: usize) -> Vec<usize> {
         let termo = termo.trim();
         if termo.is_empty() {
             return Vec::new();
         }
         if termo.chars().all(|c| c.is_ascii_digit() || c == '.') {
             let digitos: String = termo.chars().filter(char::is_ascii_digit).collect();
-            return self
-                .itens
-                .iter()
-                .filter(|i| i.codigo.starts_with(&digitos))
+            return (0..self.itens.len())
+                .filter(|&p| self.itens[p].codigo.starts_with(&digitos))
                 .take(limite)
                 .collect();
         }
         let palavras: Vec<String> = normalizar(termo).split_whitespace().map(str::to_string).collect();
         let mut pela_descricao = Vec::new();
         let mut pelo_grupo = Vec::new();
-        for (item, (descricao, grupo)) in self.itens.iter().zip(&self.textos) {
-            if palavras.iter().all(|p| descricao.contains(p.as_str())) {
-                pela_descricao.push(item);
+        for (p, (descricao, grupo)) in self.textos.iter().enumerate() {
+            if palavras.iter().all(|w| descricao.contains(w.as_str())) {
+                pela_descricao.push(p);
             } else if palavras
                 .iter()
-                .all(|p| descricao.contains(p.as_str()) || grupo.contains(p.as_str()))
+                .all(|w| descricao.contains(w.as_str()) || grupo.contains(w.as_str()))
             {
-                pelo_grupo.push(item);
+                pelo_grupo.push(p);
             }
         }
         pela_descricao.extend(pelo_grupo);

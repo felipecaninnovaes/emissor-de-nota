@@ -78,7 +78,7 @@ export const FORMATOS = {
   ctm: exatoDigitos(3, "Código municipal com 3 dígitos."),
   cst: exatoDigitos(2, "CST com 2 dígitos (ex.: 00)."),
   cst_ibs: exatoDigitos(3, "CST do IBS/CBS com 3 dígitos (ex.: 000)."),
-  class_trib: exatoDigitos(6, "cClassTrib com 6 dígitos (ex.: 000001)."),
+  class_trib: codigoDeLista(6, "cClassTrib com 6 dígitos (ex.: 000001): digite o código ou escolha um na lista."),
   telefone: {
     mascara: (t) => {
       const c = soDigitos(t);

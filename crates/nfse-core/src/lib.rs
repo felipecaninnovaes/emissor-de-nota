@@ -1,5 +1,6 @@
 //! Tipos de domínio e regras do emissor de NFS-e, sem I/O.
 
+pub mod class_trib;
 pub mod documento;
 pub mod dps;
 pub mod lista_servicos;

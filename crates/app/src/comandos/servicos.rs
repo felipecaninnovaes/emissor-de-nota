@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use nfse_core::Valor;
+use nfse_core::class_trib::{self, ItemClassTrib};
 use nfse_core::tabela_codigos::ItemCodigo;
 use nfse_core::{lista_servicos, nbs};
 use nfse_db::servicos::{Servico, Tributacao};
@@ -100,6 +101,22 @@ pub fn buscar_nbs(termo: String) -> ListaNacionalDto {
         fonte: nbs::fonte(),
         itens: nbs::buscar(&termo, 30),
     }
+}
+
+/// Busca na classificação tributária do IBS/CBS embutida (`cClassTrib`, por nome ou código), com o
+/// CST e a redução de alíquota de cada código. Não lê dados do usuário: dispensa o cofre.
+#[tauri::command]
+pub fn buscar_class_trib(termo: String) -> ClassTribDto {
+    ClassTribDto {
+        fonte: class_trib::fonte(),
+        itens: class_trib::buscar(&termo, 30),
+    }
+}
+
+#[derive(Serialize)]
+pub struct ClassTribDto {
+    fonte: &'static str,
+    itens: Vec<&'static ItemClassTrib>,
 }
 
 #[derive(Serialize)]

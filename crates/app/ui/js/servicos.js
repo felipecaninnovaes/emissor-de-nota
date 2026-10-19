@@ -78,9 +78,23 @@ const pontuarNbs = (c) => `${c.slice(0, 1)}.${c.slice(1, 5)}.${c.slice(5, 7)}.${
  * Campo de código com busca na tabela oficial embutida (Lista de Serviços Nacional ou NBS): o
  * operador digita os dígitos ou parte do nome e escolhe na lista; a descrição oficial do código
  * aparece abaixo do campo. Devolve a função que atualiza essa descrição (usada ao abrir o diálogo).
+ * `detalhar(item)` troca o texto da descrição e `aoEscolher(item)` roda ao escolher na lista ou ao
+ * digitar um código da tabela (o diálogo ao abrir não dispara: o que está gravado não é alterado).
  */
-function ligarCampoDeCodigo({ campo, caixa, ajuda, digitos, comando, nomeLista, pontuar, rotulo, ajudaPadrao }) {
-  async function descrever() {
+function ligarCampoDeCodigo({
+  campo,
+  caixa,
+  ajuda,
+  digitos,
+  comando,
+  nomeLista,
+  pontuar,
+  rotulo,
+  ajudaPadrao,
+  detalhar = (i) => i.descricao,
+  aoEscolher: aoEscolherItem,
+}) {
+  async function descrever(aoDigitar = false) {
     const codigo = soDigitos(campo.value);
     if (codigo.length !== digitos) {
       ajuda.textContent = ajudaPadrao;
@@ -89,15 +103,16 @@ function ligarCampoDeCodigo({ campo, caixa, ajuda, digitos, comando, nomeLista, 
     try {
       const { fonte, itens } = await invoke(comando, { termo: codigo });
       if (soDigitos(campo.value) !== codigo) return; // o usuário já mudou o código
+      if (aoDigitar && itens.length) aoEscolherItem?.(itens[0]);
       ajuda.textContent = itens.length
-        ? `${pontuar(codigo)} · ${itens[0].descricao}`
+        ? `${pontuar(codigo)} · ${detalhar(itens[0])}`
         : `O código ${codigo} não está na ${nomeLista} embutida (${fonte}); confira antes de emitir.`;
     } catch (e) {
       toast(String(e), true);
     }
   }
 
-  campo.addEventListener("input", descrever);
+  campo.addEventListener("input", () => descrever(true));
   ligarCombobox(campo, caixa, {
     rotulo,
     vazio: `Nenhum código da ${nomeLista} encontrado.`,
@@ -109,6 +124,7 @@ function ligarCampoDeCodigo({ campo, caixa, ajuda, digitos, comando, nomeLista, 
       caixa.hidden = true;
       // o código escolhido é válido: tira a marca de erro, se havia
       if (campo.getAttribute("aria-invalid") === "true") limparErro(campo);
+      aoEscolherItem?.(i);
       descrever();
     },
   });
@@ -137,6 +153,35 @@ const descreverNbs = ligarCampoDeCodigo({
   pontuar: pontuarNbs,
   rotulo: "Códigos NBS",
   ajudaPadrao: "Opcional. Digite os 9 dígitos ou parte do nome para buscar na NBS.",
+});
+
+const pontuarClass = (c) => c;
+/** Redução de alíquota do cClassTrib, em texto curto ("redução de 60% no IBS e na CBS"). */
+function textoReducao(i) {
+  const [ibs, cbs] = [i.reducao_ibs, i.reducao_cbs];
+  if (ibs === "0" && cbs === "0") return "sem redução de alíquota";
+  return ibs === cbs ? `redução de ${ibs}% no IBS e na CBS` : `redução de ${ibs}% no IBS e ${cbs}% na CBS`;
+}
+
+const descreverClass = ligarCampoDeCodigo({
+  campo: $("#servico-ibs-class"),
+  caixa: $("#servico-resultados-class"),
+  ajuda: $("#servico-class-descricao"),
+  digitos: 6,
+  comando: "buscar_class_trib",
+  nomeLista: "classificação tributária",
+  pontuar: pontuarClass,
+  rotulo: "Classificações tributárias",
+  ajudaPadrao: "Digite os 6 dígitos ou parte do nome (ex.: saúde) para buscar na tabela oficial do IBS/CBS.",
+  detalhar: (i) =>
+    `${i.descricao} CST ${i.cst} (${i.grupo}), ${textoReducao(i)}.` +
+    (i.fim_vigencia ? ` Vigência encerrada em ${i.fim_vigencia}.` : ""),
+  // cada cClassTrib tem um só CST: o campo ao lado acompanha o código escolhido
+  aoEscolher(i) {
+    const cst = $("#servico-ibs-cst");
+    cst.value = i.cst;
+    if (cst.getAttribute("aria-invalid") === "true") limparErro(cst);
+  },
 });
 
 /** Percentual digitado ("11,48") → texto aceito pelo backend, ou null. */
@@ -214,6 +259,7 @@ function editarServico(s) {
   mostrarCamposIbs(form);
   descreverCtn();
   descreverNbs();
+  descreverClass();
   abrirDialogo(dlg, $("#erro-servico"), async (d) => {
     const retencoes = { aplicar: d.aplicar_fed };
     for (const k of ["irrf", "csll", "cp", "pis", "cofins"]) {
