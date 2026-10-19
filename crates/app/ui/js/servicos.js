@@ -33,6 +33,7 @@ export async function carregarServicos() {
     ? estado.servicos
         .map((s, i) => {
           const ret = Object.entries(s.tributacao.retencoes ?? {})
+            .filter(([k]) => k in NOME_RETENCAO) // "aplicar" é a regra de quando reter, não um tributo
             .map(([k, v]) => `${NOME_RETENCAO[k]} ${percentualTela(v)}%`)
             .join(", ");
           return `<tr>
