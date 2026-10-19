@@ -241,8 +241,10 @@ pub fn gerar_dps(dps: &Dps) -> Result<(String, DpsId), DpsInvalida> {
     if let Some(i) = &dps.ibs_cbs {
         x.abrir("IBSCBS");
         x.campo("finNFSe", "0");
-        x.opcional("indFinal", i.consumo_pessoal.map(|b| if b { "1" } else { "0" }));
+        x.campo("indFinal", if i.consumo_pessoal == Some(true) { "1" } else { "0" });
         x.campo("cIndOp", &i.indicador_operacao);
+        x.opcional("tpOper", i.governamental.map(|g| g.tipo_operacao.to_string()));
+        x.opcional("tpEnteGov", i.governamental.map(|g| g.ente.codigo()));
         x.campo("indDest", if i.destinatario_diferente_do_tomador { "1" } else { "0" });
         x.abrir("valores");
         x.abrir("trib");
@@ -295,6 +297,38 @@ mod testes {
     }
 
     #[test]
+    fn ibs_cbs_leva_ente_governamental_na_ordem_do_leiaute() {
+        use nfse_core::modelo::{EnteGovernamental, IbsCbs, OperacaoGovernamental};
+        let mut dps = exemplo();
+        let mut ibs = IbsCbs {
+            consumo_pessoal: None,
+            indicador_operacao: "030101".into(),
+            destinatario_diferente_do_tomador: false,
+            cst: "200".into(),
+            classificacao_tributaria: "200029".into(),
+            governamental: None,
+        };
+        dps.ibs_cbs = Some(ibs.clone());
+        let (xml, _) = gerar_dps(&dps).unwrap();
+        assert!(
+            xml.contains(
+                "<IBSCBS><finNFSe>0</finNFSe><indFinal>0</indFinal><cIndOp>030101</cIndOp><indDest>0</indDest>"
+            ),
+            "{xml}"
+        );
+        ibs.governamental = Some(OperacaoGovernamental {
+            ente: EnteGovernamental::Municipio,
+            tipo_operacao: 1,
+        });
+        dps.ibs_cbs = Some(ibs);
+        let (xml, _) = gerar_dps(&dps).unwrap();
+        assert!(
+            xml.contains("<cIndOp>030101</cIndOp><tpOper>1</tpOper><tpEnteGov>4</tpEnteGov><indDest>0</indDest>"),
+            "{xml}"
+        );
+    }
+
+    #[test]
     fn recusa_dps_invalida() {
         let mut dps = exemplo();
         dps.servico.codigo_tributacao_nacional = "17.19".into();
@@ -335,7 +369,19 @@ mod testes {
                 bairro: "CENTRO".into(),
             }),
         });
-        let casos = [exemplo(), cnpj_numerico, obra_cno, obra_endereco];
+        let mut ente_publico = exemplo();
+        ente_publico.ibs_cbs = Some(nfse_core::modelo::IbsCbs {
+            consumo_pessoal: None,
+            indicador_operacao: "030101".into(),
+            destinatario_diferente_do_tomador: false,
+            cst: "200".into(),
+            classificacao_tributaria: "200029".into(),
+            governamental: Some(nfse_core::modelo::OperacaoGovernamental {
+                ente: nfse_core::modelo::EnteGovernamental::Municipio,
+                tipo_operacao: 1,
+            }),
+        });
+        let casos = [exemplo(), cnpj_numerico, obra_cno, obra_endereco, ente_publico];
         for (i, dps) in casos.into_iter().enumerate() {
             let (xml, id) = gerar_dps(&dps).unwrap();
             for (sufixo, conteudo) in [

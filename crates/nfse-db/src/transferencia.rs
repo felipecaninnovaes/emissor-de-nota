@@ -18,7 +18,7 @@ use nfse_core::{Cnpj, Valor};
 
 use crate::empresas::{NovaEmpresa, ambiente_texto, validar};
 use crate::servicos::{Servico, Tributacao, chave_nome, gravar_servico};
-use crate::tomadores::{SELECT_TOMADOR, gravar_tomador, tipo_e_numero, tomador_de};
+use crate::tomadores::{SELECT_TOMADOR, TipoTomador, gravar_tomador, tipo_e_numero, tomador_de};
 use crate::{Banco, CabecalhoCofre, Cofre, ErroBanco, ErroCofre, Resultado, agora, auditar_em, de_json, json};
 
 pub const EXTENSAO: &str = "nfemp";
@@ -71,6 +71,9 @@ pub struct TomadorExportado {
     pub observacao: Option<String>,
     pub retem_federais: bool,
     pub retem_iss: bool,
+    /// Pacotes antigos não têm o campo: tomador privado.
+    #[serde(default)]
+    pub tipo: TipoTomador,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -221,6 +224,7 @@ impl Banco {
                         observacao: t.observacao,
                         retem_federais: t.retem_federais,
                         retem_iss: t.retem_iss,
+                        tipo: t.tipo,
                     })
                 })
                 .collect::<Resultado<Vec<_>>>()?;
@@ -362,13 +366,14 @@ impl Banco {
             for t in &e.tomadores {
                 let pessoa_id = gravar_tomador(&mut tx, empresa_id, &t.tomador, "importacao").await?;
                 sqlx::query(
-                    "UPDATE empresa_tomador SET emails = ?, observacao = ?, retem_federais = ?, retem_iss = ?
+                    "UPDATE empresa_tomador SET emails = ?, observacao = ?, retem_federais = ?, retem_iss = ?, tipo = ?
                      WHERE empresa_id = ? AND pessoa_id = ?",
                 )
                 .bind(vazio(&t.emails))
                 .bind(vazio(&t.observacao))
                 .bind(t.retem_federais)
                 .bind(t.retem_iss)
+                .bind(t.tipo.como_texto())
                 .bind(empresa_id)
                 .bind(pessoa_id)
                 .execute(&mut *tx)
@@ -591,8 +596,11 @@ mod testes {
                 &convenio(),
                 "manual",
                 Some("a@convenio.exemplo"),
-                true,
-                false,
+                crate::tomadores::RetencaoDoVinculo {
+                    federais: true,
+                    tipo: TipoTomador::Federal,
+                    ..Default::default()
+                },
             )
             .await
             .unwrap();
@@ -652,6 +660,7 @@ mod testes {
         let t = &destino.buscar_tomadores(empresa.id, "convenio").await.unwrap()[0];
         assert_eq!(t.emails.as_deref(), Some("a@convenio.exemplo"));
         assert!(t.retem_federais && !t.retem_iss);
+        assert_eq!(t.tipo, TipoTomador::Federal);
         let recorrencias = destino.recorrencias(Some(empresa.id), "2026-10").await.unwrap();
         assert_eq!(recorrencias.len(), 1);
 

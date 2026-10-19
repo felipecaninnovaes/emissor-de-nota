@@ -4,7 +4,7 @@ use serde::Serialize;
 use tauri::State;
 
 use nfse_core::modelo::Tomador;
-use nfse_db::tomadores::TomadorVinculado;
+use nfse_db::tomadores::{RetencaoDoVinculo, TipoTomador, TomadorVinculado};
 
 use super::comum::{R, exigir_cofre, texto, vazio_para_none};
 use crate::Estado;
@@ -16,6 +16,7 @@ pub struct TomadorDto {
     emails: Option<String>,
     retem_federais: bool,
     retem_iss: bool,
+    tipo: TipoTomador,
 }
 
 impl From<TomadorVinculado> for TomadorDto {
@@ -26,6 +27,7 @@ impl From<TomadorVinculado> for TomadorDto {
             emails: t.emails,
             retem_federais: t.retem_federais,
             retem_iss: t.retem_iss,
+            tipo: t.tipo,
         }
     }
 }
@@ -83,6 +85,7 @@ pub async fn salvar_tomador(
     emails: Option<String>,
     retem_federais: Option<bool>,
     retem_iss: Option<bool>,
+    tipo: Option<TipoTomador>,
 ) -> R<i64> {
     exigir_cofre(&estado).await?;
     estado
@@ -92,8 +95,11 @@ pub async fn salvar_tomador(
             &tomador,
             "manual",
             vazio_para_none(emails).as_deref(),
-            retem_federais.unwrap_or(false),
-            retem_iss.unwrap_or(false),
+            RetencaoDoVinculo {
+                federais: retem_federais.unwrap_or(false),
+                iss: retem_iss.unwrap_or(false),
+                tipo: tipo.unwrap_or_default(),
+            },
         )
         .await
         .map_err(texto)

@@ -62,7 +62,7 @@ Um SQLite (SQLCipher) por máquina (`emissor.db` em `app_data_dir()`), em modo W
 | `empresa` | Pessoa, inscrição municipal (e se vai na DPS, por ambiente), município emissor, regime, ambiente, série, ativa |
 | `numeracao` | Próximo número por empresa, ambiente e série |
 | `certificado` | `.pfx` e senha cifrados, thumbprint, titular, validade, ativo (histórico) |
-| `empresa_tomador` | Vínculo empresa × tomador: e-mails de envio, observação, `retem_federais`, `retem_iss` |
+| `empresa_tomador` | Vínculo empresa × tomador: e-mails de envio, observação, `retem_federais`, `retem_iss`, `tipo` (privado, federal, estadual, distrito_federal ou municipal) |
 | `servico` | Catálogo por empresa: descrição, códigos, tributação (JSON), valor sugerido |
 | `dps` | Uma por tentativa: empresa, ambiente, série, número, Id (único por ambiente), situação, modelo, XML assinado, tentativas, erro |
 | `nfse` | Documento fiscal: chave, número, XML autorizado e SHA-256, valor, competência |

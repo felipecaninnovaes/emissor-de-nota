@@ -88,6 +88,7 @@ export function editarTomador(dto, depois, { empresaId = estado.empresa?.id, doc
       emails: dto.emails,
       retem_federais: dto.retem_federais,
       retem_iss: dto.retem_iss,
+      tipo_tomador: dto.tipo,
     });
   }
   abrirDialogo(dlg, $("#erro-tomador"), async (d) => {
@@ -115,9 +116,10 @@ export function editarTomador(dto, depois, { empresaId = estado.empresa?.id, doc
     const emails = vazio(d.emails);
     const retemFederais = !!d.retem_federais;
     const retemIss = !!d.retem_iss;
-    const pessoaId = await chamar("salvar_tomador", { empresaId, tomador, emails, retemFederais, retemIss });
+    const tipo = d.tipo_tomador || "privado";
+    const pessoaId = await chamar("salvar_tomador", { empresaId, tomador, emails, retemFederais, retemIss, tipo });
     toast("Tomador salvo.");
-    depois?.({ pessoa_id: pessoaId, tomador, emails, retem_federais: retemFederais, retem_iss: retemIss });
+    depois?.({ pessoa_id: pessoaId, tomador, emails, retem_federais: retemFederais, retem_iss: retemIss, tipo });
   });
   if (!dto && documento) {
     // Vindo da planilha: já preenche o documento e, se for CNPJ, consulta os dados.

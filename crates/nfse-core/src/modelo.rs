@@ -379,6 +379,39 @@ pub struct IbsCbs {
     pub cst: String,
     /// `cClassTrib`, 6 dígitos.
     pub classificacao_tributaria: String,
+    /// `tpOper` e `tpEnteGov`: só quando o tomador é a administração pública.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub governamental: Option<OperacaoGovernamental>,
+}
+
+/// Tipo de ente governamental (`tpEnteGov`): administração pública direta, autarquias e fundações.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EnteGovernamental {
+    Uniao,
+    Estado,
+    DistritoFederal,
+    Municipio,
+}
+
+impl EnteGovernamental {
+    pub fn codigo(self) -> &'static str {
+        match self {
+            Self::Uniao => "1",
+            Self::Estado => "2",
+            Self::DistritoFederal => "3",
+            Self::Municipio => "4",
+        }
+    }
+}
+
+/// Operação com ente governamental na DPS: `tpEnteGov` e `tpOper`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperacaoGovernamental {
+    pub ente: EnteGovernamental,
+    /// `tpOper` (1 a 5): 1 = fornecimento com pagamento posterior (o caso comum de serviço
+    /// prestado a órgão público); ver `TSRTCTpOper` no XSD.
+    pub tipo_operacao: u8,
 }
 
 /// Dados da NFS-e substituída (`subst`).
@@ -597,6 +630,9 @@ impl Dps {
             v.digitos("ibs_cbs.indicador_operacao", &i.indicador_operacao, 6, 6);
             v.digitos("ibs_cbs.cst", &i.cst, 3, 3);
             v.digitos("ibs_cbs.classificacao_tributaria", &i.classificacao_tributaria, 6, 6);
+            if i.governamental.is_some_and(|g| !(1..=5).contains(&g.tipo_operacao)) {
+                v.erro("ibs_cbs.governamental", "tpOper deve ser de 1 a 5");
+            }
             // código fora da tabela embutida não bloqueia (ela pode atrasar); o par errado, sim
             if let Some(c) = crate::class_trib::por_codigo(&i.classificacao_tributaria)
                 && c.cst != i.cst
@@ -830,6 +866,7 @@ pub(crate) mod testes {
             destinatario_diferente_do_tomador: false,
             cst: "000".into(),
             classificacao_tributaria: "000001".into(),
+            governamental: None,
         });
         assert!(!erro(&dps));
     }
@@ -845,6 +882,7 @@ pub(crate) mod testes {
                 destinatario_diferente_do_tomador: false,
                 cst: cst.into(),
                 classificacao_tributaria: class.into(),
+                governamental: None,
             });
             erro(&dps)
         };

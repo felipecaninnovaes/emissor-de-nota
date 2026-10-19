@@ -2,7 +2,7 @@
 
 use chrono::{DateTime, Datelike, FixedOffset, NaiveDate, Utc};
 
-use nfse_core::modelo::{Documento, Prestador, Servico as ServicoDps, Valores};
+use nfse_core::modelo::{Documento, OperacaoGovernamental, Prestador, Servico as ServicoDps, Valores};
 use nfse_core::{Dps, Valor};
 use nfse_db::empresas::Empresa;
 use nfse_db::servicos::Servico;
@@ -10,7 +10,11 @@ use nfse_db::tomadores::TomadorVinculado;
 
 use crate::{PedidoEmissao, ReterNota, VERSAO_APLICATIVO};
 
-/// Tributação da nota: tira do serviço as retenções que só valem para tomador que retém.
+/// `tpOper` 1: fornecimento com pagamento posterior, o caso do serviço prestado a órgão público.
+const PAGAMENTO_POSTERIOR: u8 = 1;
+
+/// Tributação da nota: tira do serviço as retenções que só valem para tomador que retém e, para
+/// estado ou município, as que ele não faz (CSLL, PIS e COFINS).
 pub fn tributacao_da_nota(
     servico: &Servico,
     tomador: Option<&TomadorVinculado>,
@@ -23,6 +27,16 @@ pub fn tributacao_da_nota(
         t.federais.retencao_irrf = None;
         t.federais.retencao_csll = None;
         t.federais.retencao_cp = None;
+        if let Some(pc) = t.federais.pis_cofins.as_mut() {
+            pc.tipo_retencao = pc.tipo_retencao.map(|_| 0);
+        }
+    }
+    // Estado, DF e município retêm o IRRF, mas não a CSLL, o PIS nem a COFINS (sem convênio com a RFB).
+    if tomador.is_some_and(|t| !t.tipo.retem_contribuicoes()) {
+        t.retencoes.csll = None;
+        t.retencoes.pis = None;
+        t.retencoes.cofins = None;
+        t.federais.retencao_csll = None;
         if let Some(pc) = t.federais.pis_cofins.as_mut() {
             pc.tipo_retencao = pc.tipo_retencao.map(|_| 0);
         }
@@ -295,6 +309,14 @@ pub fn montar_dps(
             federais,
             total_tributos: t.total_tributos.clone(),
         },
-        ibs_cbs: t.ibs_cbs.clone(),
+        ibs_cbs: t.ibs_cbs.clone().map(|mut i| {
+            i.governamental = tomador
+                .and_then(|t| t.tipo.ente_governamental())
+                .map(|ente| OperacaoGovernamental {
+                    ente,
+                    tipo_operacao: PAGAMENTO_POSTERIOR,
+                });
+            i
+        }),
     }
 }

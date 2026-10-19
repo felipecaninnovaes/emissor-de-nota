@@ -304,6 +304,7 @@ fn retencao_so_vale_para_tomador_que_retem() {
         observacao: None,
         retem_federais: federais,
         retem_iss: iss,
+        tipo: nfse_db::tomadores::TipoTomador::Privado,
     };
     let nao = tributacao_da_nota(&servico, Some(&tomador(false, false)), ReterNota::default());
     assert_eq!(nao.retencoes.irrf, None);
@@ -1284,4 +1285,65 @@ async fn recorrencia_de_obra_leva_a_obra_na_nota() {
         "{}",
         c.sefin.recebidos()[0]
     );
+}
+
+#[test]
+fn estado_df_e_municipio_retem_so_irrf_e_inss() {
+    use nfse_core::modelo::{Documento, Tomador};
+    use nfse_db::tomadores::TipoTomador;
+    let p = |v: &str| Some(Percentual::parse(v).unwrap());
+    let servico = Servico {
+        id: None,
+        empresa_id: 1,
+        nome: "x".into(),
+        descricao: "x".into(),
+        codigo_trib_nac: "040301".into(),
+        codigo_trib_mun: None,
+        nbs: None,
+        tributacao: Tributacao {
+            retencoes: nfse_db::servicos::RetencoesPercentuais {
+                irrf: p("4.8"),
+                csll: p("1"),
+                cp: p("11"),
+                pis: p("0.65"),
+                cofins: p("3"),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        valor_sugerido: None,
+    };
+    let tomador = |tipo| TomadorVinculado {
+        pessoa_id: 1,
+        tomador: Tomador {
+            documento: Documento::Cnpj(nfse_core::Cnpj::parse("12ABC34501DE35").unwrap()),
+            inscricao_municipal: None,
+            nome: "Prefeitura".into(),
+            endereco: None,
+            telefone: None,
+            email: None,
+        },
+        emails: None,
+        observacao: None,
+        retem_federais: true,
+        retem_iss: true,
+        tipo,
+    };
+    for tipo in [TipoTomador::Privado, TipoTomador::Federal] {
+        let t = tributacao_da_nota(&servico, Some(&tomador(tipo)), ReterNota::default());
+        assert_eq!(t.retencoes, servico.tributacao.retencoes, "{tipo:?} retém tudo");
+    }
+    for tipo in [
+        TipoTomador::Estadual,
+        TipoTomador::DistritoFederal,
+        TipoTomador::Municipal,
+    ] {
+        let t = tributacao_da_nota(&servico, Some(&tomador(tipo)), ReterNota::default());
+        assert_eq!((t.retencoes.irrf, t.retencoes.cp), (p("4.8"), p("11")), "{tipo:?}");
+        assert_eq!(
+            (t.retencoes.csll, t.retencoes.pis, t.retencoes.cofins),
+            (None, None, None),
+            "{tipo:?}"
+        );
+    }
 }

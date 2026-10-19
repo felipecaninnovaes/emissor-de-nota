@@ -2,10 +2,11 @@
 //!
 //! Um convênio que atende várias clínicas é cadastrado uma vez; cada clínica só cria o vínculo.
 
+use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use sqlx::sqlite::SqliteRow;
 
-use nfse_core::modelo::{Documento, EnderecoNacional, Tomador};
+use nfse_core::modelo::{Documento, EnderecoNacional, EnteGovernamental, Tomador};
 use nfse_core::{Cnpj, Cpf};
 
 use crate::{Banco, ErroBanco, Resultado, agora};
@@ -21,6 +22,73 @@ pub struct TomadorVinculado {
     pub retem_federais: bool,
     /// Este tomador retém o ISS (`tpRetISSQN` = 2).
     pub retem_iss: bool,
+    pub tipo: TipoTomador,
+}
+
+/// Quem é o tomador, para saber quais retenções federais ele faz (IN RFB 1.234/2012) e o `tpEnteGov`
+/// da DPS: órgão da União retém IRRF, CSLL, PIS e COFINS; estado, Distrito Federal e município
+/// retêm o IRRF, mas não as contribuições.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TipoTomador {
+    /// Pessoa jurídica ou física privada: vale o que o serviço configura.
+    #[default]
+    Privado,
+    /// Administração pública da União (inclusive autarquias e fundações).
+    Federal,
+    Estadual,
+    DistritoFederal,
+    /// Município (inclusive prefeituras). Também lê o `estadual_municipal` da versão de teste.
+    #[serde(alias = "estadual_municipal")]
+    Municipal,
+}
+
+impl TipoTomador {
+    pub fn como_texto(self) -> &'static str {
+        match self {
+            Self::Privado => "privado",
+            Self::Federal => "federal",
+            Self::Estadual => "estadual",
+            Self::DistritoFederal => "distrito_federal",
+            Self::Municipal => "municipal",
+        }
+    }
+
+    fn do_texto(t: &str) -> Resultado<Self> {
+        match t {
+            "privado" => Ok(Self::Privado),
+            "federal" => Ok(Self::Federal),
+            "estadual" => Ok(Self::Estadual),
+            "distrito_federal" => Ok(Self::DistritoFederal),
+            "municipal" | "estadual_municipal" => Ok(Self::Municipal),
+            outro => Err(ErroBanco::DadoInvalido(format!("tipo de tomador {outro:?}"))),
+        }
+    }
+
+    /// `tpEnteGov` da DPS; `None` para tomador privado.
+    pub fn ente_governamental(self) -> Option<EnteGovernamental> {
+        match self {
+            Self::Privado => None,
+            Self::Federal => Some(EnteGovernamental::Uniao),
+            Self::Estadual => Some(EnteGovernamental::Estado),
+            Self::DistritoFederal => Some(EnteGovernamental::DistritoFederal),
+            Self::Municipal => Some(EnteGovernamental::Municipio),
+        }
+    }
+
+    /// Só a União retém PIS, COFINS e CSLL; os demais entes públicos não (sem convênio com a RFB).
+    pub fn retem_contribuicoes(self) -> bool {
+        matches!(self, Self::Privado | Self::Federal)
+    }
+}
+
+/// Retenções e tipo do tomador no vínculo com a empresa.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct RetencaoDoVinculo {
+    pub federais: bool,
+    pub iss: bool,
+    #[serde(default)]
+    pub tipo: TipoTomador,
 }
 
 fn documento_de(tipo: &str, doc: &str) -> Resultado<Documento> {
@@ -42,7 +110,7 @@ pub(crate) fn tipo_e_numero(d: &Documento) -> (&'static str, &str) {
 pub(crate) const SELECT_TOMADOR: &str =
     "SELECT p.id, p.tipo, p.documento, p.inscricao_municipal, p.nome, p.municipio, p.cep,
     p.logradouro, p.numero, p.complemento, p.bairro, p.telefone, p.email, v.emails, v.observacao,
-    v.retem_federais, v.retem_iss
+    v.retem_federais, v.retem_iss, v.tipo
     FROM empresa_tomador v JOIN pessoa p ON p.id = v.pessoa_id";
 
 pub(crate) fn tomador_de(r: &SqliteRow) -> Resultado<TomadorVinculado> {
@@ -72,6 +140,7 @@ pub(crate) fn tomador_de(r: &SqliteRow) -> Resultado<TomadorVinculado> {
         observacao: r.get(14),
         retem_federais: r.get(15),
         retem_iss: r.get(16),
+        tipo: TipoTomador::do_texto(r.get(17))?,
     })
 }
 
@@ -92,18 +161,18 @@ impl Banco {
         t: &Tomador,
         fonte: &str,
         emails: Option<&str>,
-        retem_federais: bool,
-        retem_iss: bool,
+        retencao: RetencaoDoVinculo,
     ) -> Resultado<i64> {
         let mut tx = self.pool().begin().await?;
         let pessoa_id = gravar_tomador(&mut tx, empresa_id, t, fonte).await?;
         sqlx::query(
-            "UPDATE empresa_tomador SET emails = ?, observacao = NULL, retem_federais = ?, retem_iss = ?
+            "UPDATE empresa_tomador SET emails = ?, observacao = NULL, retem_federais = ?, retem_iss = ?, tipo = ?
              WHERE empresa_id = ? AND pessoa_id = ?",
         )
         .bind(emails)
-        .bind(retem_federais)
-        .bind(retem_iss)
+        .bind(retencao.federais)
+        .bind(retencao.iss)
+        .bind(retencao.tipo.como_texto())
         .bind(empresa_id)
         .bind(pessoa_id)
         .execute(&mut *tx)
@@ -188,14 +257,14 @@ impl Banco {
         &self,
         empresa_id: i64,
         pessoa_id: i64,
-        retem_federais: bool,
-        retem_iss: bool,
+        retencao: RetencaoDoVinculo,
     ) -> Resultado<()> {
         let afetadas = sqlx::query(
-            "UPDATE empresa_tomador SET retem_federais = ?, retem_iss = ? WHERE empresa_id = ? AND pessoa_id = ?",
+            "UPDATE empresa_tomador SET retem_federais = ?, retem_iss = ?, tipo = ? WHERE empresa_id = ? AND pessoa_id = ?",
         )
-        .bind(retem_federais)
-        .bind(retem_iss)
+        .bind(retencao.federais)
+        .bind(retencao.iss)
+        .bind(retencao.tipo.como_texto())
         .bind(empresa_id)
         .bind(pessoa_id)
         .execute(self.pool())
@@ -246,7 +315,7 @@ impl Banco {
         let so_documento: String = termo.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
         let linhas = sqlx::query(
             "SELECT p.id, p.tipo, p.documento, p.inscricao_municipal, p.nome, p.municipio, p.cep,
-                 p.logradouro, p.numero, p.complemento, p.bairro, p.telefone, p.email, NULL, NULL, 0, 0
+                 p.logradouro, p.numero, p.complemento, p.bairro, p.telefone, p.email, NULL, NULL, 0, 0, 'privado'
              FROM pessoa p
              WHERE p.id IN (SELECT pessoa_id FROM empresa_tomador)
                AND p.id NOT IN (SELECT pessoa_id FROM empresa_tomador WHERE empresa_id = ?)
@@ -262,7 +331,7 @@ impl Banco {
         linhas.iter().map(tomador_de).collect()
     }
 
-    /// Vincula a empresa a um tomador já cadastrado por outra (sem e-mails, observação nem retenção).
+    /// Vincula a empresa a um tomador já cadastrado por outra (sem e-mails, observação, retenção nem tipo).
     pub async fn vincular_tomador_cadastrado(&self, empresa_id: i64, pessoa_id: i64) -> Resultado<TomadorVinculado> {
         let existe = sqlx::query("SELECT 1 FROM empresa_tomador WHERE pessoa_id = ?")
             .bind(pessoa_id)
@@ -340,20 +409,54 @@ mod testes {
         assert_eq!(banco.tomador(clinica1.id, id1).await.unwrap().tomador, convenio());
 
         banco
-            .definir_retencao_tomador(clinica1.id, id1, true, false)
+            .definir_retencao_tomador(
+                clinica1.id,
+                id1,
+                RetencaoDoVinculo {
+                    federais: true,
+                    tipo: TipoTomador::Municipal,
+                    ..Default::default()
+                },
+            )
             .await
             .unwrap();
         let c1 = banco.tomador(clinica1.id, id1).await.unwrap();
         assert!(c1.retem_federais && !c1.retem_iss);
+        assert_eq!(c1.tipo, TipoTomador::Municipal);
         let c2 = banco.tomador(clinica2.id, id1).await.unwrap();
         assert!(!c2.retem_federais && !c2.retem_iss, "retenção é do vínculo");
+        assert_eq!(c2.tipo, TipoTomador::Privado, "o tipo também é do vínculo");
+    }
+
+    #[test]
+    fn tipo_do_tomador_define_ente_e_retencao_das_contribuicoes() {
+        use TipoTomador::*;
+        let casos = [
+            (Privado, None, true),
+            (Federal, Some("1"), true),
+            (Estadual, Some("2"), false),
+            (DistritoFederal, Some("3"), false),
+            (Municipal, Some("4"), false),
+        ];
+        for (tipo, ente, contribuicoes) in casos {
+            assert_eq!(tipo.ente_governamental().map(|e| e.codigo()), ente, "{tipo:?}");
+            assert_eq!(tipo.retem_contribuicoes(), contribuicoes, "{tipo:?}");
+            assert_eq!(TipoTomador::do_texto(tipo.como_texto()).unwrap(), tipo);
+        }
+        // versão de teste gravava "estadual_municipal"
+        assert_eq!(TipoTomador::do_texto("estadual_municipal").unwrap(), Municipal);
+        assert!(TipoTomador::do_texto("outro").is_err());
     }
 
     #[tokio::test]
     async fn salva_tomador_com_vinculo() {
         let (banco, _, empresa) = banco_com_empresa().await;
+        let federais = RetencaoDoVinculo {
+            federais: true,
+            ..Default::default()
+        };
         let id = banco
-            .salvar_tomador_vinculado(empresa.id, &convenio(), "manual", Some("a@x.com"), true, false)
+            .salvar_tomador_vinculado(empresa.id, &convenio(), "manual", Some("a@x.com"), federais)
             .await
             .unwrap();
         let t = banco.tomador(empresa.id, id).await.unwrap();
@@ -366,7 +469,7 @@ mod testes {
         sem_nome.documento = nfse_core::modelo::Documento::Cpf(nfse_core::Cpf::parse("52998224725").unwrap());
         assert!(
             banco
-                .salvar_tomador_vinculado(empresa.id, &sem_nome, "manual", None, false, false)
+                .salvar_tomador_vinculado(empresa.id, &sem_nome, "manual", None, Default::default())
                 .await
                 .is_err()
         );
@@ -401,7 +504,15 @@ mod testes {
         let clinica2 = banco.cadastrar_empresa(&outra).await.unwrap();
         let id = banco.salvar_tomador(clinica1.id, &convenio(), "manual").await.unwrap();
         banco
-            .definir_retencao_tomador(clinica1.id, id, true, true)
+            .definir_retencao_tomador(
+                clinica1.id,
+                id,
+                RetencaoDoVinculo {
+                    federais: true,
+                    iss: true,
+                    tipo: TipoTomador::Federal,
+                },
+            )
             .await
             .unwrap();
 

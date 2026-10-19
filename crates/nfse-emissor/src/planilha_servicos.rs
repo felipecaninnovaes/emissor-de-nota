@@ -324,6 +324,7 @@ fn linha(numero: usize, campos: &BTreeMap<ColunaServico, String>) -> LinhaServic
             destinatario_diferente_do_tomador: false,
             cst,
             classificacao_tributaria: classificacao.unwrap_or_else(|| "000001".into()),
+            governamental: None,
         })
     } else {
         None
@@ -516,6 +517,7 @@ mod testes {
             destinatario_diferente_do_tomador: false,
             cst: "000".into(),
             classificacao_tributaria: "000001".into(),
+            governamental: None,
         });
         s.servico.tributacao.total_tributos = TotalTributos::Percentuais {
             federal: Percentual::parse("13.45").unwrap(),

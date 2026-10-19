@@ -482,6 +482,17 @@
       </fieldset>
       <fieldset class="bloco">
         <legend>Retenções (nas notas desta empresa)</legend>
+        <div class="grade">
+          <div class="c6"><label for="tomador-tipo-retencao">Tipo de tomador</label>
+            <select id="tomador-tipo-retencao" name="tipo_tomador">
+              <option value="privado">Empresa ou pessoa (privado)</option>
+              <option value="federal">Órgão público federal (União)</option>
+              <option value="estadual">Órgão público estadual</option>
+              <option value="distrito_federal">Órgão público do Distrito Federal</option>
+              <option value="municipal">Município ou prefeitura</option>
+            </select>
+            <p class="ajuda">Estado, Distrito Federal e município retêm o IRRF e o INSS, mas não a CSLL, o PIS nem a COFINS; órgão federal retém todos. Para órgão público a nota também leva o tipo de ente (tpEnteGov) e o tipo de operação (tpOper).</p></div>
+        </div>
         <label class="linha-check"><input type="checkbox" id="tomador-retem-federais" name="retem_federais"> Retém impostos federais (IRRF, CSLL, PIS, COFINS, INSS)</label>
         <label class="linha-check"><input type="checkbox" id="tomador-retem-iss" name="retem_iss"> Retém ISS</label>
         <p class="ajuda">Vale para os serviços configurados como "só para tomador que retém". Na emissão dá para mudar nota a nota.</p>
