@@ -214,6 +214,18 @@ function aliquotasProprias(d) {
   return campos;
 }
 
+/** Avisa quando PIS/COFINS estão como próprios e como retidos ao mesmo tempo (vale só o retido). */
+function avisarPisCofinsDuplicado() {
+  const f = $("#form-servico").elements;
+  const proprio = !!vazio(f.aliq_pis.value) || !!vazio(f.aliq_cofins.value);
+  const retido = !!vazio(f.r_pis.value) || !!vazio(f.r_cofins.value);
+  $("#aviso-pis-cofins").hidden = !(proprio && retido);
+}
+
+for (const nome of ["aliq_pis", "aliq_cofins", "r_pis", "r_cofins"]) {
+  $("#form-servico").elements[nome].addEventListener("input", avisarPisCofinsDuplicado);
+}
+
 function mostrarCamposIbs(form) {
   const informar = form.elements.ibs_informar.value === "sim";
   for (const el of $$("[data-ibs-campo]", form)) el.hidden = !informar;
@@ -278,6 +290,7 @@ function editarServico(s) {
     preencherForm(form, dados);
   }
   mostrarCamposIbs(form);
+  avisarPisCofinsDuplicado();
   descreverCtn();
   descreverNbs();
   descreverClass();
