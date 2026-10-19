@@ -1,6 +1,15 @@
 # Changelog
 
-Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0, a 1.2.0, a 1.3.0 e a 1.4.0, em 18/10/2026, e a 1.5.0, em 19/10/2026; a versão vem de `crates/app/Cargo.toml`.
+Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0, a 1.2.0, a 1.3.0 e a 1.4.0, em 18/10/2026, e a 1.5.0 e a 1.6.0, em 19/10/2026; a versão vem de `crates/app/Cargo.toml`.
+
+## 1.6.0
+
+Retenções por tipo de tomador (órgão público), revisão da nota mais completa e campos de ente governamental na DPS. Muda o esquema do banco (migração `0009`).
+
+- **Tipo de tomador** no cadastro (empresa privada, órgão da União, estadual, do Distrito Federal ou município/prefeitura). Para estado, Distrito Federal e município, a nota retém só o IRRF e o INSS: a CSLL, o PIS e a COFINS do serviço são ignorados, porque só órgãos da União retêm as contribuições. Para órgão público a DPS leva também `tpEnteGov` e `tpOper` (1), como o Portal Nacional, e `indFinal` passa a ir sempre. Exige a migração `0009`; os tomadores existentes ficam como privado e o arquivo de empresas (`.nfemp`) leva o tipo (issue #2).
+- A revisão da nota (**Revisar**) mostra cada retenção (IRRF, INSS, CSLL/PIS/COFINS), o PIS e a COFINS de apuração própria, os códigos do IBS/CBS com a base estimada o valor líquido já descontando o ISS retido quando o serviço tem a alíquota do ISS e o **Ver XML da DPS** (sem assinatura, com número e hora provisórios).
+- No cadastro do serviço, "Federais e retenções" foi separado em **PIS e COFINS apuração própria** e **Retenções na fonte**, com explicação em cada um e um aviso quando PIS ou COFINS estão preenchidos como próprios e como retidos (vale só o retido).
+- Corrigido o texto `undefined so_tomador_que_retem%` na coluna de retenções da lista de serviços.
 
 ## 1.5.0
 
