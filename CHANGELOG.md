@@ -1,6 +1,21 @@
 # Changelog
 
-Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0, a 1.2.0 e a 1.3.0, em 18/10/2026; a versão vem de `crates/app/Cargo.toml`.
+Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0, a 1.2.0, a 1.3.0 e a 1.5.0, em 18/10/2026 (não houve 1.4.0); a versão vem de `crates/app/Cargo.toml`.
+
+## 1.5.0
+
+Exportação de empresas entre máquinas e seletores de arquivo do sistema. O banco ganha a migração 0008 (coluna `empresa.conferir_numeracao`), aplicada sozinha ao abrir.
+
+**Empresas**
+
+- **Exportar…** gera um arquivo `.nfemp` com as empresas marcadas, seus serviços, tomadores (com e-mails e retenções) e recorrências, cifrado com uma senha própria do arquivo (não a senha mestra). Notas, numeração e certificado ficam na máquina de origem (issue #1, ADR 0015).
+- **Importar…** lê o arquivo, mostra o que é empresa nova, já cadastrada ou arquivada e importa as marcadas, tudo ou nada e sem duplicar tomadores, serviços e recorrências. Empresa já cadastrada mantém ambiente, série, numeração, certificado e notas.
+- Empresa nova importada aparece com o selo "Conferir numeração" e só emite depois de **Numeração / IM → Consultar na Sefin**, porque a outra máquina pode ter usado a série.
+
+**Arquivos**
+
+- Certificado A1, planilha de notas e planilha de serviços passam a usar o seletor de arquivos do sistema (no Linux, pelo xdg-desktop-portal, com o diálogo do KDE ou do GNOME); o campo mostra o nome do arquivo escolhido (issue #8).
+- Testar restauração de backup ganhou **Escolher arquivo…** para o `.nfbk` e **Escolher destino…** para o banco a gerar.
 
 ## 1.3.0
 
