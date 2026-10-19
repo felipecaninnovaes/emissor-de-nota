@@ -134,6 +134,7 @@ impl<C: Conector> Emissor<C> {
                 .definir_proximo_numero(empresa.id, empresa.ambiente, &empresa.serie, livre)
                 .await?;
         }
+        self.banco.marcar_numeracao_conferida(empresa.id).await?;
         Ok(((ocupado > 0).then_some(ocupado), livre))
     }
 }

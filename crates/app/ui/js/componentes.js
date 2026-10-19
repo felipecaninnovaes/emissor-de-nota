@@ -172,14 +172,17 @@ export const FILTRO_PLANILHA = { filtro: "Planilha", extensoes: ["xlsx", "xlsm",
  * Campo de arquivo com o seletor nativo do sistema (no Linux, pelo xdg-desktop-portal; o
  * `<input type="file">` do WebKitGTK abre o diálogo do GTK). O `campo` (somente leitura) mostra o
  * nome; o botão, o clique ou Enter no campo abrem o seletor. `aoEscolher({ nome, bytes })` recebe o
- * conteúdo; cancelar não muda nada.
+ * conteúdo; com `caminho`, o campo mostra e `aoEscolher` recebe só o caminho (quem usa lê o
+ * arquivo). Cancelar não muda nada.
  */
-export function ligarEscolhaArquivo(campo, botao, { titulo, filtro, extensoes }, aoEscolher) {
+export function ligarEscolhaArquivo(campo, botao, { titulo, filtro, extensoes, caminho = false }, aoEscolher) {
   const escolher = async () => {
     try {
-      const arquivo = await invoke("ler_arquivo_escolhido", { titulo, filtro, extensoes });
+      const arquivo = caminho
+        ? await invoke("escolher_arquivo", { titulo, filtro, extensoes, inicial: campo.value })
+        : await invoke("ler_arquivo_escolhido", { titulo, filtro, extensoes });
       if (!arquivo) return;
-      campo.value = arquivo.nome;
+      campo.value = caminho ? arquivo : arquivo.nome;
       campo.dispatchEvent(new Event("change", { bubbles: true }));
       await aoEscolher(arquivo);
     } catch (e) {

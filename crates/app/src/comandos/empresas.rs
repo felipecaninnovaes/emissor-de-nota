@@ -1,5 +1,7 @@
 //! Empresas, certificados A1 e numeração das DPS.
 
+use std::path::PathBuf;
+
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -7,6 +9,7 @@ use tauri::State;
 use nfse_core::Cnpj;
 use nfse_core::modelo::{Ambiente, RegimeTributario};
 use nfse_db::empresas::{Exclusao, NovaEmpresa};
+use nfse_db::transferencia;
 
 use super::comum::{R, emissor, exigir_cofre, texto, vazio_para_none};
 use crate::Estado;
@@ -26,6 +29,7 @@ pub struct EmpresaDto {
     serie: String,
     telefone: Option<String>,
     email: Option<String>,
+    conferir_numeracao: bool,
     certificado: Option<CertificadoDto>,
 }
 
@@ -65,6 +69,7 @@ pub async fn listar_empresas(estado: State<'_, Estado>) -> R<Vec<EmpresaDto>> {
             serie: e.serie,
             telefone: e.telefone,
             email: e.email,
+            conferir_numeracao: e.conferir_numeracao,
             certificado,
         });
     }
@@ -226,4 +231,89 @@ pub async fn certificados_vencendo(estado: State<'_, Estado>, dias: i64) -> R<Ve
             dias: (v.valido_ate - Utc::now()).num_days(),
         })
         .collect())
+}
+
+/// Teto do arquivo de exportação lido: cadastros, sem notas, ficam muito abaixo disso.
+const TETO_EXPORTACAO: u64 = 64 * 1024 * 1024;
+
+/// Lê e abre o `.nfemp` com a senha da exportação (Argon2 fora do runtime assíncrono).
+async fn ler_exportacao(arquivo: &str, senha: String) -> R<transferencia::PacoteEmpresas> {
+    let caminho = PathBuf::from(arquivo.trim());
+    let tamanho = tokio::fs::metadata(&caminho)
+        .await
+        .map_err(|e| format!("não foi possível ler {}: {e}", caminho.display()))?
+        .len();
+    if tamanho > TETO_EXPORTACAO {
+        return Err("o arquivo é grande demais para uma exportação de empresas".into());
+    }
+    let bytes = tokio::fs::read(&caminho)
+        .await
+        .map_err(|e| format!("não foi possível ler {}: {e}", caminho.display()))?;
+    let senha = zeroize::Zeroizing::new(senha);
+    tokio::task::spawn_blocking(move || transferencia::decifrar_pacote(&bytes, &senha))
+        .await
+        .map_err(texto)?
+        .map_err(texto)
+}
+
+/// Exporta as empresas (cadastros, serviços, tomadores e recorrências; sem notas, numeração nem
+/// certificado) para `destino`, cifrado com a senha da exportação (ADR 0015).
+#[tauri::command]
+pub async fn exportar_empresas(
+    estado: State<'_, Estado>,
+    empresa_ids: Vec<i64>,
+    senha: String,
+    destino: String,
+) -> R<String> {
+    exigir_cofre(&estado).await?;
+    let destino = PathBuf::from(destino.trim());
+    if destino.as_os_str().is_empty() {
+        return Err("escolha onde salvar o arquivo".into());
+    }
+    let pacote = estado.banco()?.exportar_empresas(&empresa_ids).await.map_err(texto)?;
+    let senha = zeroize::Zeroizing::new(senha);
+    let bytes = tokio::task::spawn_blocking(move || transferencia::cifrar_pacote(&pacote, &senha))
+        .await
+        .map_err(texto)?
+        .map_err(texto)?;
+    let caminho = destino.clone();
+    tokio::task::spawn_blocking(move || nfse_emissor::arquivo::gravar(&caminho, bytes))
+        .await
+        .map_err(texto)?
+        .map_err(|e| format!("não foi possível gravar {}: {e}", destino.display()))?;
+    estado
+        .banco()?
+        .auditar(
+            "empresas_exportadas",
+            None,
+            Some(&format!("{} empresa(s)", empresa_ids.len())),
+        )
+        .await
+        .map_err(texto)?;
+    Ok(destino.display().to_string())
+}
+
+/// Abre o arquivo e diz, por empresa, se ela é nova aqui, já existe ou está arquivada.
+#[tauri::command]
+pub async fn ler_exportacao_empresas(
+    estado: State<'_, Estado>,
+    arquivo: String,
+    senha: String,
+) -> R<Vec<transferencia::PreviaEmpresa>> {
+    exigir_cofre(&estado).await?;
+    let pacote = ler_exportacao(&arquivo, senha).await?;
+    estado.banco()?.previa_importacao(&pacote).await.map_err(texto)
+}
+
+/// Importa as empresas marcadas (pelo CNPJ), tudo ou nada.
+#[tauri::command]
+pub async fn importar_empresas(
+    estado: State<'_, Estado>,
+    arquivo: String,
+    senha: String,
+    cnpjs: Vec<String>,
+) -> R<Vec<transferencia::ResumoImportacaoEmpresa>> {
+    exigir_cofre(&estado).await?;
+    let pacote = ler_exportacao(&arquivo, senha).await?;
+    estado.banco()?.importar_empresas(&pacote, &cnpjs).await.map_err(texto)
 }

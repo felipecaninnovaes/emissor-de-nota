@@ -1,8 +1,21 @@
-// Empresas: cadastro, certificado e numeração.
+// Empresas: cadastro, certificado, numeração e exportação/importação entre máquinas.
 
-import { $, NOME_AMBIENTE, chamar, esc, estado, mostrarErro, soDigitos, toast, vazio } from "./util.js";
-import { acoesLinha, linhaVazia } from "./tabela.js";
-import { ErroCampo, abrirDialogo, confirmar, preencherForm } from "./formularios.js";
+import {
+  $,
+  $$,
+  NOME_AMBIENTE,
+  chamar,
+  esc,
+  estado,
+  formatarDocumento,
+  invoke,
+  mostrarErro,
+  soDigitos,
+  toast,
+  vazio,
+} from "./util.js";
+import { acoesLinha, linhaVazia, selecaoEmTabela } from "./tabela.js";
+import { ErroCampo, abrirDialogo, confirmar, lerForm, mostrarErros, preencherForm } from "./formularios.js";
 import { carregarEmpresas } from "./navegacao.js";
 import { ligarEscolhaArquivo } from "./componentes.js";
 
@@ -35,7 +48,11 @@ export async function renderizarEmpresas() {
           return `<tr>
             <td class="dado sec-2">${esc(e.cnpj_formatado)}</td>
             <td title="${esc(`${e.nome} — ${e.cnpj_formatado}`)}">${esc(e.nome)}</td>
-            <td><span class="selo ${e.ambiente}">${NOME_AMBIENTE[e.ambiente]}</span></td>
+            <td><span class="selo ${e.ambiente}">${NOME_AMBIENTE[e.ambiente]}</span>${
+              e.conferir_numeracao
+                ? ` <span class="selo incerta" title="Importada de outra máquina: use Numeração / IM → Consultar na Sefin antes de emitir">Conferir numeração</span>`
+                : ""
+            }</td>
             <td class="dado sec-1">${esc(e.serie)}</td>
             <td title="${esc(c ? `Titular: ${c.titular}` : "Importe o certificado A1 da empresa")}">${cert}</td>
             <td>${acoesLinha(
@@ -187,6 +204,9 @@ function editarNumeracao(empresa) {
       const msg = await chamar("ajustar_numeracao", { empresaId: empresa.id });
       toast(msg);
       $("#num-empresa").textContent = msg;
+      // Tira o "Conferir numeração" da empresa importada.
+      await carregarEmpresas();
+      await renderizarEmpresas();
     } catch (e) {
       mostrarErro($("#erro-numeracao"), e);
     } finally {
@@ -219,3 +239,129 @@ function editarNumeracao(empresa) {
     };
   });
 }
+
+// ---------- exportar e importar empresas entre máquinas (ADR 0015) ----------
+
+$("#exportar-empresas").addEventListener("click", () => {
+  if (!estado.empresas.length) return toast("Nenhuma empresa cadastrada para exportar.", true);
+  const dlg = $("#dlg-exportar-empresas");
+  const form = $("form", dlg);
+  form.reset();
+  $("#exportar-empresas-lista").innerHTML = estado.empresas
+    .map(
+      (e) => `<label class="linha-check c6"><input type="checkbox" value="${e.id}" checked>
+        ${esc(e.nome)} — ${esc(e.cnpj_formatado)}</label>`,
+    )
+    .join("");
+  abrirDialogo(dlg, $("#erro-exportar-empresas"), async (d) => {
+    const empresaIds = $$("#exportar-empresas-lista input:checked").map((c) => Number(c.value));
+    if (!empresaIds.length) throw "Marque ao menos uma empresa.";
+    if (d.senha !== d.senha2) throw new ErroCampo("senha2", "As senhas não conferem.");
+    const destino = await invoke("salvar_arquivo", {
+      titulo: "Salvar exportação",
+      filtro: "Exportação de empresas",
+      extensoes: ["nfemp"],
+      inicial: "",
+      nome: empresaIds.length === 1 ? "empresa.nfemp" : "empresas.nfemp",
+    });
+    if (!destino) throw "Escolha onde salvar o arquivo.";
+    const caminho = await chamar("exportar_empresas", { empresaIds, senha: d.senha, destino });
+    form.elements.senha.value = form.elements.senha2.value = "";
+    toast(`Exportação salva em ${caminho}`);
+  });
+});
+
+let empresasDoArquivo = [];
+
+function desenharEmpresasDoArquivo(vazioTexto) {
+  $("#importar-empresas-todas").checked = false;
+  const situacao = {
+    nova: `<span class="selo pendente">Nova</span>`,
+    existente: `<span class="selo autorizada">Já cadastrada: atualiza</span>`,
+    arquivada: `<span class="selo incerta">Arquivada: volta ativa</span>`,
+  };
+  $("#lista-importar-empresas").innerHTML = empresasDoArquivo.length
+    ? empresasDoArquivo
+        .map(
+          (e, i) => `<tr>
+            <td><input type="checkbox" data-i="${i}" checked aria-label="${esc(`Marcar ${e.nome}`)}"></td>
+            <td class="dado sec-2">${esc(formatarDocumento({ cnpj: e.cnpj }))}</td>
+            <td>${esc(e.nome)}</td>
+            <td>${situacao[e.situacao]}</td>
+            <td class="sec-1">${e.servicos} serviço(s), ${e.tomadores} tomador(es), ${e.recorrencias} recorrência(s)</td>
+          </tr>`,
+        )
+        .join("")
+    : `<tr><td colspan="5" class="vazio">${esc(vazioTexto)}</td></tr>`;
+  selecaoImportarEmpresas.atualizar();
+}
+
+const selecaoImportarEmpresas = selecaoEmTabela({
+  lista: "#lista-importar-empresas",
+  itens: () => empresasDoArquivo,
+  botao: "#importar-empresas-ok",
+  rotulo: "Importar",
+  todos: "#importar-empresas-todas",
+});
+
+ligarEscolhaArquivo(
+  $("#importar-empresas-arquivo"),
+  $("#escolher-importar-empresas"),
+  { titulo: "Escolher exportação de empresas", filtro: "Exportação de empresas", extensoes: ["nfemp"], caminho: true },
+  () => {
+    empresasDoArquivo = [];
+    desenharEmpresasDoArquivo("Informe a senha do arquivo e clique em \"Ler arquivo\".");
+  },
+);
+
+async function lerArquivoDeEmpresas() {
+  const form = $("#form-importar-empresas");
+  const erroEl = $("#erro-importar-empresas");
+  erroEl.hidden = true;
+  const { arquivo, senha } = lerForm(form);
+  if (!arquivo) return mostrarErros([{ el: form.elements.arquivo, msg: "Escolha o arquivo." }], erroEl);
+  if (!senha) return mostrarErros([{ el: form.elements.senha, msg: "Preencha este campo." }], erroEl);
+  const botao = $("#ler-importar-empresas");
+  botao.disabled = true;
+  try {
+    empresasDoArquivo = await invoke("ler_exportacao_empresas", { arquivo, senha });
+    desenharEmpresasDoArquivo("O arquivo não tem empresas.");
+  } catch (e) {
+    empresasDoArquivo = [];
+    desenharEmpresasDoArquivo("Não foi possível ler o arquivo.");
+    mostrarErro(erroEl, e);
+  } finally {
+    botao.disabled = false;
+  }
+}
+
+$("#ler-importar-empresas").addEventListener("click", lerArquivoDeEmpresas);
+// Enter na senha lê o arquivo (sem isto, o Enter do diálogo tentaria importar).
+$("#importar-empresas-senha").addEventListener("keydown", (ev) => {
+  if (ev.key !== "Enter") return;
+  ev.preventDefault();
+  lerArquivoDeEmpresas();
+});
+
+$("#importar-empresas").addEventListener("click", () => {
+  const dlg = $("#dlg-importar-empresas");
+  const form = $("form", dlg);
+  form.reset();
+  empresasDoArquivo = [];
+  desenharEmpresasDoArquivo("Escolha o arquivo exportado na outra máquina.");
+  abrirDialogo(dlg, $("#erro-importar-empresas"), async (d) => {
+    const cnpjs = selecaoImportarEmpresas.marcados().map((e) => e.cnpj);
+    if (!cnpjs.length) throw "Leia o arquivo e marque as empresas a importar.";
+    const resumo = await chamar("importar_empresas", { arquivo: d.arquivo, senha: d.senha, cnpjs });
+    form.elements.senha.value = "";
+    const novas = resumo.filter((r) => r.nova).length;
+    toast(
+      `${resumo.length} empresa(s) importada(s)` +
+        (novas ? `. Nas novas, importe o certificado e use Numeração / IM → Consultar na Sefin antes de emitir.` : "."),
+    );
+    return async () => {
+      await carregarEmpresas();
+      await renderizarEmpresas();
+    };
+  });
+});

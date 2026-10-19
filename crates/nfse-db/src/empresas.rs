@@ -40,6 +40,8 @@ pub struct Empresa {
     pub telefone: Option<String>,
     pub email: Option<String>,
     pub ativa: bool,
+    /// Importada de outra máquina: a reserva de número espera "Consultar na Sefin" (ADR 0015).
+    pub conferir_numeracao: bool,
 }
 
 impl Empresa {
@@ -69,8 +71,8 @@ pub(crate) fn ambiente_de(s: &str) -> Resultado<Ambiente> {
 }
 
 const SELECT_EMPRESA: &str = "SELECT e.id, p.documento, p.nome, e.inscricao_municipal, e.im_na_dps_producao,
-    e.im_na_dps_homologacao, e.municipio_emissor, e.regime_json, e.ambiente, e.serie, p.telefone, p.email, e.ativa
-    FROM empresa e JOIN pessoa p ON p.id = e.pessoa_id";
+    e.im_na_dps_homologacao, e.municipio_emissor, e.regime_json, e.ambiente, e.serie, p.telefone, p.email, e.ativa,
+    e.conferir_numeracao FROM empresa e JOIN pessoa p ON p.id = e.pessoa_id";
 
 fn empresa_de(r: &SqliteRow) -> Resultado<Empresa> {
     let documento: String = r.get(1);
@@ -88,6 +90,7 @@ fn empresa_de(r: &SqliteRow) -> Resultado<Empresa> {
         telefone: r.get(10),
         email: r.get(11),
         ativa: r.get(12),
+        conferir_numeracao: r.get(13),
     })
 }
 
@@ -102,7 +105,7 @@ fn data(s: &str) -> Resultado<DateTime<Utc>> {
         .map_err(|e| ErroBanco::DadoInvalido(format!("data {s:?}: {e}")))
 }
 
-fn validar(nova: &NovaEmpresa) -> Resultado<()> {
+pub(crate) fn validar(nova: &NovaEmpresa) -> Resultado<()> {
     let erros: Vec<String> = [
         (nova.nome.trim().is_empty(), "nome vazio"),
         (

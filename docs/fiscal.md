@@ -41,7 +41,7 @@ Implementação própria em `crates/nfse-xml/src/assinatura.rs` e `c14n.rs`, con
 
 - Id: `DPS` + município IBGE + tipo de inscrição + CNPJ + série + número, 45 caracteres. É a chave de idempotência e é **único por ambiente** (a numeração de cada ambiente começa do 1).
 - Série própria (padrão `1`). Pelo Anexo I, 00001–49999 é a faixa de aplicativo próprio; 70000–79999 é do Emissor Web nacional.
-- O Anexo I não exige `nDPS` sem buracos nem prevê inutilização. A única regra do número é **E0014**: série e número já usados por uma DPS que gerou NFS-e não podem ser reusados. Como a série `1` pode ter sido usada por outro emissor, o botão "Consultar na Sefin" (`ajustar_numeracao_pela_sefin`) acha o primeiro número livre por busca exponencial e binária.
+- O Anexo I não exige `nDPS` sem buracos nem prevê inutilização. A única regra do número é **E0014**: série e número já usados por uma DPS que gerou NFS-e não podem ser reusados. Como a série `1` pode ter sido usada por outro emissor, o botão "Consultar na Sefin" (`ajustar_numeracao_pela_sefin`) acha o primeiro número livre por busca exponencial e binária. Empresa importada de outra máquina só reserva número depois dessa consulta ([ADR 0015](decisoes/0015-exportacao-de-empresas.md)).
 - Nota rejeitada é refeita com o **próximo** número ("Corrigir e emitir"). Ver [ADR 0003](decisoes/0003-serie-propria-e-numeracao.md).
 
 ## Regras de preenchimento

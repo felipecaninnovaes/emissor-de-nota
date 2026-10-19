@@ -14,6 +14,7 @@ pub mod importacoes;
 pub mod recorrencias;
 pub mod servicos;
 pub mod tomadores;
+pub mod transferencia;
 
 use std::str::FromStr;
 

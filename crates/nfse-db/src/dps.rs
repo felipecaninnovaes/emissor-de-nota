@@ -143,6 +143,13 @@ impl Banco {
         // A empresa é lida na transação da reserva: uma troca de ambiente ou série não entra no meio.
         let mut tx = self.pool().begin().await?;
         let empresa = empresa_em(&mut tx, empresa_id).await?;
+        if empresa.conferir_numeracao {
+            return Err(ErroBanco::Regra(
+                "empresa importada de outra máquina: confira a numeração em Empresas → Numeração / IM → \
+                 Consultar na Sefin antes da primeira emissão"
+                    .into(),
+            ));
+        }
         let ambiente = ambiente_texto(empresa.ambiente);
         sqlx::query("INSERT INTO numeracao (empresa_id, ambiente, serie, proximo_numero) VALUES (?, ?, ?, 1) ON CONFLICT DO NOTHING")
             .bind(empresa_id)
@@ -241,6 +248,21 @@ impl Banco {
             &format!("série {serie}: próximo {proximo}"),
         )
         .await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    /// A numeração da empresa foi conferida na Sefin: libera a reserva de número da empresa importada.
+    pub async fn marcar_numeracao_conferida(&self, empresa_id: i64) -> Resultado<()> {
+        let mut tx = self.pool().begin().await?;
+        let marcada = sqlx::query("UPDATE empresa SET conferir_numeracao = 0 WHERE id = ? AND conferir_numeracao = 1")
+            .bind(empresa_id)
+            .execute(&mut *tx)
+            .await?
+            .rows_affected();
+        if marcada > 0 {
+            auditar_em(&mut tx, "numeracao_conferida", empresa_id, "consulta na Sefin").await?;
+        }
         tx.commit().await?;
         Ok(())
     }

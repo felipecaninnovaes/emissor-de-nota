@@ -32,19 +32,20 @@ fn documento_de(tipo: &str, doc: &str) -> Resultado<Documento> {
     }
 }
 
-fn tipo_e_numero(d: &Documento) -> (&'static str, &str) {
+pub(crate) fn tipo_e_numero(d: &Documento) -> (&'static str, &str) {
     match d {
         Documento::Cnpj(c) => ("cnpj", c.as_str()),
         Documento::Cpf(c) => ("cpf", c.as_str()),
     }
 }
 
-const SELECT_TOMADOR: &str = "SELECT p.id, p.tipo, p.documento, p.inscricao_municipal, p.nome, p.municipio, p.cep,
+pub(crate) const SELECT_TOMADOR: &str =
+    "SELECT p.id, p.tipo, p.documento, p.inscricao_municipal, p.nome, p.municipio, p.cep,
     p.logradouro, p.numero, p.complemento, p.bairro, p.telefone, p.email, v.emails, v.observacao,
     v.retem_federais, v.retem_iss
     FROM empresa_tomador v JOIN pessoa p ON p.id = v.pessoa_id";
 
-fn tomador_de(r: &SqliteRow) -> Resultado<TomadorVinculado> {
+pub(crate) fn tomador_de(r: &SqliteRow) -> Resultado<TomadorVinculado> {
     let municipio: Option<String> = r.get(5);
     let endereco = match (municipio, r.get::<Option<String>, _>(6), r.get::<Option<String>, _>(7)) {
         (Some(municipio), Some(cep), Some(logradouro)) => Some(EnderecoNacional {
@@ -113,7 +114,7 @@ impl Banco {
 }
 
 /// Cria ou atualiza a pessoa e garante o vínculo com a empresa, dentro da transação.
-async fn gravar_tomador(
+pub(crate) async fn gravar_tomador(
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     empresa_id: i64,
     t: &Tomador,

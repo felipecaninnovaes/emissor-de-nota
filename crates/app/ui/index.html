@@ -306,7 +306,9 @@
       <section data-tela="empresas" hidden>
         <h1 tabindex="-1">Empresas</h1>
         <div class="cartao barra">
-          <div class="barra-acoes"><button class="botao primario" id="nova-empresa">Nova empresa</button></div>
+          <div class="barra-acoes"><button class="botao primario" id="nova-empresa">Nova empresa</button>
+            <button class="botao" id="exportar-empresas">Exportar…</button>
+            <button class="botao" id="importar-empresas">Importar…</button></div>
         </div>
         <div class="cartao tabela">
           <div class="rolagem">
@@ -753,6 +755,63 @@
       <div id="erro-empresa" class="aviso erro" role="alert" hidden></div>
     </div>
     <div class="acoes"><span class="nota-obrigatorio" aria-hidden="true">* obrigatório</span><button class="botao" value="cancelar" formnovalidate>Cancelar</button><button class="botao primario" value="salvar">Salvar</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-exportar-empresas" aria-labelledby="titulo-dlg-exportar-empresas">
+  <form method="dialog" id="form-exportar-empresas" novalidate>
+    <header class="dialogo-topo">
+      <h2 id="titulo-dlg-exportar-empresas">Exportar empresas</h2>
+      <p class="ajuda">Leva o cadastro, os serviços, os tomadores e as recorrências para importar em outra máquina.
+        Notas, numeração e certificado ficam nesta.</p>
+    </header>
+    <div class="dialogo-corpo">
+      <fieldset class="bloco">
+        <legend>Empresas</legend>
+        <div id="exportar-empresas-lista" class="grade"></div>
+      </fieldset>
+      <div class="grade">
+        <div class="c6"><label for="exportar-senha">Senha do arquivo</label><input id="exportar-senha" name="senha" type="password" minlength="10" required autocomplete="new-password"></div>
+        <div class="c6"><label for="exportar-senha2">Repita a senha</label><input id="exportar-senha2" name="senha2" type="password" required autocomplete="new-password"></div>
+      </div>
+      <p class="ajuda">Use uma senha só deste arquivo (não a senha mestra), com pelo menos 10 caracteres, e passe-a ao outro
+        operador por outro meio. Sem ela o arquivo não abre.</p>
+      <div id="erro-exportar-empresas" class="aviso erro" role="alert" hidden></div>
+    </div>
+    <div class="acoes"><span class="nota-obrigatorio" aria-hidden="true">* obrigatório</span><button class="botao" value="cancelar" formnovalidate>Cancelar</button><button class="botao primario" value="salvar">Exportar…</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-importar-empresas" class="largo" aria-labelledby="titulo-dlg-importar-empresas">
+  <form method="dialog" id="form-importar-empresas" novalidate>
+    <header class="dialogo-topo">
+      <h2 id="titulo-dlg-importar-empresas">Importar empresas</h2>
+      <p class="ajuda">Empresa nova entra sem certificado e só emite depois de "Consultar na Sefin" em Numeração / IM (a outra
+        máquina pode ter usado a série). Empresa já cadastrada tem os dados atualizados; ambiente, série, numeração,
+        certificado e notas não mudam.</p>
+    </header>
+    <div class="dialogo-corpo">
+      <div class="grade">
+        <div class="c7"><label for="importar-empresas-arquivo">Arquivo (.nfemp)</label>
+          <div class="com-botao"><input id="importar-empresas-arquivo" name="arquivo" readonly data-arquivo required placeholder="Nenhum arquivo escolhido">
+            <button type="button" class="botao" id="escolher-importar-empresas">Escolher arquivo…</button></div></div>
+        <div class="c5"><label for="importar-empresas-senha">Senha do arquivo</label>
+          <div class="com-botao"><input id="importar-empresas-senha" name="senha" type="password" required autocomplete="off">
+            <button type="button" class="botao" id="ler-importar-empresas">Ler arquivo</button></div></div>
+      </div>
+      <div class="cartao tabela">
+        <div class="rolagem">
+        <table>
+          <caption class="sr">Empresas do arquivo</caption>
+          <thead><tr><th scope="col" class="w-check"><input type="checkbox" id="importar-empresas-todas" title="Marcar todas" aria-label="Marcar todas"></th>
+            <th scope="col" class="w-documento sec-2">CNPJ</th><th scope="col">Razão social</th><th scope="col">Situação</th><th scope="col" class="sec-1">Leva</th></tr></thead>
+          <tbody id="lista-importar-empresas"></tbody>
+        </table>
+        </div>
+      </div>
+      <div id="erro-importar-empresas" class="aviso erro" role="alert" hidden></div>
+    </div>
+    <div class="acoes"><span class="nota-obrigatorio" aria-hidden="true">* obrigatório</span><button class="botao" value="cancelar" formnovalidate>Cancelar</button><button class="botao primario" value="salvar" id="importar-empresas-ok">Importar</button></div>
   </form>
 </dialog>
 

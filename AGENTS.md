@@ -22,7 +22,7 @@ O CI roda fmt, clippy e testes no Windows. No Linux, `nfse-nacional::testes::ide
 - **O código é a fonte da verdade.** Se um documento divergir, corrija o documento. Ao mudar comportamento, atualize o documento dono do assunto (lista em [README.md](README.md#documentação)).
 - **Repositório público:** nunca versionar certificados reais, senhas, bancos, XMLs ou PDFs de clientes. Nunca registrar senha, chave privada ou XML completo em log.
 - **Dados de clientes ou do escritório** (nomes, volumes, municípios) não entram na documentação.
-- **Migrações** (`crates/nfse-db/migrations/`): arquivos novos em CRLF e a próxima numeração é a `0008`. Nunca editar uma migração já aplicada (o sqlx confere o checksum). Ver [docs/desenvolvimento.md](docs/desenvolvimento.md#migrações-do-banco).
+- **Migrações** (`crates/nfse-db/migrations/`): arquivos novos em CRLF e a próxima numeração é a `0009`. Nunca editar uma migração já aplicada (o sqlx confere o checksum). Ver [docs/desenvolvimento.md](docs/desenvolvimento.md#migrações-do-banco).
 - **Comandos Tauri:** todo `#[tauri::command]` novo vai em `crates/app/src/comandos/<assunto>.rs`, entra no `generate_handler!` de `main.rs` com o caminho completo (`pub use` não funciona) e, se lê ou grava dados, chama `exigir_cofre(&estado)` ou usa a macro `emissor!`. Esquecer o registro compila e quebra a tela.
 - **Emissão:** a DPS é validada antes de reservar número; a DPS é gravada como `enviando` antes do envio; em resposta incerta, consultar a Sefin antes de reenviar. Não quebre essas garantias ([docs/fiscal.md](docs/fiscal.md)).
 - **Decisões já tomadas** que não devem ser revertidas sem conversa: [docs/decisoes/](docs/decisoes/) (por exemplo, `synchronous = FULL`, assinatura da Sefin só como aviso, interface sem bundler).

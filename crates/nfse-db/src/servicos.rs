@@ -128,12 +128,12 @@ pub struct ResumoImportacaoServicos {
 }
 
 /// Chave de comparação de nomes: sem diferença de maiúsculas e espaços nas pontas.
-fn chave_nome(nome: &str) -> String {
+pub(crate) fn chave_nome(nome: &str) -> String {
     nome.trim().to_lowercase()
 }
 
 /// INSERT ou UPDATE do serviço já validado, no pool ou numa transação.
-async fn gravar_servico<'e, E: sqlx::SqliteExecutor<'e>>(executor: E, s: &Servico) -> Resultado<i64> {
+pub(crate) async fn gravar_servico<'e, E: sqlx::SqliteExecutor<'e>>(executor: E, s: &Servico) -> Resultado<i64> {
     let consulta = match s.id {
         None => sqlx::query(
             "INSERT INTO servico (empresa_id, nome, descricao, codigo_trib_nac, codigo_trib_mun, nbs,

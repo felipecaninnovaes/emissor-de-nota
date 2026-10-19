@@ -54,7 +54,7 @@ Descrição da nota: `aplicar_mes_ref` troca as variáveis (lista em [usuario.md
 
 ## Banco de dados
 
-Um SQLite (SQLCipher) por máquina (`emissor.db` em `app_data_dir()`), em modo WAL com `synchronous = FULL` ([ADR 0008](decisoes/0008-synchronous-full.md)). Migrações em `crates/nfse-db/migrations/` (`0001` a `0007`), executadas pelo `sqlx::migrate!`. A recriação de tabela que exige desligar chaves estrangeiras roda como ajuste logo após as migrações (`crates/nfse-db/ajustes/`). Como num banco novo esse ajuste recria `dps` depois de todas as migrações, mudança na tabela `dps` vai em `ajustes.rs` (idempotente, depois da recriação), não numa migração: é o caso de `dps.enviado_em` e do índice `dps_empresa_id`. As migrações têm de ficar em CRLF (`.gitattributes`); ver [desenvolvimento.md](desenvolvimento.md#migrações-do-banco).
+Um SQLite (SQLCipher) por máquina (`emissor.db` em `app_data_dir()`), em modo WAL com `synchronous = FULL` ([ADR 0008](decisoes/0008-synchronous-full.md)). Migrações em `crates/nfse-db/migrations/` (`0001` a `0008`), executadas pelo `sqlx::migrate!`. A recriação de tabela que exige desligar chaves estrangeiras roda como ajuste logo após as migrações (`crates/nfse-db/ajustes/`). Como num banco novo esse ajuste recria `dps` depois de todas as migrações, mudança na tabela `dps` vai em `ajustes.rs` (idempotente, depois da recriação), não numa migração: é o caso de `dps.enviado_em` e do índice `dps_empresa_id`. As migrações têm de ficar em CRLF (`.gitattributes`); ver [desenvolvimento.md](desenvolvimento.md#migrações-do-banco).
 
 | Tabela | Conteúdo |
 | --- | --- |
@@ -83,6 +83,10 @@ Regras: guardar sempre o XML autorizado original, com hash conferido na leitura;
 ## Backup cifrado
 
 `nfse-db/src/backup.rs`: `VACUUM INTO` num arquivo temporário do sistema, cifrado em blocos de 1 MiB com a chave do cofre (AES-256-GCM; o AAD amarra o índice do bloco e se é o último, o que detecta truncamento e reordenação) e gravado como `emissor-AAAAMMDD-HHMMSS.nfbk`. O cabeçalho leva o sal e os parâmetros do Argon2 (sem segredo), então a senha mestra abre o backup em outra máquina. O banco já guarda os XMLs autorizados e os eventos, por isso o backup é só o banco. `restaurar_backup` decifra para um arquivo novo, grava o `.cofre` ao lado e roda `PRAGMA integrity_check`; recusa destino cujo `.cofre` já exista (um destino `emissor`, sem extensão, na pasta de dados sobrescreveria o cofre em uso). Comandos em `crates/app/src/comandos/backup.rs`; o automático roda ao abrir o cofre (a cada 20 h, no máximo) e falha só na auditoria.
+
+## Exportação de empresas
+
+`nfse-db/src/transferencia.rs` ([ADR 0015](decisoes/0015-exportacao-de-empresas.md)): o arquivo `.nfemp` leva a empresa, os serviços ativos, os tomadores vinculados e as recorrências ativas, em JSON. Não leva notas, numeração, certificado nem configurações. O conteúdo vai cifrado com AES-256-GCM, numa chave Argon2id derivada de uma senha própria da exportação (o `Cofre` com sal novo e as mesmas regras de senha), nunca da senha mestra. A importação roda numa transação só: tomadores pelo documento, serviços pelo nome e recorrências por tomador, serviço e descrição, de modo que reimportar não duplica nada. Empresa nova fica com `conferir_numeracao = 1`, e `reservar_dps` recusa a reserva até `ajustar_numeracao_pela_sefin` tirar a marca. Empresa existente mantém ambiente, série, numeração, certificados e notas. Comandos em `crates/app/src/comandos/empresas.rs`.
 
 ## Aplicativo (Tauri)
 
