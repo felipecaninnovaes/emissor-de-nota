@@ -111,6 +111,13 @@ impl Valor {
         let v = (i128::from(self.0) * i128::from(p.0) + 5_000) / 10_000;
         Valor(i64::try_from(v).unwrap_or(if v < 0 { i64::MIN } else { i64::MAX }))
     }
+
+    /// `self × p%`, truncado no centavo (descarta a fração, como o Emissor Web faz em PIS e COFINS:
+    /// 650,00 × 0,65% = 4,225 vira 4,22).
+    pub fn aplicar_truncado(self, p: Percentual) -> Valor {
+        let v = i128::from(self.0) * i128::from(p.0) / 10_000;
+        Valor(i64::try_from(v).unwrap_or(if v < 0 { i64::MIN } else { i64::MAX }))
+    }
 }
 
 #[cfg(test)]
@@ -140,6 +147,16 @@ mod testes {
                 .to_string(),
             "0.50"
         );
+    }
+
+    #[test]
+    fn aplicar_truncado_descarta_a_fracao_do_centavo() {
+        let p = |t: &str| Percentual::parse(t).unwrap();
+        let v = Valor::parse("650").unwrap();
+        // 4,225 e 19,50: o arredondamento comum daria 4,23
+        assert_eq!(v.aplicar_truncado(p("0.65")).to_string(), "4.22");
+        assert_eq!(v.aplicar(p("0.65")).to_string(), "4.23");
+        assert_eq!(v.aplicar_truncado(p("3")).to_string(), "19.50");
     }
 
     #[test]

@@ -375,6 +375,46 @@ fn retencoes_percentuais_viram_valores() {
     assert_eq!(pc.tipo_retencao, Some(3));
 }
 
+/// Nota real do Emissor Web (19/10/2026, 650,00, Lucro Presumido): PIS 0,65% e COFINS 3,00% de apuração
+/// própria saem na DPS com base e valores truncados (4,225 vira 4,22).
+#[test]
+fn pis_cofins_proprios_viram_base_e_valores() {
+    let p = |v: &str| Some(Percentual::parse(v).unwrap());
+    let mut t = Tributacao::default();
+    t.federais.pis_cofins = Some(nfse_core::modelo::PisCofins {
+        cst: "01".into(),
+        base_calculo: None,
+        aliquota_pis: p("0.65"),
+        aliquota_cofins: p("3"),
+        valor_pis: None,
+        valor_cofins: None,
+        tipo_retencao: Some(0),
+    });
+    let valor = Valor::parse("650").unwrap();
+    let pc = federais_da_nota(&t, valor).pis_cofins.unwrap();
+    assert_eq!(pc.base_calculo.unwrap().to_string(), "650.00");
+    assert_eq!(pc.valor_pis.unwrap().to_string(), "4.22");
+    assert_eq!(pc.valor_cofins.unwrap().to_string(), "19.50");
+    // a base do IBS/CBS que a Sefin acha: 650,00 - 4,22 - 19,50
+    let base_ibs = valor.centesimos() - pc.valor_pis.unwrap().centesimos() - pc.valor_cofins.unwrap().centesimos();
+    assert_eq!(Valor::de_centesimos(base_ibs).to_string(), "626.28");
+    // CST sem tributação (00, 04...) ou sem alíquota: nada é calculado
+    t.federais.pis_cofins.as_mut().unwrap().cst = "04".into();
+    assert_eq!(federais_da_nota(&t, valor).pis_cofins.unwrap().valor_pis, None);
+    t.federais.pis_cofins.as_mut().unwrap().cst = "01".into();
+    t.federais.pis_cofins.as_mut().unwrap().aliquota_pis = None;
+    let pc = federais_da_nota(&t, valor).pis_cofins.unwrap();
+    assert_eq!(
+        (pc.valor_pis, pc.valor_cofins.unwrap().to_string()),
+        (None, "19.50".into())
+    );
+    // retido: segue só em vRetCSLL, sem valores próprios
+    t.federais.pis_cofins.as_mut().unwrap().aliquota_pis = p("0.65");
+    t.retencoes.pis = p("0.65");
+    let pc = federais_da_nota(&t, valor).pis_cofins.unwrap();
+    assert_eq!((pc.base_calculo, pc.valor_pis, pc.valor_cofins), (None, None, None));
+}
+
 /// Nota real de 17/10/2026: 7.000,00 com IR 1,5%, PIS 0,65%, COFINS 3% e CSLL 1% deve dar líquido 6.569,50.
 #[test]
 fn retencoes_somam_no_valor_liquido() {

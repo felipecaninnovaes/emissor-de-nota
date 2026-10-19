@@ -203,6 +203,16 @@ function percentualDigitado(t) {
   return v == null ? null : v.replace(",", ".");
 }
 
+/** Alíquotas de PIS e COFINS de apuração própria preenchidas no cadastro (só as informadas). */
+function aliquotasProprias(d) {
+  const campos = {};
+  const pis = percentualDigitado(d.aliq_pis);
+  const cofins = percentualDigitado(d.aliq_cofins);
+  if (pis != null) campos.aliquota_pis = pis;
+  if (cofins != null) campos.aliquota_cofins = cofins;
+  return campos;
+}
+
 function mostrarCamposIbs(form) {
   const informar = form.elements.ibs_informar.value === "sim";
   for (const el of $$("[data-ibs-campo]", form)) el.hidden = !informar;
@@ -234,6 +244,8 @@ function editarServico(s) {
       ret_issqn: t.issqn?.retencao ?? "nao_retido",
       aliq_issqn: percentualTela(t.issqn?.aliquota),
       cst: pc.cst ?? "00",
+      aliq_pis: percentualTela(pc.aliquota_pis),
+      aliq_cofins: percentualTela(pc.aliquota_cofins),
       tp_ret: String(pc.tipo_retencao ?? 0),
       r_irrf: percentualTela(r.irrf),
       r_csll: percentualTela(r.csll),
@@ -315,7 +327,11 @@ function editarServico(s) {
         issqn,
         federais: {
           ...(s?.tributacao?.federais ?? {}),
-          pis_cofins: { cst: d.cst.trim() || "00", tipo_retencao: Number(d.tp_ret) },
+          pis_cofins: {
+            cst: d.cst.trim() || "00",
+            tipo_retencao: Number(d.tp_ret),
+            ...aliquotasProprias(d),
+          },
         },
         total_tributos,
         retencoes,

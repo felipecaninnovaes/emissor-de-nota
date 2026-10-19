@@ -200,6 +200,15 @@ pub fn federais_da_nota(t: &nfse_db::servicos::Tributacao, valor: Valor) -> nfse
         pc.aliquota_cofins = None;
         pc.valor_pis = None;
         pc.valor_cofins = None;
+    } else if let Some(pc) = f.pis_cofins.as_mut()
+        && matches!(pc.cst.as_str(), "01" | "02")
+        && (pc.aliquota_pis.is_some() || pc.aliquota_cofins.is_some())
+    {
+        // Apuração própria: o Emissor Web manda base, alíquotas e valores (truncados no centavo) e a
+        // Sefin desconta vPis e vCofins da base do IBS/CBS; sem eles a base fica só menos o ISS.
+        pc.base_calculo = Some(valor);
+        pc.valor_pis = pc.aliquota_pis.map(|p| valor.aplicar_truncado(p));
+        pc.valor_cofins = pc.aliquota_cofins.map(|p| valor.aplicar_truncado(p));
     }
     // Com retenção percentual no serviço, o tipo sai dela (e não do que ficou no cadastro).
     if (r.pis.is_some() || r.cofins.is_some() || r.csll.is_some())
