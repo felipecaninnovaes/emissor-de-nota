@@ -1,8 +1,26 @@
 # Changelog
 
-Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0, a 1.2.0, a 1.3.0 e a 1.5.0, em 18/10/2026 (não houve 1.4.0); a versão vem de `crates/app/Cargo.toml`.
+Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0, a 1.2.0, a 1.3.0 e a 1.4.0, em 18/10/2026, e a 1.5.0, em 19/10/2026; a versão vem de `crates/app/Cargo.toml`.
 
 ## 1.5.0
+
+Reforma Tributária (IBS/CBS) no cadastro de serviços e PIS/COFINS de apuração própria na nota (sem mudança de esquema do banco).
+
+**IBS/CBS**
+
+- O `cClassTrib` e o `cIndOp` viraram campos com busca por código ou nome, nas tabelas oficiais do Portal DFe (SVRS) embutidas no aplicativo (173 classificações tributárias e 39 indicadores da operação). A descrição do `cClassTrib` mostra o CST e a redução de alíquota (por exemplo, `200029`, serviços de saúde humana: CST 200, redução de 60% no IBS e na CBS).
+- Escolher o `cClassTrib` preenche o CST. CST que não é o do `cClassTrib` agora é recusado no cadastro, na importação por planilha e na emissão; na planilha, CST em branco assume o da tabela. Código fora da tabela só gera aviso.
+- O `cIndOp` deixou de ser uma lista de 11 opções: o padrão de serviço novo continua `100301` (demais serviços); consulta médica presencial usa `030101`.
+
+**PIS/COFINS**
+
+- Novos campos "PIS próprio %" e "COFINS próprio %" no serviço. Com CST 01 ou 02 e sem retenção de PIS/COFINS, a nota leva a base, as alíquotas e os valores de PIS e COFINS, truncados no centavo como no Emissor Web. A Sefin desconta esses valores da base do IBS/CBS, que antes saía só menos o ISS. Serviços já cadastrados continuam sem alíquota até serem editados.
+
+**Empresas**
+
+- A opção de regime especial 6 passou a se chamar "Sociedade de profissionais (ISS fixo)", com texto de ajuda.
+
+## 1.4.0
 
 Exportação de empresas entre máquinas e seletores de arquivo do sistema. O banco ganha a migração 0008 (coluna `empresa.conferir_numeracao`), aplicada sozinha ao abrir.
 
