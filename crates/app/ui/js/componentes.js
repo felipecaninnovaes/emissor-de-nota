@@ -1,4 +1,4 @@
-// Componentes: combobox de busca e escolha de tomador (emissão e recorrência).
+// Componentes: combobox de busca, escolha de tomador (emissão e recorrência) e campo de arquivo.
 
 import { $, esc, estado, formatarDocumento, invoke, toast } from "./util.js";
 
@@ -164,4 +164,33 @@ export function anunciar(texto) {
   const el = $("#anuncio");
   el.textContent = "";
   setTimeout(() => (el.textContent = texto), 50);
+}
+
+export const FILTRO_PLANILHA = { filtro: "Planilha", extensoes: ["xlsx", "xlsm", "xls", "ods", "csv"] };
+
+/**
+ * Campo de arquivo com o seletor nativo do sistema (no Linux, pelo xdg-desktop-portal; o
+ * `<input type="file">` do WebKitGTK abre o diálogo do GTK). O `campo` (somente leitura) mostra o
+ * nome; o botão, o clique ou Enter no campo abrem o seletor. `aoEscolher({ nome, bytes })` recebe o
+ * conteúdo; cancelar não muda nada.
+ */
+export function ligarEscolhaArquivo(campo, botao, { titulo, filtro, extensoes }, aoEscolher) {
+  const escolher = async () => {
+    try {
+      const arquivo = await invoke("ler_arquivo_escolhido", { titulo, filtro, extensoes });
+      if (!arquivo) return;
+      campo.value = arquivo.nome;
+      campo.dispatchEvent(new Event("change", { bubbles: true }));
+      await aoEscolher(arquivo);
+    } catch (e) {
+      toast(String(e), true);
+    }
+  };
+  botao.addEventListener("click", escolher);
+  campo.addEventListener("click", escolher);
+  campo.addEventListener("keydown", (ev) => {
+    if (ev.key !== "Enter") return;
+    ev.preventDefault();
+    escolher();
+  });
 }

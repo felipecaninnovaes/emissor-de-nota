@@ -213,7 +213,8 @@
         <div class="cartao">
           <div class="grade">
             <div class="c5"><label for="arquivo-planilha">Planilha (.xlsx, .xls, .ods ou .csv)</label>
-              <input id="arquivo-planilha" type="file" accept=".xlsx,.xlsm,.xls,.ods,.csv"></div>
+              <div class="com-botao"><input id="arquivo-planilha" readonly data-arquivo placeholder="Nenhuma planilha escolhida">
+                <button type="button" class="botao" id="escolher-planilha">Escolher arquivo…</button></div></div>
             <div class="c3"><label for="mes-planilha">Mês padrão</label><input id="mes-planilha" type="month"></div>
             <div class="c4 celula-botoes">
               <button class="botao" id="reler-planilha" title="Ler de novo (depois de cadastrar um tomador, por exemplo)">Ler de novo</button>
@@ -372,11 +373,13 @@
           <h3>Testar ou restaurar um backup</h3>
           <p class="ajuda">Gera um banco novo a partir do backup e confere a integridade. Não substitui o banco em uso: para
             restaurar de verdade, feche o sistema e troque o <code>emissor.db</code> e o <code>emissor.cofre</code> pelos arquivos gerados (o destino informado e o <code>.cofre</code> ao lado dele).</p>
-          <div class="linha-campo">
+          <div class="com-botao linha-campo">
             <input id="restaurar-arquivo" aria-label="Arquivo de backup (.nfbk)" placeholder="Arquivo de backup (.nfbk)">
+            <button class="botao" id="escolher-restaurar-arquivo">Escolher arquivo…</button>
           </div>
-          <div class="linha-campo">
+          <div class="com-botao linha-campo">
             <input id="restaurar-destino" aria-label="Banco a gerar" placeholder="Arquivo do banco a gerar (novo)">
+            <button class="botao" id="escolher-restaurar-destino">Escolher destino…</button>
           </div>
           <div class="com-botao linha-campo">
             <input id="restaurar-senha" type="password" aria-label="Senha mestra" placeholder="Senha mestra" autocomplete="off">
@@ -678,7 +681,8 @@
           <option value="empresa">Outra empresa</option><option value="planilha">Planilha (.xlsx, .xls, .ods ou .csv)</option></select></div>
         <div class="c8" data-origem="empresa"><label for="importar-empresa">Empresa de origem</label><select id="importar-empresa" name="empresa_origem"></select></div>
         <div class="c5" data-origem="planilha" hidden><label for="importar-arquivo">Planilha</label>
-          <input id="importar-arquivo" type="file" accept=".xlsx,.xlsm,.xls,.ods,.csv"></div>
+          <div class="com-botao"><input id="importar-arquivo" readonly data-arquivo placeholder="Nenhuma planilha escolhida">
+            <button type="button" class="botao" id="escolher-importar-arquivo">Escolher arquivo…</button></div></div>
         <div class="c3 celula-botoes" data-origem="planilha" hidden><button type="button" class="botao" id="modelo-servicos">Baixar modelo</button></div>
         <p class="c12 ajuda" data-origem="planilha" hidden>Uma linha por serviço. Obrigatórias: <b>Nome</b>, <b>Descricao</b> e
           <b>Codigo tributacao nacional</b>. As demais colunas (NBS, valor, ISS, total de tributos, retenções) seguem o modelo;
@@ -760,7 +764,8 @@
     </header>
     <div class="dialogo-corpo">
       <div class="grade">
-        <div class="c12"><label for="certificado-arquivo">Arquivo .pfx / .p12</label><input id="certificado-arquivo" name="arquivo" type="file" accept=".pfx,.p12" required></div>
+        <div class="c12"><label for="certificado-arquivo">Arquivo .pfx / .p12</label><div class="com-botao"><input id="certificado-arquivo" name="arquivo" readonly data-arquivo required placeholder="Nenhum arquivo escolhido">
+          <button type="button" class="botao" id="escolher-certificado">Escolher arquivo…</button></div></div>
         <div class="c12"><label for="certificado-senha">Senha do certificado</label><input id="certificado-senha" name="senha" type="password" required></div>
       </div>
       <p class="ajuda">O certificado é guardado criptografado com a senha mestra. O arquivo original pode ser removido depois.</p>

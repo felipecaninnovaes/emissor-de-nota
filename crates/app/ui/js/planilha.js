@@ -4,6 +4,7 @@ import { $, $$, NOME_SITUACAO, chamar, esc, estado, invoke, moeda, somarValores,
 import { detalheLinha, selecaoEmTabela } from "./tabela.js";
 import { ambienteDe, celulaEmpresa, confirmarEmissao, emitirTravando } from "./lote.js";
 import { editarTomador } from "./tomadores.js";
+import { FILTRO_PLANILHA, ligarEscolhaArquivo } from "./componentes.js";
 
 let planilhaLida = [];
 let planilhaArquivo = null; // { nome, bytes }
@@ -28,11 +29,9 @@ $("#modelo-planilha").addEventListener("click", async () => {
   }
 });
 
-$("#arquivo-planilha").addEventListener("change", async (ev) => {
-  const arquivo = ev.target.files[0];
-  if (!arquivo) return;
-  planilhaArquivo = { nome: arquivo.name, bytes: Array.from(new Uint8Array(await arquivo.arrayBuffer())) };
-  await lerPlanilha();
+ligarEscolhaArquivo($("#arquivo-planilha"), $("#escolher-planilha"), { titulo: "Escolher planilha", ...FILTRO_PLANILHA }, (a) => {
+  planilhaArquivo = a;
+  return lerPlanilha();
 });
 
 $("#mes-planilha").addEventListener("change", () => planilhaArquivo && lerPlanilha());
@@ -153,7 +152,7 @@ $("#planilha-emitir").addEventListener("click", async () => {
     planilhaEmAndamento = sim;
     selecaoPlanilha.atualizar();
   };
-  const controles = ["#mes-planilha", "#reler-planilha", "#arquivo-planilha"];
+  const controles = ["#mes-planilha", "#reler-planilha", "#escolher-planilha"];
   const resumo = await emitirTravando(controles, andamento, {
     itens,
     andamento: $("#planilha-andamento"),

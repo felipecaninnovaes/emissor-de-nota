@@ -16,7 +16,7 @@ import {
 } from "./util.js";
 import { acoesLinha, linhaVazia, selecaoEmTabela } from "./tabela.js";
 import { ErroCampo, abrirDialogo, confirmar, limparErro, preencherForm } from "./formularios.js";
-import { ligarCombobox } from "./componentes.js";
+import { FILTRO_PLANILHA, ligarCombobox, ligarEscolhaArquivo } from "./componentes.js";
 import { renderizarServicosEmitir } from "./emitir.js";
 
 const NOME_RETENCAO = { irrf: "IRRF", csll: "CSLL", cp: "INSS", pis: "PIS", cofins: "COFINS" };
@@ -330,6 +330,8 @@ const selecaoImportar = selecaoEmTabela({
   todos: "#importar-todos",
 });
 
+let planilhaServicos = null; // { nome, bytes } da planilha escolhida na importação
+
 async function carregarOrigemImportacao() {
   const form = $("#form-importar-servicos");
   const origem = form.elements.origem.value;
@@ -352,11 +354,11 @@ async function carregarOrigemImportacao() {
     }
     return desenharServicosAImportar("Esta empresa não tem serviços cadastrados.");
   }
-  const arquivo = $("#importar-arquivo").files[0];
+  // O campo volta vazio no reset do diálogo; o conteúdo guardado só vale com o nome à mostra.
+  const arquivo = $("#importar-arquivo").value && planilhaServicos;
   if (!arquivo) return desenharServicosAImportar("Escolha a planilha (.xlsx, .xls, .ods ou .csv).");
   try {
-    const bytes = Array.from(new Uint8Array(await arquivo.arrayBuffer()));
-    servicosAImportar = await chamar("ler_planilha_servicos", { nome: arquivo.name, bytes });
+    servicosAImportar = await chamar("ler_planilha_servicos", { nome: arquivo.nome, bytes: arquivo.bytes });
   } catch (e) {
     return desenharServicosAImportar(String(e));
   }
@@ -365,7 +367,15 @@ async function carregarOrigemImportacao() {
 
 $("#importar-origem").addEventListener("change", carregarOrigemImportacao);
 $("#importar-empresa").addEventListener("change", carregarOrigemImportacao);
-$("#importar-arquivo").addEventListener("change", carregarOrigemImportacao);
+ligarEscolhaArquivo(
+  $("#importar-arquivo"),
+  $("#escolher-importar-arquivo"),
+  { titulo: "Escolher planilha de serviços", ...FILTRO_PLANILHA },
+  (a) => {
+    planilhaServicos = a;
+    return carregarOrigemImportacao();
+  },
+);
 
 $("#importar-servicos").addEventListener("click", () => {
   if (!estado.empresa) return toast("Escolha a empresa.", true);

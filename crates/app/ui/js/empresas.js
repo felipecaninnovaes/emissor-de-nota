@@ -4,6 +4,15 @@ import { $, NOME_AMBIENTE, chamar, esc, estado, mostrarErro, soDigitos, toast, v
 import { acoesLinha, linhaVazia } from "./tabela.js";
 import { ErroCampo, abrirDialogo, confirmar, preencherForm } from "./formularios.js";
 import { carregarEmpresas } from "./navegacao.js";
+import { ligarEscolhaArquivo } from "./componentes.js";
+
+let pfxEscolhido = null; // bytes do certificado escolhido no diálogo
+ligarEscolhaArquivo(
+  $("#certificado-arquivo"),
+  $("#escolher-certificado"),
+  { titulo: "Escolher certificado A1", filtro: "Certificado A1", extensoes: ["pfx", "p12"] },
+  (a) => (pfxEscolhido = a.bytes),
+);
 
 export async function renderizarEmpresas() {
   const corpo = $("#lista-empresas");
@@ -143,12 +152,11 @@ function editarEmpresa(empresa) {
 function importarCertificado(empresa) {
   const dlg = $("#dlg-certificado");
   $("form", dlg).reset();
+  pfxEscolhido = null;
   $("#cert-empresa").textContent = `${empresa.nome} — ${empresa.cnpj_formatado}`;
   abrirDialogo(dlg, $("#erro-certificado"), async (d, form) => {
-    const arquivo = form.elements.arquivo.files[0];
-    if (!arquivo) throw "Escolha o arquivo do certificado.";
-    const pfx = Array.from(new Uint8Array(await arquivo.arrayBuffer()));
-    const info = await chamar("importar_certificado", { empresaId: empresa.id, pfx, senha: d.senha });
+    if (!pfxEscolhido) throw new ErroCampo("arquivo", "Escolha o arquivo do certificado.");
+    const info = await chamar("importar_certificado", { empresaId: empresa.id, pfx: pfxEscolhido, senha: d.senha });
     form.elements.senha.value = "";
     toast(`Certificado de ${info.titular} importado (válido até ${info.valido_ate}).`);
     return async () => {

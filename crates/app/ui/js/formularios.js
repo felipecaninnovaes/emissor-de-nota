@@ -149,11 +149,11 @@ function rotuloDe(el) {
 
 /** Mensagem de erro do campo, ou "" se está bom. */
 function erroDoCampo(el) {
-  const v = el.type === "file" ? (el.files.length ? "x" : "") : el.value.trim();
+  const v = el.value.trim();
   if (!v) {
     if (!el.required) return "";
     if (el.tagName === "SELECT") return "Escolha uma opção.";
-    if (el.type === "file") return "Escolha o arquivo.";
+    if (el.dataset.arquivo !== undefined) return "Escolha o arquivo.";
     return "Preencha este campo.";
   }
   if (el.minLength > 0 && v.length < el.minLength) {
@@ -334,7 +334,7 @@ document.addEventListener("keydown", (ev) => {
   if (ev.key !== "Enter" || ev.defaultPrevented || ev.shiftKey || ev.altKey) return;
   const el = ev.target;
   const form = el.closest?.("dialog form");
-  if (!form || el.tagName === "BUTTON" || el.type === "file") return;
+  if (!form || el.tagName === "BUTTON") return;
   if (el.tagName === "TEXTAREA" && !ev.ctrlKey) return;
   ev.preventDefault();
   const consultar = !ev.ctrlKey && el.closest(".com-botao")?.querySelector("[data-consultar-cnpj]");
@@ -361,7 +361,7 @@ export function preencherForm(form, dados) {
   for (const el of form.elements) {
     if (!el.name || !(el.name in dados)) continue;
     if (el.type === "checkbox") el.checked = !!dados[el.name];
-    else if (el.type !== "file") {
+    else {
       el.value = dados[el.name] ?? "";
       if (el.dataset.formato) aplicarMascara(el);
     }

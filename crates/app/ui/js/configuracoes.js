@@ -178,6 +178,38 @@ $("#fazer-backup").addEventListener("click", async () => {
   }
 });
 
+// Arquivo do backup e banco a gerar: o seletor só preenche o campo; quem confere é `restaurar_backup`.
+$("#escolher-restaurar-arquivo").addEventListener("click", async () => {
+  const campo = $("#restaurar-arquivo");
+  try {
+    const arquivo = await invoke("escolher_arquivo", {
+      titulo: "Escolher backup",
+      filtro: "Backup do emissor",
+      extensoes: ["nfbk"],
+      inicial: campo.value || $("#pasta-backup").value,
+    });
+    if (arquivo) campo.value = arquivo;
+  } catch (e) {
+    toast(String(e), true);
+  }
+});
+
+$("#escolher-restaurar-destino").addEventListener("click", async () => {
+  const campo = $("#restaurar-destino");
+  try {
+    const destino = await invoke("salvar_arquivo", {
+      titulo: "Banco a gerar",
+      filtro: "Banco do emissor",
+      extensoes: ["db"],
+      inicial: campo.value || $("#restaurar-arquivo").value || $("#pasta-backup").value,
+      nome: "emissor-restaurado.db",
+    });
+    if (destino) campo.value = destino;
+  } catch (e) {
+    toast(String(e), true);
+  }
+});
+
 $("#restaurar-backup").addEventListener("click", async () => {
   const botao = $("#restaurar-backup");
   botao.disabled = true;
