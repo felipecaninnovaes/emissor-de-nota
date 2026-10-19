@@ -523,6 +523,9 @@ h1[tabindex="-1"]:focus { outline: none; }
 .revisao dt, .revisao dd { padding: var(--espaco-2) var(--espaco-3); border-right: 1px solid var(--fio-forte); border-bottom: 1px solid var(--fio-forte); margin: 0; }
 .revisao dt { font-family: var(--font-condensed); font-size: 0.6875rem; line-height: 1.25rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tinta-suave); background: var(--papel); }
 .revisao dd { white-space: pre-wrap; overflow-wrap: anywhere; }
+.xml-dps { margin-top: var(--espaco-3); }
+.xml-dps summary { cursor: pointer; }
+.xml-dps pre { max-height: 24rem; overflow: auto; margin: var(--espaco-2) 0 0; padding: var(--espaco-3); border: 1px solid var(--fio-forte); background: var(--folha); font-family: var(--font-mono, monospace); font-size: 0.75rem; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* ---------- andamento: segmento "sem resposta" e barra contínua em lotes grandes ---------- */
 .andamento .barra span.incerta { background: var(--amarelo-claro); border: 1px dashed var(--amarelo); }

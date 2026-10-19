@@ -25,7 +25,7 @@ O menu lateral tem nove telas: Emitir nota, Notas emitidas, Lote do mês, Import
 ## Emitir uma nota
 
 1. Escolha o tomador (busca por nome ou documento), o serviço, o valor (`1.500,00`) e o mês de referência (padrão: o mês anterior).
-2. **Revisar** mostra a DPS completa, as retenções e o valor líquido, e aponta erros antes de gastar número. Retenção federal com tomador pessoa física **bloqueia** a emissão (desmarque a retenção da nota). Avisos amarelos não bloqueiam: retenção federal em empresa optante pelo Simples Nacional e retenção de PIS/COFINS/CSLL em nota de até R$ 215,05.
+2. **Revisar** mostra a DPS completa, cada retenção, o PIS/COFINS próprio, os códigos e a base estimada do IBS/CBS e o valor líquido (descontando o ISS retido quando o serviço tem a alíquota do ISS), além do **Ver XML da DPS** (sem assinatura) para conferir o que será enviado, e aponta erros antes de gastar número. Retenção federal com tomador pessoa física **bloqueia** a emissão (desmarque a retenção da nota). Avisos amarelos não bloqueiam: retenção federal em empresa optante pelo Simples Nacional e retenção de PIS/COFINS/CSLL em nota de até R$ 215,05.
 3. **Emitir nota** envia à Sefin. Em seguida aparecem o PDF, o e-mail e **Emitir outra para este tomador** (mantém tomador e serviço) e **Tornar recorrente**.
 
 Nota autorizada fica em `<pasta>/<EMPRESA - CNPJ>/<AAAA-MM>/` com XML e PDF.

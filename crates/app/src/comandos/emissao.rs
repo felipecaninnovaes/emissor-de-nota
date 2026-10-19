@@ -71,6 +71,18 @@ pub struct PreviaDto {
     /// Valor da nota menos as retenções federais (o ISS retido não entra: a Sefin o calcula).
     valor_liquido: Option<String>,
     iss_retido: bool,
+    /// ISS retido (só com a alíquota do ISS conhecida); já descontado de `valor_liquido`.
+    iss_retido_valor: Option<String>,
+    retencao_irrf: Option<String>,
+    retencao_cp: Option<String>,
+    /// CSLL e, quando retidos, PIS e COFINS (somados em `vRetCSLL`).
+    retencao_csll: Option<String>,
+    /// PIS e COFINS de apuração própria (`vPis` e `vCofins`), quando o serviço os calcula.
+    pis_proprio: Option<String>,
+    cofins_proprio: Option<String>,
+    ibs_cbs: Option<IbsCbsPreviaDto>,
+    /// XML da DPS como seria enviado, sem assinatura (número e hora são provisórios).
+    xml: Option<String>,
     /// O serviço tem retenção que depende do tomador: a tela mostra as caixas "Reter nesta nota".
     retencao_condicional: bool,
     reter_federais: bool,
@@ -78,6 +90,16 @@ pub struct PreviaDto {
     erros: Vec<String>,
     /// Alertas que não impedem a emissão (retenção possivelmente indevida).
     avisos: Vec<String>,
+}
+
+/// IBS/CBS da DPS: só os códigos que o emissor envia; as alíquotas e os valores são da Sefin.
+#[derive(Serialize)]
+pub struct IbsCbsPreviaDto {
+    indicador_operacao: String,
+    cst: String,
+    classificacao_tributaria: String,
+    /// Valor − ISS − PIS − COFINS, como a Sefin calcula a base; estimativa para conferência.
+    base_estimada: String,
 }
 
 /// Dispensa de retenção de PIS/COFINS/CSLL para pagamentos até este valor (Lei 10.833/2003, art. 31), em centavos.
@@ -153,6 +175,34 @@ pub async fn previa_dps(estado: State<'_, Estado>, pedido: PedidoDto) -> R<Previ
         .flatten()
         .map(|v| v.centesimos())
         .sum();
+    let valor_nota = dps.valores.servico;
+    let issqn = &dps.valores.issqn;
+    let iss_valor = issqn
+        .aliquota
+        .filter(|_| issqn.tributacao == nfse_core::modelo::TributacaoIssqn::Tributavel)
+        .map(|a| valor_nota.aplicar(a));
+    let iss_retido = issqn.retencao != nfse_core::modelo::RetencaoIssqn::NaoRetido;
+    let iss_retido_valor = iss_valor.filter(|_| iss_retido);
+    let (pis, cofins) = f
+        .pis_cofins
+        .as_ref()
+        .map_or((None, None), |pc| (pc.valor_pis, pc.valor_cofins));
+    let ibs_cbs = dps.ibs_cbs.as_ref().map(|i| IbsCbsPreviaDto {
+        indicador_operacao: i.indicador_operacao.clone(),
+        cst: i.cst.clone(),
+        classificacao_tributaria: i.classificacao_tributaria.clone(),
+        base_estimada: Valor::de_centesimos(
+            valor_nota.centesimos()
+                - [iss_valor, pis, cofins]
+                    .into_iter()
+                    .flatten()
+                    .map(|v| v.centesimos())
+                    .sum::<i64>(),
+        )
+        .to_string(),
+    });
+    let xml = nfse_xml::gerar_dps(&dps).ok().map(|(xml, _)| xml);
+    let formatado = |v: Option<Valor>| v.filter(|v| v.centesimos() > 0).map(|v| v.to_string());
     let (reter_federais, reter_iss) = pedido.reter.efetiva(tomador.as_ref());
     let avisos = avisos_retencao(empresa.regime.simples, f, dps.valores.servico.centesimos());
     Ok(PreviaDto {
@@ -164,9 +214,19 @@ pub async fn previa_dps(estado: State<'_, Estado>, pedido: PedidoDto) -> R<Previ
         valor: dps.valores.servico.to_string(),
         competencia: dps.competencia.format("%d/%m/%Y").to_string(),
         retencao_federal: (retido > 0).then(|| Valor::de_centesimos(retido).to_string()),
-        valor_liquido: (retido > 0)
-            .then(|| Valor::de_centesimos(dps.valores.servico.centesimos() - retido).to_string()),
-        iss_retido: dps.valores.issqn.retencao != nfse_core::modelo::RetencaoIssqn::NaoRetido,
+        valor_liquido: (retido > 0 || iss_retido_valor.is_some()).then(|| {
+            let iss = iss_retido_valor.map_or(0, Valor::centesimos);
+            Valor::de_centesimos(dps.valores.servico.centesimos() - retido - iss).to_string()
+        }),
+        iss_retido,
+        iss_retido_valor: formatado(iss_retido_valor),
+        retencao_irrf: formatado(f.retencao_irrf),
+        retencao_cp: formatado(f.retencao_cp),
+        retencao_csll: formatado(f.retencao_csll),
+        pis_proprio: formatado(pis),
+        cofins_proprio: formatado(cofins),
+        ibs_cbs,
+        xml,
         retencao_condicional,
         reter_federais,
         reter_iss,

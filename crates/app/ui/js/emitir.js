@@ -252,12 +252,29 @@ async function revisar() {
   ];
   if (pedido.obra) linhas.push(["Obra", descreverObra(pedido.obra)]);
   if (pedido.informacoes_complementares) linhas.push(["Inf. complementares", pedido.informacoes_complementares]);
-  if (previa.retencao_federal) {
-    linhas.push(["Retenções federais", "R$ " + moeda(previa.retencao_federal)]);
-    linhas.push(["Valor líquido", "R$ " + moeda(previa.valor_liquido) + (previa.iss_retido ? " (antes do ISS retido)" : "")]);
+  const reais = (v) => "R$ " + moeda(v);
+  if (previa.pis_proprio) linhas.push(["PIS (apuração própria)", reais(previa.pis_proprio)]);
+  if (previa.cofins_proprio) linhas.push(["COFINS (apuração própria)", reais(previa.cofins_proprio)]);
+  if (previa.retencao_irrf) linhas.push(["IRRF retido", reais(previa.retencao_irrf)]);
+  if (previa.retencao_cp) linhas.push(["INSS retido", reais(previa.retencao_cp)]);
+  if (previa.retencao_csll) linhas.push(["CSLL/PIS/COFINS retidos", reais(previa.retencao_csll)]);
+  if (previa.iss_retido) {
+    linhas.push(["ISS", previa.iss_retido_valor ? "Retido pelo tomador: " + reais(previa.iss_retido_valor) : "Retido pelo tomador"]);
   }
-  if (previa.iss_retido) linhas.push(["ISS", "Retido pelo tomador"]);
+  if (previa.valor_liquido) {
+    const semIss = previa.iss_retido && !previa.iss_retido_valor;
+    linhas.push(["Valor líquido", reais(previa.valor_liquido) + (semIss ? " (antes do ISS retido)" : "")]);
+  }
+  if (previa.ibs_cbs) {
+    const i = previa.ibs_cbs;
+    linhas.push(["IBS/CBS", `cIndOp ${i.indicador_operacao} · CST ${i.cst} · cClassTrib ${i.classificacao_tributaria}`]);
+    linhas.push(["Base do IBS/CBS (estimada)", reais(i.base_estimada) + " (a Sefin calcula as alíquotas e os valores)"]);
+  }
   $("#revisao-dados").innerHTML = linhas.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
+  const xml = $("#revisao-xml");
+  xml.hidden = !previa.xml;
+  xml.open = false;
+  $("#revisao-xml-texto").textContent = previa.xml ?? "";
   const reter = $("#revisao-reter");
   reter.hidden = !previa.retencao_condicional;
   $("#reter-federais").checked = previa.reter_federais;
