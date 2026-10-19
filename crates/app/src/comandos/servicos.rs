@@ -6,7 +6,7 @@ use tauri::State;
 use nfse_core::Valor;
 use nfse_core::class_trib::{self, ItemClassTrib};
 use nfse_core::tabela_codigos::ItemCodigo;
-use nfse_core::{lista_servicos, nbs};
+use nfse_core::{ind_operacao, lista_servicos, nbs};
 use nfse_db::servicos::{Servico, Tributacao};
 
 use super::comum::{R, exigir_cofre, gravar_e_abrir_csv, texto, vazio_para_none};
@@ -100,6 +100,16 @@ pub fn buscar_nbs(termo: String) -> ListaNacionalDto {
     ListaNacionalDto {
         fonte: nbs::fonte(),
         itens: nbs::buscar(&termo, 30),
+    }
+}
+
+/// Busca no indicador da operação do IBS/CBS embutido (`cIndOp`, por nome ou código). Não lê dados do
+/// usuário: dispensa o cofre.
+#[tauri::command]
+pub fn buscar_ind_operacao(termo: String) -> ListaNacionalDto {
+    ListaNacionalDto {
+        fonte: ind_operacao::fonte(),
+        itens: ind_operacao::buscar(&termo, 40),
     }
 }
 

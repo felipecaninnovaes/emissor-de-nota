@@ -3,6 +3,7 @@
 pub mod class_trib;
 pub mod documento;
 pub mod dps;
+pub mod ind_operacao;
 pub mod lista_servicos;
 pub mod modelo;
 pub mod nbs;

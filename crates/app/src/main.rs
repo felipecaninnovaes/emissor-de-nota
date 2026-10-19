@@ -148,6 +148,7 @@ fn main() {
             comandos::servicos::buscar_lista_servicos,
             comandos::servicos::buscar_nbs,
             comandos::servicos::buscar_class_trib,
+            comandos::servicos::buscar_ind_operacao,
             comandos::servicos::ler_planilha_servicos,
             comandos::servicos::importar_servicos,
             comandos::servicos::salvar_modelo_servicos,

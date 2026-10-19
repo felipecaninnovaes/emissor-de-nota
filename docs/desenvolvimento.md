@@ -77,19 +77,23 @@ cargo test -p nfse-core -- lista_servicos nbs
 
 O gerador grava os dois TSV, confere o código de cada linha da lista de serviços com item, subitem e desdobro e falha se a planilha mudar de formato (na NBS, código com mais de 9 dígitos); as linhas de modelo sem descrição no fim da aba da NBS são ignoradas. As tabelas não bloqueiam o cadastro: código fora delas só gera um aviso.
 
-## Classificação tributária do IBS/CBS (cClassTrib)
+## Classificação tributária e indicador da operação do IBS/CBS (cClassTrib e cIndOp)
 
 O `cClassTrib` (6 dígitos) e o CST (3 dígitos) do grupo `IBSCBS` são informados no cadastro do serviço; a DPS só leva os dois códigos e a Sefin calcula alíquotas, reduções e valores (por exemplo, `200029`, serviços de saúde humana, vem com CST `200` e redução de 60% no IBS e na CBS). A tabela oficial fica embutida em `crates/nfse-core/dados/class-trib.tsv` (módulo `nfse_core::class_trib`) e vem da página [Classificação Tributária](https://dfe-portal.svrs.rs.gov.br/Cff/ClassificacaoTributaria) do Portal DFe (SVRS), que não oferece planilha: a tabela está embutida no HTML da página, em JSON. Cada `cClassTrib` pertence a um único CST, então o par é conferido em `Dps::validar`, em `Servico::validar` (cadastro e importação) e, na tela, escolher o código preenche o CST. Código fora da tabela não bloqueia (a tabela pode atrasar); par CST/`cClassTrib` errado bloqueia. O campo do cadastro busca por código ou nome (comando `buscar_class_trib`) e mostra o CST e a redução do código escolhido. Na planilha de serviços, CST em branco com `cClassTrib` conhecido assume o CST da tabela.
 
-Para atualizar, baixe a página e regenere:
+O `cIndOp` (6 dígitos, o local da operação) vem da tabela [Indicadores dos Locais de Operação](https://dfe-portal.svrs.rs.gov.br/CFF/TabelaIndicadoresDosLocaisDeOperacao) do mesmo portal, que é uma tabela HTML comum. Fica em `crates/nfse-core/dados/ind-operacao.tsv` (módulo `nfse_core::ind_operacao`; a descrição é o nome do indicador e o grupo é o local da operação) e o campo do cadastro busca nela (comando `buscar_ind_operacao`). O `cIndOp` não é derivado de outro campo e a tabela não o relaciona ao `cTribNac`: escolher o indicador certo do serviço continua sendo do operador (por exemplo, consulta médica presencial é `030101`, e não o `100301` de "demais serviços"). Código fora da tabela só gera aviso.
+
+Para atualizar, baixe as páginas e regenere:
 
 ```bash
 curl -sL https://dfe-portal.svrs.rs.gov.br/Cff/ClassificacaoTributaria -o class-trib.html
 cargo run -p nfse-core --example gerar_class_trib -- class-trib.html
-cargo test -p nfse-core -- class_trib
+curl -sL https://dfe-portal.svrs.rs.gov.br/CFF/TabelaIndicadoresDosLocaisDeOperacao -o ind-operacao.html
+cargo run -p nfse-core --example gerar_ind_operacao -- ind-operacao.html
+cargo test -p nfse-core -- class_trib ind_operacao
 ```
 
-A primeira linha do TSV guarda a origem e a data da geração. O gerador falha se o portal mudar de formato, se um código não tiver 6 dígitos, se o CST de um código diferir do grupo dele ou se houver código repetido.
+A primeira linha de cada TSV guarda a origem e a data da geração. Os geradores falham se o portal mudar de formato, se um código não tiver 6 dígitos, se o CST de um código diferir do grupo dele ou se houver código repetido (e, no `cIndOp`, se uma linha tiver número de colunas diferente ou vigência encerrada).
 
 ## CLI `nfse-poc`
 

@@ -155,6 +155,19 @@ const descreverNbs = ligarCampoDeCodigo({
   ajudaPadrao: "Opcional. Digite os 9 dígitos ou parte do nome para buscar na NBS.",
 });
 
+const descreverIndOp = ligarCampoDeCodigo({
+  campo: $("#servico-ibs-ind-op"),
+  caixa: $("#servico-resultados-ind-op"),
+  ajuda: $("#servico-ind-op-descricao"),
+  digitos: 6,
+  comando: "buscar_ind_operacao",
+  nomeLista: "tabela de indicadores da operação",
+  pontuar: (c) => c,
+  rotulo: "Indicadores da operação",
+  ajudaPadrao: "Digite os 6 dígitos ou parte do nome (ex.: presencial) para buscar na tabela oficial.",
+  detalhar: (i) => `${i.descricao}. Local da operação: ${i.grupo}.`,
+});
+
 const pontuarClass = (c) => c;
 /** Redução de alíquota do cClassTrib, em texto curto ("redução de 60% no IBS e na CBS"). */
 function textoReducao(i) {
@@ -239,11 +252,6 @@ function editarServico(s) {
         ibs_class: ibs.classificacao_tributaria,
         ibs_final: ibs.consumo_pessoal ? "1" : "",
       });
-      // código fora da lista: acrescenta para não perder o que está gravado
-      const sel = form.elements.ibs_ind_op;
-      if (![...sel.options].some((o) => o.value === ibs.indicador_operacao)) {
-        sel.add(new Option(ibs.indicador_operacao, ibs.indicador_operacao));
-      }
     }
     if (tot && typeof tot === "object" && "percentual_simples" in tot) {
       dados.tot_tipo = "percentual_simples";
@@ -260,6 +268,7 @@ function editarServico(s) {
   descreverCtn();
   descreverNbs();
   descreverClass();
+  descreverIndOp();
   abrirDialogo(dlg, $("#erro-servico"), async (d) => {
     const retencoes = { aplicar: d.aplicar_fed };
     for (const k of ["irrf", "csll", "cp", "pis", "cofins"]) {
@@ -287,7 +296,7 @@ function editarServico(s) {
       d.ibs_informar === "sim"
         ? {
             ...(s?.tributacao?.ibs_cbs ?? {}), // preserva o indicador de destinatário
-            indicador_operacao: d.ibs_ind_op,
+            indicador_operacao: soDigitos(d.ibs_ind_op),
             cst: soDigitos(d.ibs_cst),
             classificacao_tributaria: soDigitos(d.ibs_class),
             consumo_pessoal: d.ibs_final === "1" ? true : null,

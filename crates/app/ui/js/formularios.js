@@ -77,6 +77,7 @@ export const FORMATOS = {
   nbs: codigoDeLista(9, "NBS com 9 dígitos: digite o código ou escolha um na lista."),
   ctm: exatoDigitos(3, "Código municipal com 3 dígitos."),
   cst: exatoDigitos(2, "CST com 2 dígitos (ex.: 00)."),
+  ind_op: codigoDeLista(6, "cIndOp com 6 dígitos (ex.: 030101): digite o código ou escolha um na lista."),
   cst_ibs: exatoDigitos(3, "CST do IBS/CBS com 3 dígitos (ex.: 000)."),
   class_trib: codigoDeLista(6, "cClassTrib com 6 dígitos (ex.: 000001): digite o código ou escolha um na lista."),
   telefone: {

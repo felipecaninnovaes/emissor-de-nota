@@ -642,18 +642,12 @@
           <div class="grade">
             <div class="c4"><label for="servico-ibs-informar">Grupo IBS/CBS na nota</label><select id="servico-ibs-informar" name="ibs_informar">
               <option value="sim">Informar</option><option value="nao">Não informar</option></select></div>
-            <div data-ibs-campo class="c8"><label for="servico-ibs-ind-op">Indicador da operação (cIndOp)</label><select id="servico-ibs-ind-op" name="ibs_ind_op">
-              <option value="100301">100301 · Demais serviços, operação onerosa (domicílio do adquirente)</option>
-              <option value="100401">100401 · Demais serviços, operação não onerosa</option>
-              <option value="100302">100302 · Demais serviços, adquirente no exterior</option>
-              <option value="030101">030101 · Serviço presencial sobre pessoa, no estabelecimento do prestador</option>
-              <option value="030102">030102 · Serviço presencial sobre pessoa, no endereço do adquirente</option>
-              <option value="050101">050101 · Serviço sobre bem móvel, no estabelecimento do prestador</option>
-              <option value="050102">050102 · Serviço sobre bem móvel, no endereço do adquirente</option>
-              <option value="020201">020201 · Serviço prestado sobre bem imóvel</option>
-              <option value="020301">020301 · Administração ou intermediação de bem imóvel</option>
-              <option value="040101">040101 · Feiras, congressos, espetáculos e eventos</option>
-              <option value="100501">100501 · Bens imateriais ou direitos, operação onerosa</option></select></div>
+            <div data-ibs-campo class="c8"><label for="servico-ibs-ind-op">Indicador da operação (cIndOp)</label>
+              <div class="busca">
+                <input id="servico-ibs-ind-op" name="ibs_ind_op" required value="100301" placeholder="030101 ou parte do nome (ex.: presencial)" data-formato="ind_op" autocomplete="off" aria-describedby="servico-ind-op-descricao">
+                <div class="resultados" id="servico-resultados-ind-op" hidden></div>
+              </div>
+              <p class="ajuda" id="servico-ind-op-descricao" aria-live="polite"></p></div>
             <div data-ibs-campo class="c3"><label for="servico-ibs-cst">CST IBS/CBS</label><input id="servico-ibs-cst" name="ibs_cst" required value="000" maxlength="3" data-formato="cst_ibs" inputmode="numeric">
               <p class="ajuda">Preenchido ao escolher o cClassTrib.</p></div>
             <div data-ibs-campo class="c9"><label for="servico-ibs-class">cClassTrib</label>
