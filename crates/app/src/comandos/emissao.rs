@@ -1,6 +1,6 @@
 //! Pedido de emissão, prévia da DPS e emissão avulsa.
 
-use chrono::NaiveDate;
+use chrono::{Datelike, NaiveDate};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -159,7 +159,8 @@ pub(crate) async fn validar_pedido(
 #[tauri::command]
 pub async fn previa_dps(estado: State<'_, Estado>, pedido: PedidoDto) -> R<PreviaDto> {
     exigir_cofre(&estado).await?;
-    let pedido = pedido.pedido()?;
+    let mut pedido = pedido.pedido()?;
+    completar_mes(&estado, &mut pedido).await?;
     let (dps, empresa, erros) = validar_pedido(&estado.banco()?, &pedido).await?;
     let servico = estado.banco()?.servico(pedido.servico_id).await.map_err(texto)?;
     let tomador = match pedido.tomador {
@@ -235,6 +236,61 @@ pub async fn previa_dps(estado: State<'_, Estado>, pedido: PedidoDto) -> R<Previ
     })
 }
 
+/// Mês de referência que as telas sugerem: `atual` (padrão) ou `anterior` (para quem cobra o mês
+/// que passou, como mensalidades). Só muda o texto da nota (`{mes_ref}`); a competência é a data da
+/// emissão (ADR 0004).
+const CHAVE_MES_PADRAO: &str = "mes_referencia_padrao";
+
+async fn mes_padrao(estado: &Estado) -> R<&'static str> {
+    let gravado = estado.banco()?.configuracao(CHAVE_MES_PADRAO).await.map_err(texto)?;
+    Ok(if gravado.as_deref() == Some("anterior") {
+        "anterior"
+    } else {
+        "atual"
+    })
+}
+
+/// Mês de referência apagado na tela: vale o sugerido na configuração (e não o padrão da biblioteca).
+async fn completar_mes(estado: &Estado, pedido: &mut PedidoEmissao) -> R<()> {
+    if pedido.mes_referencia.is_none() {
+        let hoje = nfse_emissor::agora_brasilia().date_naive();
+        pedido.mes_referencia = Some(primeiro_dia(hoje, mes_padrao(estado).await? == "anterior"));
+    }
+    Ok(())
+}
+
+/// Dia 1 do mês de `data` ou, com `anterior`, do mês antes dele.
+fn primeiro_dia(data: NaiveDate, anterior: bool) -> NaiveDate {
+    let inicio = data.with_day(1).expect("dia 1 existe");
+    if !anterior {
+        return inicio;
+    }
+    inicio
+        .pred_opt()
+        .expect("data válida")
+        .with_day(1)
+        .expect("dia 1 existe")
+}
+
+#[tauri::command]
+pub async fn obter_mes_padrao(estado: State<'_, Estado>) -> R<String> {
+    exigir_cofre(&estado).await?;
+    Ok(mes_padrao(&estado).await?.into())
+}
+
+#[tauri::command]
+pub async fn definir_mes_padrao(estado: State<'_, Estado>, mes: String) -> R<()> {
+    exigir_cofre(&estado).await?;
+    if !matches!(mes.as_str(), "atual" | "anterior") {
+        return Err("mês de referência padrão inválido (atual ou anterior)".into());
+    }
+    estado
+        .banco()?
+        .definir_configuracao(CHAVE_MES_PADRAO, &mes)
+        .await
+        .map_err(texto)
+}
+
 #[derive(Serialize)]
 pub struct ResultadoDto {
     autorizada: bool,
@@ -294,7 +350,9 @@ pub(crate) async fn concluir(emissor: &Emissor<ConectorSefin>, resultado: Result
 
 #[tauri::command]
 pub async fn emitir(estado: State<'_, Estado>, pedido: PedidoDto) -> R<ResultadoDto> {
-    let pedido = pedido.pedido()?;
+    exigir_cofre(&estado).await?;
+    let mut pedido = pedido.pedido()?;
+    completar_mes(&estado, &mut pedido).await?;
     let guarda = emissor!(estado);
     let emissor = guarda.as_ref().expect("verificado");
     let resultado = emissor.emitir(&pedido).await.map_err(texto)?;
@@ -311,6 +369,14 @@ mod testes {
             retencao_csll: Some(Valor::de_centesimos(centavos)),
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn primeiro_dia_do_mes_atual_ou_anterior() {
+        let d = |a, m, dia| NaiveDate::from_ymd_opt(a, m, dia).unwrap();
+        assert_eq!(primeiro_dia(d(2026, 10, 20), false), d(2026, 10, 1));
+        assert_eq!(primeiro_dia(d(2026, 10, 20), true), d(2026, 9, 1));
+        assert_eq!(primeiro_dia(d(2026, 1, 1), true), d(2025, 12, 1));
     }
 
     #[test]

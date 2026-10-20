@@ -12,6 +12,7 @@ export const estado = {
   tomador: null, // TomadorDto escolhido na tela de emitir
   pedido: null, // último pedido revisado
   reter: null, // { federais, iss } escolhido na revisão; null = cadastro do tomador
+  mesPadrao: "atual", // mês de referência sugerido nas telas: "atual" ou "anterior" (Configurações)
 };
 
 // ---------------------------------------------------------------- utilitários
@@ -157,6 +158,9 @@ export function mesAtual() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
+
+/** Mês de referência que as telas sugerem, conforme a configuração (`AAAA-MM`). */
+export const mesPadrao = () => (estado.mesPadrao === "anterior" ? mesAnterior() : mesAtual());
 
 export const NOME_AMBIENTE = { producao: "PRODUÇÃO", homologacao: "Homologação" };
 export const NOME_SITUACAO = {

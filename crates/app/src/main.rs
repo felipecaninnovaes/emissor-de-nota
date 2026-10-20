@@ -160,6 +160,8 @@ fn main() {
             comandos::servicos::desativar_servico,
             comandos::emissao::previa_dps,
             comandos::emissao::emitir,
+            comandos::emissao::obter_mes_padrao,
+            comandos::emissao::definir_mes_padrao,
             comandos::notas::listar_notas,
             comandos::notas::cancelar,
             comandos::notas::reconciliar,

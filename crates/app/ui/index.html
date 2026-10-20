@@ -359,6 +359,16 @@
             A densidade automática fica compacta em janelas com menos de 700 pixels de altura.</p>
         </div>
         <div class="cartao">
+          <h2>Emissão</h2>
+          <div class="grade">
+            <div class="c6"><label for="cfg-mes-padrao">Mês de referência sugerido</label><select id="cfg-mes-padrao">
+              <option value="atual">Mês atual (padrão)</option>
+              <option value="anterior">Mês anterior (ex.: mensalidade cobrada depois do mês)</option></select></div>
+          </div>
+          <p class="ajuda">Vale para Emitir nota, Importar planilha, Lote do mês e Recorrentes, e dá para mudar em cada tela.
+            O mês de referência só entra no texto da nota (<code>{mes_ref}</code> e afins); a competência da nota é sempre a data da emissão.</p>
+        </div>
+        <div class="cartao">
           <h2>Atalhos de teclado</h2>
           <dl class="atalhos">
             <dt><kbd>Alt</kbd> + <kbd>1</kbd> … <kbd>9</kbd></dt><dd>Ir para a tela, na ordem do menu (Emitir nota é Alt+1)</dd>

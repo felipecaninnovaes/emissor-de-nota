@@ -7,7 +7,7 @@ import {
   estado,
   formatarDocumento,
   invoke,
-  mesAnterior,
+  mesPadrao,
   moeda,
   toast,
   valorDigitado,
@@ -26,7 +26,7 @@ export async function carregarRecorrencias() {
     corpo.innerHTML = linhaVazia(5, "Nenhuma empresa selecionada.", { ir: "empresas", texto: "Cadastrar empresa" });
     return;
   }
-  recorrenciasCarregadas = await invoke("listar_recorrencias", { empresaId: estado.empresa.id, mes: mesAnterior() });
+  recorrenciasCarregadas = await invoke("listar_recorrencias", { empresaId: estado.empresa.id, mes: mesPadrao() });
   corpo.innerHTML = recorrenciasCarregadas.length
     ? recorrenciasCarregadas
         .map(

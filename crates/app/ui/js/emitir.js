@@ -8,7 +8,7 @@ import {
   estado,
   formatarDocumento,
   invoke,
-  mesAnterior,
+  mesPadrao,
   moeda,
   soDigitos,
   toast,
@@ -188,7 +188,7 @@ export function limparEmissao() {
   $("#valor").value = "";
   $("#info-compl").value = "";
   limparObra();
-  $("#mes-ref").value = mesAnterior();
+  $("#mes-ref").value = mesPadrao();
   $("#revisao").hidden = true;
   $("#resultado").hidden = true;
 }
