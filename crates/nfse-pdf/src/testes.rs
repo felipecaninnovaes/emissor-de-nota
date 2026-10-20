@@ -1,7 +1,7 @@
 use super::*;
 use dados::TRACO;
 
-/// NFS-e fictícia no formato da Sefin, com tomador e Simples Nacional (como a nota real do escritório).
+/// NFS-e fictícia no formato da Sefin, com tomador e Simples Nacional (como uma nota real).
 const NFSE: &str = include_str!("../tests/fixtures/nfse-exemplo.xml");
 
 fn fontes() -> Fontes {

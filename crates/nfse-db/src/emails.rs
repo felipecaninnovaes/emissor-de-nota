@@ -1,4 +1,4 @@
-//! Configuração do SMTP do escritório (a senha fica cifrada no cofre), dados para o e-mail de
+//! Configuração do SMTP que envia as notas (a senha fica cifrada no cofre), dados para o e-mail de
 //! uma NFS-e e o registro de cada envio.
 
 use serde::{Deserialize, Serialize};
@@ -34,7 +34,7 @@ pub struct ConfigSmtp {
     /// Usuário da conta (em geral o próprio e-mail); vazio = servidor sem autenticação.
     #[serde(default)]
     pub usuario: Option<String>,
-    /// E-mail que aparece como remetente (a conta do escritório).
+    /// E-mail que aparece como remetente (a conta que envia as notas).
     pub remetente: String,
     /// Nome do remetente; vazio = nome da empresa emissora da nota.
     #[serde(default)]

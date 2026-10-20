@@ -1,6 +1,6 @@
 # Guia do operador
 
-Como usar o Emissor de NFS-e no dia a dia, tela por tela. Para quem opera o sistema no escritório. A instalação está no [README](../README.md); as regras fiscais, em [fiscal.md](fiscal.md). O sistema não substitui a validação contábil e fiscal: alíquotas, códigos, retenções e regime são responsabilidade de quem configura (ver o [aviso no README](../README.md#aviso)).
+Como usar o Emissor de NFS-e no dia a dia, tela por tela. Para quem opera o sistema no dia a dia. A instalação está no [README](../README.md); as regras fiscais, em [fiscal.md](fiscal.md). O sistema não substitui a validação contábil e fiscal: alíquotas, códigos, retenções e regime são responsabilidade de quem configura (ver o [aviso no README](../README.md#aviso)).
 
 ## Primeira abertura
 
@@ -72,7 +72,7 @@ Aceita XLSX, XLS, ODS e CSV, uma nota por linha; escolha o arquivo em **Escolher
 - **Aparência**: tamanho do texto e densidade.
 - **Pasta das notas**: onde XML e PDF são gravados. Digite o caminho ou use **Escolher pasta…** (abre o seletor do sistema, começando na pasta atual); depois clique em **Salvar**. Cancelar o seletor não muda nada. O mesmo vale para a pasta do backup.
 - **Backup do banco**: defina uma pasta fora da máquina (unidade externa ou pasta sincronizada). O sistema faz um backup cifrado ao abrir, no máximo uma vez por dia, e guarda os 10 mais recentes; "Fazer backup agora" força um. O backup só abre com a senha mestra. "Testar restauração" gera um banco novo a partir de um `.nfbk` e confere a integridade (o arquivo do backup e o banco a gerar podem ser digitados ou escolhidos com **Escolher arquivo…** e **Escolher destino…**), sem mexer no banco em uso. **Restaurar backup…** troca os dados em uso pelos do backup (arquivo e senha mestra do backup) e reinicia o sistema; o banco anterior fica guardado na pasta de dados como `emissor-antes-da-restauracao-<data>.db`. Na volta, abra com a senha mestra do backup: o que foi feito depois dele não está no sistema, e todas as empresas ficam com "Conferir numeração" até a consulta à Sefin em **Numeração / IM**.
-- **E-mail das notas**: servidor SMTP do escritório; **Enviar teste**. Pode enviar sozinho depois de cada emissão. Segurança "Nenhuma" (sem cifra) só serve para servidor da rede local sem login: com usuário preenchido é recusada, porque a senha iria aberta pela rede.
+- **E-mail das notas**: servidor SMTP da conta que envia as notas; **Enviar teste**. Pode enviar sozinho depois de cada emissão. Segurança "Nenhuma" (sem cifra) só serve para servidor da rede local sem login: com usuário preenchido é recusada, porque a senha iria aberta pela rede.
 - **Certificados vencendo** (60 dias) e **Envios sem resposta da Sefin**.
 - **Atualizações**: **Procurar atualizações** e **Atualizar agora**.
 - **Código-fonte**: endereço do código da versão instalada (licença AGPL-3.0).

@@ -1,4 +1,4 @@
-//! E-mail da NFS-e ao tomador: PDF (DANFSe) e XML anexos, pela conta SMTP do escritório, com o
+//! E-mail da NFS-e ao tomador: PDF (DANFSe) e XML anexos, pela conta SMTP configurada, com o
 //! nome da empresa emissora como remetente e "responder para" o e-mail dela.
 
 use std::future::Future;

@@ -6,11 +6,11 @@ Legenda: **Feito** · **Pendente** · **Fora do escopo**.
 
 ## Visão geral
 
-Emissor desktop de NFS-e, operado por um escritório de contabilidade em nome das empresas clientes, cada uma com seu certificado digital, seus tomadores e seu catálogo de serviços. A integração é a **NFS-e Padrão Nacional (API Sefin Nacional / ADN)**; emissores municipais próprios estão fora do escopo.
+Emissor desktop de NFS-e, operado por quem emite notas de uma ou de várias empresas, cada uma com seu certificado digital, seus tomadores e seu catálogo de serviços. A integração é a **NFS-e Padrão Nacional (API Sefin Nacional / ADN)**; emissores municipais próprios estão fora do escopo.
 
 **Atores**
-- **Operador do escritório**: emite, cancela, consulta e reenvia notas de várias empresas. Cada máquina é de um operador, com banco local próprio.
-- **Empresa cliente (prestador)**: dona do CNPJ e do certificado; não opera o sistema.
+- **Operador**: emite, cancela, consulta e reenvia notas de uma ou de várias empresas. Cada máquina é de um operador, com banco local próprio.
+- **Empresa (prestador)**: dona do CNPJ e do certificado; pode ser a própria empresa do operador.
 - **Tomador**: quem recebe a nota (PJ por CNPJ, PF por CPF).
 
 **Objetivos**
@@ -44,7 +44,7 @@ Desde 1º/01/2026 todo município precisa operar no padrão nacional, mas pode e
 - **Feito** — importar `.pfx`/`.p12` (inclusive BER), extrair CNPJ (OID 2.16.76.1.3.3), titular e validade; bloquear vínculo se o CNPJ do certificado não for da empresa; conferir EKU Client Authentication; guardar cifrado no banco; histórico de certificados; alerta de vencimento ao abrir e lista em Configurações.
 - **Pendente** — validar a cadeia ICP-Brasil (exige embarcar as ACs raiz).
 - **Fora do escopo** — A3/PKCS#11, DPAPI e CNG ([ADR 0009](decisoes/0009-certificado-a1-e-senha-mestra.md)).
-- **Em aberto** — procuração eletrônica (usar o e-CNPJ do escritório): não há indicação de que a API Sefin aceite.
+- **Em aberto** — procuração eletrônica (usar o e-CNPJ de quem opera em nome das empresas): não há indicação de que a API Sefin aceite.
 
 **Tomadores**
 - **Feito** — cadastro global reutilizável (`pessoa`) com vínculo por empresa (e-mails, observação, retém impostos federais, retém ISS); busca que sugere tomadores de outras empresas e vincula com um clique; PJ com consulta de CNPJ (BrasilAPI), PF com CPF validado; nota sem tomador identificado; busca de CEP no endereço do tomador e da obra.

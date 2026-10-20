@@ -202,7 +202,7 @@ pub fn modelo_csv() -> String {
     format!(
         "{}\r\n{}\r\n",
         cabecalho.join(";"),
-        "11222333000181;12ABC34501DE35;1.250,00;171901;ATENDIMENTOS CONVÊNIO REFERENTE A {mes_ref};2026-09;Guia 123"
+        "11222333000181;12ABC34501DE35;1.250,00;170101;SERVIÇOS PRESTADOS REFERENTE A {mes_ref};2026-09;Pedido 123"
     )
 }
 

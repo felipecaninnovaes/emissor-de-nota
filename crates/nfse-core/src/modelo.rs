@@ -1,4 +1,4 @@
-//! Modelo da DPS (leiaute 1.01) com os grupos que o escritório usa: prestador emitente,
+//! Modelo da DPS (leiaute 1.01) com os grupos que o emissor usa: prestador emitente,
 //! tomador nacional, um serviço, ISSQN (com retenção), retenções federais, total de
 //! tributos e o grupo IBS/CBS.
 //!

@@ -413,7 +413,7 @@
         </div>
         <div class="cartao">
           <h2>E-mail das notas</h2>
-          <p class="ajuda">A nota (PDF e XML) sai pela conta do escritório, com o nome da empresa emissora como remetente e
+          <p class="ajuda">A nota (PDF e XML) sai pela conta de e-mail configurada aqui, com o nome da empresa emissora como remetente e
             "responder para" o e-mail dela. Destinatários: os "E-mails de envio" do tomador ou, sem eles, o e-mail do cadastro.</p>
           <form id="form-email" class="grade linha-campo" novalidate>
             <div class="c5"><label for="email-servidor">Servidor SMTP</label><input id="email-servidor" name="servidor" placeholder="smtp.gmail.com"></div>
@@ -421,7 +421,7 @@
             <div class="c5"><label for="email-seguranca">Segurança</label><select id="email-seguranca" name="seguranca">
               <option value="start_tls">STARTTLS (587)</option><option value="ssl">SSL/TLS (465)</option>
               <option value="nenhuma">Nenhuma (só rede local)</option></select></div>
-            <div class="c6"><label for="email-usuario">Usuário</label><input id="email-usuario" name="usuario" autocomplete="off" placeholder="notas@escritorio.com.br"></div>
+            <div class="c6"><label for="email-usuario">Usuário</label><input id="email-usuario" name="usuario" autocomplete="off" placeholder="notas@suaempresa.com.br"></div>
             <div class="c6"><label for="email-senha">Senha</label><input id="email-senha" name="senha" type="password" autocomplete="new-password">
               <p class="ajuda" data-senha-guardada hidden>Senha guardada (cifrada). Deixe em branco para manter.</p></div>
             <div class="c6"><label for="email-remetente">E-mail do remetente</label><input id="email-remetente" name="remetente" type="email" data-formato="email"></div>
@@ -614,10 +614,10 @@
         <fieldset class="bloco largo">
           <legend>Identificação</legend>
           <div class="grade">
-            <div class="c6"><label for="servico-nome">Nome na lista</label><input id="servico-nome" name="nome" required placeholder="Honorários mensais"></div>
+            <div class="c6"><label for="servico-nome">Nome na lista</label><input id="servico-nome" name="nome" required placeholder="Consultoria mensal"></div>
             <div class="c6"><label for="servico-codigo-trib-nac">Cód. tributação nacional</label>
               <div class="busca">
-                <input id="servico-codigo-trib-nac" name="codigo_trib_nac" required placeholder="171901 ou parte do nome (ex.: contabilidade)" data-formato="ctn" autocomplete="off" aria-describedby="servico-ctn-descricao">
+                <input id="servico-codigo-trib-nac" name="codigo_trib_nac" required placeholder="170101 ou parte do nome (ex.: consultoria)" data-formato="ctn" autocomplete="off" aria-describedby="servico-ctn-descricao">
                 <div class="resultados" id="servico-resultados-ctn" hidden></div>
               </div>
               <p class="ajuda" id="servico-ctn-descricao" aria-live="polite"></p></div>
@@ -629,7 +629,7 @@
               <p class="ajuda" id="servico-nbs-descricao" aria-live="polite"></p></div>
             <div class="c3"><label for="servico-codigo-trib-mun">Código municipal</label><input id="servico-codigo-trib-mun" name="codigo_trib_mun" maxlength="3" data-formato="ctm" inputmode="numeric"></div>
             <div class="c3"><label for="servico-valor-sugerido">Valor sugerido (R$)</label><input id="servico-valor-sugerido" name="valor_sugerido" inputmode="decimal" data-formato="valor" class="campo-valor"></div>
-            <div class="c12"><label for="servico-descricao">Descrição padrão</label><textarea id="servico-descricao" name="descricao" required rows="2" placeholder="SERVIÇOS CONTÁBEIS REFERENTE A {mes_ref}"></textarea>
+            <div class="c12"><label for="servico-descricao">Descrição padrão</label><textarea id="servico-descricao" name="descricao" required rows="2" placeholder="SERVIÇOS PRESTADOS REFERENTE A {mes_ref}"></textarea>
               <div class="variaveis" data-alvo="servico-descricao"></div>
               <p class="ajuda">Clique numa etiqueta para inserir a variável; ela é trocada ao emitir.</p></div>
           </div>

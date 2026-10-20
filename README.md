@@ -1,13 +1,13 @@
 # Emissor de NFS-e
 
-Emissor desktop de NFS-e Padrão Nacional (API Sefin Nacional / ADN) para escritórios de contabilidade que emitem em nome de várias empresas, cada uma com seu certificado A1. Feito em Rust com Tauri 2.
+Emissor desktop de NFS-e Padrão Nacional (API Sefin Nacional / ADN) para quem emite notas de uma ou de várias empresas, cada uma com seu certificado A1. Feito em Rust com Tauri 2.
 
 - Emite, cancela e consulta notas; gera o DANFSe em PDF e envia XML e PDF por e-mail ao tomador.
 - Notas recorrentes, lote do mês e importação de planilha para convênios.
 - Banco local (SQLite) cifrado em repouso com SQLCipher, protegido por uma senha mestra.
 - Atualiza-se sozinho a partir das Releases do GitHub.
 
-Uso interno de um escritório; o código é público e usa licença MIT.
+O código é público, sob a licença AGPL-3.0.
 
 ## Instalação
 

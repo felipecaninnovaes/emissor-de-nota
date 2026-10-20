@@ -73,9 +73,9 @@ pub struct Servico {
     /// `None` antes de gravar.
     pub id: Option<i64>,
     pub empresa_id: i64,
-    /// Nome curto para a tela (ex.: "Honorários mensais").
+    /// Nome curto para a tela (ex.: "Consultoria mensal").
     pub nome: String,
-    /// Descrição padrão da nota; aceita `{mes_ref}` (ex.: "Honorários contábeis {mes_ref}").
+    /// Descrição padrão da nota; aceita `{mes_ref}` (ex.: "Serviços prestados referente a {mes_ref}").
     pub descricao: String,
     pub codigo_trib_nac: String,
     pub codigo_trib_mun: Option<String>,
@@ -107,7 +107,7 @@ impl Servico {
         let digitos = |v: &str, n: usize| v.len() == n && v.bytes().all(|b| b.is_ascii_digit());
         if !digitos(&self.codigo_trib_nac, 6) {
             return Err(ErroBanco::Regra(
-                "código de tributação nacional deve ter 6 dígitos (ex.: 171901)".into(),
+                "código de tributação nacional deve ter 6 dígitos (ex.: 170101)".into(),
             ));
         }
         if self.nbs.as_deref().is_some_and(|n| !digitos(n, 9)) {

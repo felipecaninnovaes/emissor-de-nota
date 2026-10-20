@@ -1,5 +1,5 @@
 //! Pasta de saída por empresa e mês: `<raiz>/<NOME - CNPJ>/<AAAA-MM>/`, com o XML de cada nota
-//! (e, depois, o PDF). É a pasta que o escritório usa para responder convênios e importar no Prosoft.
+//! (e, depois, o PDF). É a pasta usada para responder convênios e importar as notas em outros sistemas.
 
 use std::io::Write;
 use std::path::{Path, PathBuf};

@@ -34,7 +34,7 @@
       "icons/icon.ico"
     ],
     "publisher": "Felipe Canin Novaes",
-    "shortDescription": "Emissor de NFS-e Padrão Nacional para escritório contábil",
+    "shortDescription": "Emissor de NFS-e Padrão Nacional para uma ou várias empresas",
     "windows": {
       "webviewInstallMode": {
         "type": "downloadBootstrapper"

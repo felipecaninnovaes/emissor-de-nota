@@ -1,4 +1,4 @@
-//! Cofre dos certificados: chave AES-256 derivada da senha mestra do escritório com Argon2id.
+//! Cofre dos certificados: chave AES-256 derivada da senha mestra com Argon2id.
 //!
 //! A senha mestra nunca é gravada. O banco guarda só o sal, os parâmetros do Argon2 e um
 //! verificador (um texto conhecido cifrado), para dizer "senha incorreta" sem tentar abrir
