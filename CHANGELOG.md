@@ -1,6 +1,38 @@
 # Changelog
 
-Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0, a 1.2.0, a 1.3.0 e a 1.4.0, em 18/10/2026, e a 1.5.0 e a 1.6.0, em 19/10/2026; a versão vem de `crates/app/Cargo.toml`.
+Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0, a 1.2.0, a 1.3.0 e a 1.4.0, em 18/10/2026, a 1.5.0 e a 1.6.0, em 19/10/2026, e a 1.7.0, em 20/10/2026; a versão vem de `crates/app/Cargo.toml`.
+
+## 1.7.0
+
+Mais fácil para quem começa: primeiros passos, cadastro de serviço por regime, correções direto da rejeição e restauração de backup pelo sistema. Sem mudança de esquema do banco.
+
+**Emissão**
+
+- **Primeiros passos** na tela Emitir nota: cadastrar a empresa, importar o certificado, conferir a numeração (empresa importada ou banco restaurado) e cadastrar o serviço, cada passo com o botão que resolve. Sem empresa cadastrada, o sistema abre nessa tela.
+- A revisão mostra no topo o valor da nota, quanto o cliente desconta de retenções e quanto a empresa recebe; série e códigos do IBS/CBS foram para **Detalhes técnicos**.
+- Nota rejeitada ganha o botão da correção conforme o código: **Ajustar a numeração pela Sefin** (E0014; depois é só emitir de novo), **Abrir Numeração / IM** (E0116, E0120), **Editar a empresa** (E0084, E0116), **Editar o serviço** (E0312, E0710, E0712, E0713) e **Importar o certificado de novo** (E0714, E0717).
+- Envio sem resposta definitiva da Sefin ganha **Verificar agora** na própria tela.
+- Corrigir o cadastro da empresa ou do serviço não apaga mais o que foi digitado na emissão; só a revisão precisa ser refeita.
+- **Mês de referência sugerido** configurável em Configurações → Emissão: mês atual (novo padrão) ou mês anterior (como antes, para mensalidades). Vale para Emitir nota, Importar planilha, Lote do mês e Recorrentes. A competência da nota continua sendo a data da emissão.
+
+**Serviços**
+
+- **Impostos conforme o regime** no topo do cadastro: Simples Nacional (ME/EPP), MEI, Lucro Presumido ou Lucro Real preenchem o total de tributos, o PIS/COFINS próprio e o IBS/CBS. Só aparecem os do regime da empresa; retenções e ISS não mudam.
+- Total de tributos, PIS/COFINS próprio e IBS/CBS ficam em **Opções avançadas**, com resumo no título.
+- A forma do total de tributos é conferida com o regime ao salvar, antes de virar rejeição E0710, E0712 ou E0713.
+- O tipo de retenção de PIS/COFINS/CSLL deixou de ser escolhido numa lista de dez opções: sai dos percentuais retidos, como já acontecia na emissão.
+
+**Segurança dos dados**
+
+- Faixa **MODO TESTE** em todas as telas quando a empresa emite em Homologação.
+- Criar a senha mestra exige marcar "Anotei a senha mestra em lugar seguro".
+- Aviso **Backup desligado** no topo enquanto não houver pasta de backup.
+- **Restaurar backup…** em Configurações: troca os dados em uso pelos do backup e reinicia o sistema; o banco anterior fica guardado na pasta de dados. Depois da restauração, todas as empresas exigem conferir a numeração na Sefin antes de emitir.
+
+**Geral**
+
+- Licença trocada de MIT para AGPL-3.0 (ADR 0016); Configurações mostra o endereço do código-fonte da versão instalada.
+- Textos e exemplos genéricos, sem referência a escritório de contabilidade (cadastro de serviço, e-mail, modelo de planilha, documentação).
 
 ## 1.6.0
 

@@ -1,12 +1,13 @@
 // Configurações: pasta de saída, backup, e-mail e DPS pendentes.
 
-import { $, chamar, esc, estado, invoke, toast, vazio } from "./util.js";
+import { $, chamar, esc, estado, invoke, mesPadrao, toast, vazio } from "./util.js";
 import { confirmar, lerForm, limparErro, limparErros, mostrarErros, preencherForm, validarCampos } from "./formularios.js";
 import { aparencia } from "./preferencias.js";
 
 export async function carregarConfiguracoes() {
   $("#ap-zoom").value = aparencia.zoom;
   $("#ap-densidade").value = aparencia.densidade;
+  $("#cfg-mes-padrao").value = estado.mesPadrao;
   $("#pasta-saida").value = await invoke("obter_pasta");
   await carregarBackup();
   await carregarEmail();
@@ -55,6 +56,19 @@ async function carregarEmail() {
   preencherForm(form, { ...config, senha: "", usuario: config.usuario ?? "", nome_remetente: config.nome_remetente ?? "" });
   $("[data-senha-guardada]", form).hidden = !tem_senha;
 }
+
+$("#cfg-mes-padrao").addEventListener("change", async (ev) => {
+  try {
+    await chamar("definir_mes_padrao", { mes: ev.target.value });
+    estado.mesPadrao = ev.target.value;
+    // a nota em revisão continua com o mês dela; as próximas usam o novo padrão
+    if ($("#revisao").hidden) $("#mes-ref").value = mesPadrao();
+    toast(ev.target.value === "anterior" ? "As notas passam a sugerir o mês anterior." : "As notas passam a sugerir o mês atual.");
+  } catch (e) {
+    ev.target.value = estado.mesPadrao;
+    toast(String(e), true);
+  }
+});
 
 $("#form-email").addEventListener("submit", (ev) => ev.preventDefault());
 

@@ -1,6 +1,6 @@
 // Trava: senha mestra que abre o cofre (e o banco cifrado).
 
-import { $, chamar, esc, estado, invoke, mesAnterior, mesAtual, mostrarErro, toast } from "./util.js";
+import { $, chamar, esc, estado, invoke, mesAtual, mesPadrao, mostrarErro, toast } from "./util.js";
 import { carregarEmpresas, irPara, lerPreferencia } from "./navegacao.js";
 import { TELAS, mesLembrado } from "./preferencias.js";
 import { procurarAtualizacao } from "./atualizacao.js";
@@ -68,10 +68,11 @@ async function entrar(pendencias) {
     alertas.innerHTML = `<div class="aviso atencao"><strong>Envios anteriores verificados na Sefin:</strong>
       <ul>${pendencias.map((p) => `<li>${esc(p)}</li>`).join("")}</ul></div>`;
   }
-  $("#mes-ref").value = mesAnterior();
+  estado.mesPadrao = await invoke("obter_mes_padrao").catch(() => "atual");
+  $("#mes-ref").value = mesPadrao();
   $("#mes-notas").value = mesLembrado("mes-notas", mesAtual());
-  $("#mes-lote").value = mesLembrado("mes-lote", mesAnterior());
-  $("#mes-planilha").value = mesAnterior();
+  $("#mes-lote").value = mesLembrado("mes-lote", mesPadrao());
+  $("#mes-planilha").value = mesPadrao();
   await carregarEmpresas();
   await avisarVencimentos();
   await avisarBackup();
