@@ -48,6 +48,7 @@ Setup completo, testes, CLI de diagnóstico e problemas conhecidos: [docs/desenv
 | [docs/deploy.md](docs/deploy.md) | Gerar o MSI e publicar versões |
 | [docs/escopo.md](docs/escopo.md) | Escopo e roadmap |
 | [docs/decisoes/](docs/decisoes/) | Decisões de projeto |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Como contribuir e a cessão de direitos |
 | [CHANGELOG.md](CHANGELOG.md) | Histórico de versões |
 | [AGENTS.md](AGENTS.md) | Instruções para agentes de código |
 
@@ -67,4 +68,8 @@ O desenvolvedor não se responsabiliza por vazamento, perda ou uso indevido de d
 
 ## Licença
 
-MIT. Ver [LICENSE](LICENSE).
+GNU AGPL-3.0 (`AGPL-3.0-only`). Ver [LICENSE](LICENSE) e a decisão em [ADR 0016](docs/decisoes/0016-licenca-agpl.md).
+
+Em resumo: usar, estudar e modificar é livre. Quem distribuir uma versão modificada, ou a oferecer como serviço na rede, precisa publicar o código-fonte dela sob a mesma licença. Para uso em produto fechado, há licença comercial separada, a combinar com o autor.
+
+As versões publicadas antes da mudança (até a 1.6.0, inclusive) continuam sob a licença MIT com a qual foram distribuídas. Para contribuir, ver [CONTRIBUTING.md](CONTRIBUTING.md).

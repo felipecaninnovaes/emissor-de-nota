@@ -6,7 +6,7 @@ exclude = ["crates/graft"]
 
 [workspace.package]
 edition = "2024"
-license = "MIT"
+license = "AGPL-3.0-only"
 rust-version = "1.88"
 
 # Sem debug info completo: o target/ de desenvolvimento chegava a 30 GB e lotava o disco.
