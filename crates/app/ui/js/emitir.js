@@ -462,6 +462,7 @@ $("#confirmar-emissao").addEventListener("click", async () => {
         });
       // Prepara a próxima nota (mesmo serviço e mês) sem permitir reenviar a anterior por engano.
       escolherTomador(null);
+      $("#valor").value = "";
       $("#info-compl").value = "";
       limparObra();
       aplicarServico();

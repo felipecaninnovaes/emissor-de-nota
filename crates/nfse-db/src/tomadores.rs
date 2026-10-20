@@ -144,6 +144,49 @@ pub(crate) fn tomador_de(r: &SqliteRow) -> Resultado<TomadorVinculado> {
     })
 }
 
+/// Minúsculas e sem acentos, para comparar nomes ("Café" casa com "cafe").
+fn sem_acentos(texto: &str) -> String {
+    texto
+        .chars()
+        .flat_map(char::to_lowercase)
+        .map(|c| match c {
+            'á' | 'à' | 'â' | 'ã' | 'ä' => 'a',
+            'é' | 'è' | 'ê' | 'ë' => 'e',
+            'í' | 'ì' | 'î' | 'ï' => 'i',
+            'ó' | 'ò' | 'ô' | 'õ' | 'ö' => 'o',
+            'ú' | 'ù' | 'û' | 'ü' => 'u',
+            'ç' => 'c',
+            'ñ' => 'n',
+            outro => outro,
+        })
+        .collect()
+}
+
+/// Até 20 tomadores cujo nome contém o termo ou cujo documento começa com ele. O filtro é feito aqui
+/// porque o `LIKE ... COLLATE NOCASE` do SQLite só ignora maiúsculas ASCII, não acentos.
+fn filtrar_por_termo(linhas: &[SqliteRow], termo: &str) -> Resultado<Vec<TomadorVinculado>> {
+    let termo = termo.trim();
+    let nome_buscado = sem_acentos(termo);
+    let so_documento: String = termo
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .collect::<String>()
+        .to_uppercase();
+    let mut achados = Vec::new();
+    for linha in linhas {
+        let t = tomador_de(linha)?;
+        let (_, documento) = tipo_e_numero(&t.tomador.documento);
+        let casa_documento = !so_documento.is_empty() && documento.starts_with(&so_documento);
+        if casa_documento || sem_acentos(&t.tomador.nome).contains(&nome_buscado) {
+            achados.push(t);
+            if achados.len() == 20 {
+                break;
+            }
+        }
+    }
+    Ok(achados)
+}
+
 impl Banco {
     /// Cria ou atualiza a pessoa pelo documento e garante o vínculo com a empresa.
     /// `fonte` registra de onde vieram os dados (ex.: "manual", "brasilapi").
@@ -286,22 +329,14 @@ impl Banco {
         tomador_de(&linha)
     }
 
-    /// Busca por parte do nome ou do documento (com ou sem pontuação), até 20 resultados.
+    /// Busca por parte do nome (sem diferenciar maiúsculas nem acentos) ou do documento (com ou sem
+    /// pontuação), até 20 resultados.
     pub async fn buscar_tomadores(&self, empresa_id: i64, termo: &str) -> Resultado<Vec<TomadorVinculado>> {
-        let termo = termo.trim();
-        let so_documento: String = termo.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
-        let linhas = sqlx::query(&format!(
-            "{SELECT_TOMADOR} WHERE v.empresa_id = ?
-               AND (p.nome LIKE '%' || ? || '%' COLLATE NOCASE OR (? <> '' AND p.documento LIKE ? || '%'))
-             ORDER BY p.nome LIMIT 20"
-        ))
-        .bind(empresa_id)
-        .bind(termo)
-        .bind(&so_documento)
-        .bind(so_documento.to_uppercase())
-        .fetch_all(self.pool())
-        .await?;
-        linhas.iter().map(tomador_de).collect()
+        let linhas = sqlx::query(&format!("{SELECT_TOMADOR} WHERE v.empresa_id = ? ORDER BY p.nome"))
+            .bind(empresa_id)
+            .fetch_all(self.pool())
+            .await?;
+        filtrar_por_termo(&linhas, termo)
     }
 
     /// Tomadores cadastrados por outras empresas e ainda não vinculados a esta (mesma busca de
@@ -311,24 +346,18 @@ impl Banco {
         empresa_id: i64,
         termo: &str,
     ) -> Resultado<Vec<TomadorVinculado>> {
-        let termo = termo.trim();
-        let so_documento: String = termo.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
         let linhas = sqlx::query(
             "SELECT p.id, p.tipo, p.documento, p.inscricao_municipal, p.nome, p.municipio, p.cep,
                  p.logradouro, p.numero, p.complemento, p.bairro, p.telefone, p.email, NULL, NULL, 0, 0, 'privado'
              FROM pessoa p
              WHERE p.id IN (SELECT pessoa_id FROM empresa_tomador)
                AND p.id NOT IN (SELECT pessoa_id FROM empresa_tomador WHERE empresa_id = ?)
-               AND (p.nome LIKE '%' || ? || '%' COLLATE NOCASE OR (? <> '' AND p.documento LIKE ? || '%'))
-             ORDER BY p.nome LIMIT 20",
+             ORDER BY p.nome",
         )
         .bind(empresa_id)
-        .bind(termo)
-        .bind(&so_documento)
-        .bind(so_documento.to_uppercase())
         .fetch_all(self.pool())
         .await?;
-        linhas.iter().map(tomador_de).collect()
+        filtrar_por_termo(&linhas, termo)
     }
 
     /// Vincula a empresa a um tomador já cadastrado por outra (sem e-mails, observação, retenção nem tipo).
@@ -474,6 +503,21 @@ mod testes {
                 .is_err()
         );
         assert_eq!(banco.pessoa_por_documento("52998224725").await.unwrap(), None);
+    }
+
+    #[tokio::test]
+    async fn busca_ignora_acentos() {
+        let (banco, _, empresa) = banco_com_empresa().await;
+        let mut t = convenio();
+        t.nome = "Convênio Saúde Açaí".into();
+        banco.salvar_tomador(empresa.id, &t, "manual").await.unwrap();
+        for termo in ["convenio", "SAUDE", "acai", "Convênio", "SAÚDE"] {
+            assert_eq!(
+                banco.buscar_tomadores(empresa.id, termo).await.unwrap().len(),
+                1,
+                "{termo}"
+            );
+        }
     }
 
     #[tokio::test]
