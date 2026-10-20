@@ -21,13 +21,29 @@ pub struct DadosCep {
 }
 
 pub async fn consultar(cep: &str) -> Result<DadosCep, String> {
+    let corpo = buscar(&format!("{URL}{cep}/json/")).await?;
+    interpretar(&corpo).ok_or_else(|| "CEP não encontrado".into())
+}
+
+/// Busca CEPs pelo nome da rua (até 50 resultados, como o ViaCEP devolve). Serve a quem não sabe o CEP.
+pub async fn buscar_por_endereco(uf: &str, cidade: &str, logradouro: &str) -> Result<Vec<DadosCep>, String> {
+    let mut url = reqwest::Url::parse(URL).map_err(|e| e.to_string())?;
+    url.path_segments_mut()
+        .map_err(|_| "URL da consulta de CEP inválida".to_string())?
+        .pop_if_empty()
+        .extend([uf, cidade, logradouro, "json"]);
+    let corpo = buscar(url.as_str()).await?;
+    Ok(interpretar_lista(&corpo))
+}
+
+async fn buscar(url: &str) -> Result<Value, String> {
     let cliente = reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
         .user_agent(concat!("emissor-nfse/", env!("CARGO_PKG_VERSION")))
         .build()
         .map_err(|e| e.to_string())?;
     let resposta = cliente
-        .get(format!("{URL}{cep}/json/"))
+        .get(url)
         .send()
         .await
         .map_err(|e| format!("sem conexão com a consulta de CEP: {e}"))?;
@@ -35,11 +51,17 @@ pub async fn consultar(cep: &str) -> Result<DadosCep, String> {
     if !status.is_success() {
         return Err(format!("consulta de CEP falhou (HTTP {status})"));
     }
-    let corpo: Value = resposta
+    resposta
         .json()
         .await
-        .map_err(|e| format!("resposta inválida da consulta de CEP: {e}"))?;
-    interpretar(&corpo).ok_or_else(|| "CEP não encontrado".into())
+        .map_err(|e| format!("resposta inválida da consulta de CEP: {e}"))
+}
+
+/// Itens da busca por endereço; resposta que não é lista (ou `{"erro": true}`) vira lista vazia.
+pub fn interpretar_lista(v: &Value) -> Vec<DadosCep> {
+    v.as_array()
+        .map(|itens| itens.iter().filter_map(interpretar).collect())
+        .unwrap_or_default()
 }
 
 fn texto(v: &Value, chave: &str) -> Option<String> {
@@ -82,10 +104,35 @@ mod testes {
     }
 
     #[test]
+    fn interpreta_lista_da_busca_por_endereco() {
+        let v: Value = serde_json::from_str(
+            r#"[{"cep": "15800-020", "logradouro": "Rua Brasil", "bairro": "Centro",
+                 "localidade": "Catanduva", "uf": "SP", "ibge": "3511102"},
+                {"cep": "15800-030", "logradouro": "Rua Brasil", "bairro": "Vila Nova",
+                 "localidade": "Catanduva", "uf": "SP", "ibge": "3511102"}]"#,
+        )
+        .unwrap();
+        let lista = interpretar_lista(&v);
+        assert_eq!(lista.len(), 2);
+        assert_eq!(lista[1].cep, "15800030");
+        assert_eq!(lista[1].bairro.as_deref(), Some("Vila Nova"));
+        assert!(interpretar_lista(&serde_json::json!([])).is_empty());
+        assert!(interpretar_lista(&serde_json::json!({"erro": true})).is_empty());
+    }
+
+    #[test]
     fn cep_inexistente() {
         for corpo in [r#"{"erro": true}"#, r#"{"erro": "true"}"#] {
             assert_eq!(interpretar(&serde_json::from_str(corpo).unwrap()), None);
         }
+    }
+
+    /// Busca por rua de verdade (rede), com acento e espaço no nome.
+    #[tokio::test]
+    #[ignore]
+    async fn busca_real_por_endereco() {
+        let lista = buscar_por_endereco("SP", "São Paulo", "Praça da Sé").await.unwrap();
+        assert!(lista.iter().any(|d| d.cep == "01001000"));
     }
 
     /// Consulta de verdade (rede): `cargo test -p emissor-nfse -- --ignored`.

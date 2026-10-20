@@ -128,7 +128,8 @@
               </div>
               <div class="grade" id="obra-endereco" hidden>
                 <div class="c3"><label for="obra-cep">CEP</label><input id="obra-cep" required maxlength="9" data-formato="cep" inputmode="numeric">
-                  <p class="ajuda" id="obra-cep-cidade" aria-live="polite"></p></div>
+                  <p class="ajuda" id="obra-cep-cidade" aria-live="polite"></p>
+                  <button type="button" class="botao pequeno" data-buscar-cep="obra-cep">Não sei o CEP</button></div>
                 <div class="c7"><label for="obra-logradouro">Logradouro</label><input id="obra-logradouro" required maxlength="255"></div>
                 <div class="c2"><label for="obra-numero">Número</label><input id="obra-numero" required maxlength="60"></div>
                 <div class="c6"><label for="obra-complemento">Complemento</label><input id="obra-complemento" maxlength="156"></div>
@@ -487,7 +488,8 @@
       <fieldset class="bloco">
         <legend>Endereço (opcional)</legend>
         <div class="grade">
-          <div class="c3"><label for="tomador-cep">CEP</label><input id="tomador-cep" name="cep" maxlength="9" data-formato="cep" inputmode="numeric"></div>
+          <div class="c3"><label for="tomador-cep">CEP</label><input id="tomador-cep" name="cep" maxlength="9" data-formato="cep" inputmode="numeric">
+            <button type="button" class="botao pequeno" data-buscar-cep="tomador-cep">Não sei o CEP</button></div>
           <div class="c3"><label for="tomador-municipio">Município (IBGE)</label><input id="tomador-municipio" name="municipio" maxlength="7" placeholder="3511102" data-formato="ibge" inputmode="numeric">
             <p class="ajuda" data-municipio-nome></p></div>
           <div class="c6"><label for="tomador-logradouro">Logradouro</label><input id="tomador-logradouro" name="logradouro"></div>
@@ -578,7 +580,8 @@
           </div>
           <div class="grade" id="rec-obra-endereco" hidden>
             <div class="c3"><label for="rec-obra-cep">CEP</label><input id="rec-obra-cep" name="obra_cep" required maxlength="9" data-formato="cep" inputmode="numeric">
-              <p class="ajuda" id="rec-obra-cep-cidade" aria-live="polite"></p></div>
+              <p class="ajuda" id="rec-obra-cep-cidade" aria-live="polite"></p>
+                  <button type="button" class="botao pequeno" data-buscar-cep="rec-obra-cep">Não sei o CEP</button></div>
             <div class="c7"><label for="rec-obra-logradouro">Logradouro</label><input id="rec-obra-logradouro" name="obra_logradouro" required maxlength="255"></div>
             <div class="c2"><label for="rec-obra-numero">Número</label><input id="rec-obra-numero" name="obra_numero" required maxlength="60"></div>
             <div class="c6"><label for="rec-obra-complemento">Complemento</label><input id="rec-obra-complemento" name="obra_complemento" maxlength="156"></div>
@@ -909,6 +912,25 @@
       <div id="erro-numeracao" class="aviso erro" role="alert" hidden></div>
     </div>
     <div class="acoes"><button class="botao" value="cancelar" formnovalidate>Cancelar</button><button class="botao primario" value="salvar">Salvar</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-buscar-cep" class="estreito" aria-labelledby="titulo-dlg-buscar-cep">
+  <form method="dialog" id="form-buscar-cep" novalidate>
+    <header class="dialogo-topo">
+      <h2 id="titulo-dlg-buscar-cep">Buscar CEP pelo nome da rua</h2>
+      <p class="ajuda">Informe a UF, a cidade e parte do nome da rua. Só esses três dados são enviados à consulta pública (ViaCEP).</p>
+    </header>
+    <div class="dialogo-corpo">
+      <div class="grade">
+        <div class="c3"><label for="buscar-cep-uf">UF</label><select id="buscar-cep-uf" name="uf"><option value="">—</option><option value="AC">AC</option><option value="AL">AL</option><option value="AP">AP</option><option value="AM">AM</option><option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option><option value="MA">MA</option><option value="MT">MT</option><option value="MS">MS</option><option value="MG">MG</option><option value="PA">PA</option><option value="PB">PB</option><option value="PR">PR</option><option value="PE">PE</option><option value="PI">PI</option><option value="RJ">RJ</option><option value="RN">RN</option><option value="RS">RS</option><option value="RO">RO</option><option value="RR">RR</option><option value="SC">SC</option><option value="SP">SP</option><option value="SE">SE</option><option value="TO">TO</option></select></div>
+        <div class="c9"><label for="buscar-cep-cidade">Cidade</label><input id="buscar-cep-cidade" name="cidade" maxlength="60" autocomplete="off"></div>
+        <div class="c12"><label for="buscar-cep-rua">Nome da rua</label><input id="buscar-cep-rua" name="rua" maxlength="100" autocomplete="off" placeholder="Ex.: Rua Brasil"></div>
+      </div>
+      <div id="erro-buscar-cep" class="aviso erro" role="alert" hidden></div>
+      <div id="resultado-buscar-cep" class="lista-cep" aria-live="polite"></div>
+    </div>
+    <div class="acoes"><button class="botao" value="cancelar" formnovalidate>Fechar</button><button class="botao primario" value="buscar">Buscar</button></div>
   </form>
 </dialog>
 

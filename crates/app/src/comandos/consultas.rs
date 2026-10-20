@@ -20,3 +20,19 @@ pub async fn consultar_cep(cep: String) -> R<crate::cep::DadosCep> {
     }
     crate::cep::consultar(&cep).await
 }
+
+/// Busca de CEP pelo nome da rua, para quem não sabe o CEP. A UF e a cidade são obrigatórias no ViaCEP.
+#[tauri::command]
+pub async fn buscar_cep_por_endereco(uf: String, cidade: String, logradouro: String) -> R<Vec<crate::cep::DadosCep>> {
+    let (uf, cidade, logradouro) = (uf.trim(), cidade.trim(), logradouro.trim());
+    if uf.len() != 2 || !uf.chars().all(|c| c.is_ascii_alphabetic()) {
+        return Err("Escolha a UF.".into());
+    }
+    if cidade.chars().count() < 3 {
+        return Err("Informe a cidade.".into());
+    }
+    if logradouro.chars().count() < 3 {
+        return Err("Informe ao menos 3 letras do nome da rua.".into());
+    }
+    crate::cep::buscar_por_endereco(uf, cidade, logradouro).await
+}

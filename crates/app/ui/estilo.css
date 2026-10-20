@@ -484,6 +484,10 @@ dialog {
 }
 dialog.largo { width: min(68rem, 94vw); }
 dialog.estreito { width: min(34rem, 94vw); }
+.lista-cep { display: flex; flex-direction: column; gap: var(--espaco-2); }
+.lista-cep:empty { display: none; }
+.lista-cep .item-cep { display: flex; flex-direction: column; align-items: flex-start; text-align: left; width: 100%; }
+.lista-cep .item-cep small { color: var(--tinta-suave); font-size: 0.75rem; }
 dialog::backdrop { background: var(--veu); }
 dialog form { display: flex; flex-direction: column; max-height: calc(100dvh - 2rem - 2px); padding: 0; }
 .dialogo-topo { display: block; flex: none; padding: var(--espaco-4) var(--espaco-5) var(--espaco-3); background: var(--folha); border-bottom: 1px solid var(--fio); }

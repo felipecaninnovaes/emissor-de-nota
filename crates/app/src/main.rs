@@ -183,6 +183,7 @@ fn main() {
             comandos::email::enviar_email,
             comandos::consultas::consultar_cnpj,
             comandos::consultas::consultar_cep,
+            comandos::consultas::buscar_cep_por_endereco,
             comandos::atualizacao::versao_app,
             comandos::atualizacao::procurar_atualizacao,
             comandos::atualizacao::instalar_atualizacao,

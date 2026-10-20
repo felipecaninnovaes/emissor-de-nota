@@ -51,5 +51,5 @@ Tabela `configuracao` (chave → valor), lida e gravada por `Banco::configuracao
 | Sefin Nacional (Produção) | `https://sefin.nfse.gov.br/SefinNacional` | `nfse-nacional/src/lib.rs` |
 | Sefin Nacional (Produção Restrita) | `https://sefin.producaorestrita.nfse.gov.br/SefinNacional` | idem |
 | Consulta de CNPJ | `https://brasilapi.com.br/api/cnpj/v1/` | `app/src/cnpj.rs` |
-| Consulta de CEP | `https://viacep.com.br/ws/` | `app/src/cep.rs` |
+| Consulta de CEP (por CEP ou por UF/cidade/rua) | `https://viacep.com.br/ws/` | `app/src/cep.rs` |
 | Atualizações | GitHub Releases (endpoint acima) | `tauri.conf.json` |

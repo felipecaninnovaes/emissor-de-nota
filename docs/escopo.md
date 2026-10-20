@@ -47,7 +47,7 @@ Desde 1º/01/2026 todo município precisa operar no padrão nacional, mas pode e
 - **Em aberto** — procuração eletrônica (usar o e-CNPJ de quem opera em nome das empresas): não há indicação de que a API Sefin aceite.
 
 **Tomadores**
-- **Feito** — cadastro global reutilizável (`pessoa`) com vínculo por empresa (e-mails, observação, retém impostos federais, retém ISS); busca que sugere tomadores de outras empresas e vincula com um clique; PJ com consulta de CNPJ (BrasilAPI), PF com CPF validado; nota sem tomador identificado; busca de CEP no endereço do tomador e da obra.
+- **Feito** — cadastro global reutilizável (`pessoa`) com vínculo por empresa (e-mails, observação, retém impostos federais, retém ISS); busca que sugere tomadores de outras empresas e vincula com um clique; PJ com consulta de CNPJ (BrasilAPI), PF com CPF validado; nota sem tomador identificado; busca de CEP no endereço do tomador e da obra, inclusive pelo nome da rua ("Não sei o CEP").
 - **Pendente** — cache e alternativa à consulta de CNPJ; nome do município pela tabela IBGE (hoje só vem da consulta de CNPJ).
 - **Pendente** — tomador estrangeiro (NIF, país) e intermediário do serviço.
 
@@ -81,7 +81,7 @@ O banco concentra os certificados de todos os clientes; quem copia o arquivo e d
 - **Feito** — certificados e senha do SMTP cifrados em repouso; chave derivada da senha mestra; comandos IPC exigem o cofre aberto; `abrir_arquivo` só abre pdf/xml/csv dentro da pasta de saída.
 - **Feito** — repositório público sem segredos nem dados de clientes (`.gitignore` bloqueia `.pfx`, `.db`, XMLs e `certs/`).
 - **Feito** — integridade: hash do XML autorizado conferido a cada leitura.
-- **Feito** — consulta de CNPJ e CEP: só o documento ou o CEP sai da máquina.
+- **Feito** — consulta de CNPJ e CEP: só o documento ou o CEP sai da máquina (na busca pelo nome da rua, UF, cidade e rua).
 - **Feito** — banco inteiro cifrado em repouso com SQLCipher (chave derivada da senha mestra; [ADR 0013](decisoes/0013-banco-cifrado-sqlcipher.md)): nomes, CPFs, e-mails e valores não ficam legíveis no `emissor.db`.
 - **Pendente (LGPD)** — exportar ou anonimizar tomador PF sem notas. Os XML e PDF da pasta de saída continuam em claro (usar criptografia de disco).
 - **Feito** — backup cifrado do banco (que contém os XMLs autorizados), automático ao abrir o sistema e manual, com teste de restauração e restauração pelo próprio sistema (reinicia com o banco do backup e exige conferir a numeração).

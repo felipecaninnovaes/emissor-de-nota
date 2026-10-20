@@ -145,3 +145,86 @@ ligarConsultaCnpj(
     if (d.municipio_nome) toast(`Município: ${d.municipio_nome}/${d.uf ?? ""}`);
   },
 );
+
+// ---------------------------------------------------------------- busca de CEP pelo nome da rua
+
+const dlgBuscaCep = $("#dlg-buscar-cep");
+const formBuscaCep = $("#form-buscar-cep");
+const erroBuscaCep = $("#erro-buscar-cep");
+const resultadoBuscaCep = $("#resultado-buscar-cep");
+let campoCepAlvo = null;
+let buscaEmCurso = 0;
+
+/** Mostra a lista de ruas encontradas; escolher uma põe o CEP no campo e deixa a consulta de CEP preencher o resto. */
+function mostrarRuas(ruas) {
+  resultadoBuscaCep.replaceChildren();
+  if (!ruas.length) {
+    const p = document.createElement("p");
+    p.className = "vazio";
+    p.textContent = "Nenhum CEP encontrado. Confira a cidade e tente menos palavras do nome da rua.";
+    resultadoBuscaCep.append(p);
+    return;
+  }
+  for (const r of ruas) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "botao item-cep";
+    const rua = document.createElement("strong");
+    rua.textContent = r.logradouro || "CEP geral da cidade";
+    const detalhe = document.createElement("small");
+    detalhe.textContent = [r.bairro, `${r.municipio_nome ?? ""}/${r.uf ?? ""}`, `CEP ${r.cep.slice(0, 5)}-${r.cep.slice(5)}`]
+      .filter(Boolean)
+      .join(" · ");
+    b.append(rua, detalhe);
+    b.onclick = () => {
+      dlgBuscaCep.close();
+      campoCepAlvo.value = r.cep;
+      campoCepAlvo.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    resultadoBuscaCep.append(b);
+  }
+  if (ruas.length >= 50) {
+    const p = document.createElement("p");
+    p.className = "ajuda";
+    p.textContent = "Mostrando os 50 primeiros: escreva mais do nome da rua para reduzir a lista.";
+    resultadoBuscaCep.append(p);
+  }
+}
+
+formBuscaCep.addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  if (ev.submitter?.value === "cancelar") return dlgBuscaCep.close();
+  const dados = new FormData(formBuscaCep);
+  const botao = $('button[value="buscar"]', formBuscaCep);
+  const minha = ++buscaEmCurso;
+  erroBuscaCep.hidden = true;
+  botao.disabled = true;
+  botao.textContent = "Buscando...";
+  try {
+    const ruas = await chamar("buscar_cep_por_endereco", {
+      uf: dados.get("uf"),
+      cidade: dados.get("cidade"),
+      logradouro: dados.get("rua"),
+    });
+    if (minha === buscaEmCurso) mostrarRuas(ruas);
+  } catch (e) {
+    resultadoBuscaCep.replaceChildren();
+    erroBuscaCep.textContent = String(e);
+    erroBuscaCep.hidden = false;
+  } finally {
+    botao.disabled = false;
+    botao.textContent = "Buscar";
+  }
+});
+
+for (const botao of document.querySelectorAll("[data-buscar-cep]")) {
+  botao.addEventListener("click", () => {
+    campoCepAlvo = document.getElementById(botao.dataset.buscarCep);
+    erroBuscaCep.hidden = true;
+    resultadoBuscaCep.replaceChildren();
+    // UF e cidade ficam da última busca; a rua começa vazia.
+    formBuscaCep.elements.rua.value = "";
+    dlgBuscaCep.showModal();
+    formBuscaCep.elements[formBuscaCep.elements.uf.value && formBuscaCep.elements.cidade.value ? "rua" : "uf"].focus();
+  });
+}
