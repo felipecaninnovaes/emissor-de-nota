@@ -1,7 +1,7 @@
 // Configurações: pasta de saída, backup, e-mail e DPS pendentes.
 
 import { $, chamar, esc, estado, invoke, toast, vazio } from "./util.js";
-import { lerForm, limparErro, limparErros, mostrarErros, preencherForm, validarCampos } from "./formularios.js";
+import { confirmar, lerForm, limparErro, limparErros, mostrarErros, preencherForm, validarCampos } from "./formularios.js";
 import { aparencia } from "./preferencias.js";
 
 export async function carregarConfiguracoes() {
@@ -158,6 +158,7 @@ $("#salvar-pasta-backup").addEventListener("click", async () => {
   try {
     await chamar("definir_pasta_backup", { pasta: $("#pasta-backup").value });
     toast("Pasta do backup salva.");
+    if ($("#pasta-backup").value.trim()) $("#aviso-backup")?.remove();
     await carregarBackup();
   } catch (e) {
     toast(String(e), true);
@@ -225,6 +226,34 @@ $("#restaurar-backup").addEventListener("click", async () => {
     toast(String(e), true);
   } finally {
     botao.disabled = false;
+  }
+});
+
+// Restauração de verdade: o banco do backup entra no lugar do atual (guardado ao lado) e o sistema reinicia.
+$("#restaurar-agora").addEventListener("click", async () => {
+  const arquivo = $("#restaurar-arquivo");
+  const senha = $("#restaurar-senha");
+  limparErro(arquivo);
+  limparErro(senha);
+  const erros = [];
+  if (!arquivo.value.trim()) erros.push({ el: arquivo, msg: "Escolha o arquivo de backup (.nfbk)." });
+  if (!senha.value) erros.push({ el: senha, msg: "Informe a senha mestra do backup." });
+  if (erros.length) return mostrarErros(erros);
+  const pergunta =
+    "Restaurar este backup no lugar dos dados atuais?\n\n" +
+    "O sistema reinicia e passa a usar o banco do backup: notas e cadastros feitos depois dele não estarão no sistema. " +
+    "O banco atual fica guardado na pasta de dados do aplicativo.\n\n" +
+    "Ao abrir de novo, use a senha mestra do backup e confira a numeração de cada empresa na Sefin antes de emitir.";
+  if (!(await confirmar(pergunta, { ok: "Restaurar e reiniciar" }))) return;
+  const botao = $("#restaurar-agora");
+  botao.disabled = true;
+  botao.textContent = "Restaurando...";
+  try {
+    await chamar("restaurar_e_reiniciar", { arquivo: arquivo.value, senha: senha.value });
+  } catch (e) {
+    toast(String(e), true);
+    botao.disabled = false;
+    botao.textContent = "Restaurar backup…";
   }
 });
 

@@ -56,7 +56,14 @@ async fn iniciar(estado: &Estado, banco: Banco, cofre: nfse_db::Cofre) -> R<Aber
         .com_versao(concat!("emissor-nfse/", env!("CARGO_PKG_VERSION")))
         .com_logo(LOGO_NFSE.to_vec())
         .com_pasta(pasta);
-    let mut pendencias = Vec::new();
+    // Falha aqui não impede a abertura: vira aviso, e a conferência fica com o operador.
+    let restauracao = super::backup::concluir_restauracao(estado).await.unwrap_or_else(|e| {
+        Some(format!(
+            "Backup restaurado, mas a numeração não foi marcada para conferência ({e}): antes de emitir, use \
+             Empresas → Numeração / IM → Consultar na Sefin em cada empresa."
+        ))
+    });
+    let mut pendencias: Vec<String> = restauracao.into_iter().collect();
     for (dps_id, resultado) in emissor.reconciliar_pendentes().await.map_err(texto)? {
         pendencias.push(match resultado {
             Ok(Some(n)) => format!(

@@ -99,12 +99,17 @@ $("#empresa-atual").addEventListener("change", (ev) => {
   trocarEmpresa(e).catch((err) => toast(String(err), true));
 });
 
+/** Empresa para a qual o formulário de emissão foi preparado (ver `trocarEmpresa`). */
+let empresaDaEmissao;
+
 async function trocarEmpresa(empresa) {
   if (empresa?.id !== estado.empresa?.id) descartarRevisao();
   estado.empresa = empresa;
   const selo = $("#selo-ambiente");
   const info = $("#info-certificado");
+  $("#faixa-teste").hidden = empresa?.ambiente !== "homologacao";
   if (!empresa) {
+    empresaDaEmissao = undefined;
     selo.hidden = true;
     info.textContent = "";
     estado.servicos = [];
@@ -135,7 +140,14 @@ async function trocarEmpresa(empresa) {
     info.textContent = `cert. até ${c.valido_ate}`;
     info.title = `Certificado válido até ${c.valido_ate}.`;
   }
-  limparEmissao();
+  // Outra empresa: formulário limpo. A mesma recarregada (cadastro, certificado ou numeração
+  // corrigidos, às vezes a partir de uma rejeição) mantém o que foi digitado; só a revisão é refeita.
+  if (empresa.id !== empresaDaEmissao) {
+    limparEmissao();
+    empresaDaEmissao = empresa.id;
+  } else {
+    descartarRevisao();
+  }
   estado.servicos = await invoke("listar_servicos", { empresaId: empresa.id });
   renderizarServicosEmitir();
   // Recarrega a tela visível com a nova empresa.

@@ -145,8 +145,8 @@ impl Banco {
         let empresa = empresa_em(&mut tx, empresa_id).await?;
         if empresa.conferir_numeracao {
             return Err(ErroBanco::Regra(
-                "empresa importada de outra máquina: confira a numeração em Empresas → Numeração / IM → \
-                 Consultar na Sefin antes da primeira emissão"
+                "a numeração desta empresa precisa ser conferida (empresa importada de outra máquina ou banco \
+                 restaurado de um backup): use Empresas → Numeração / IM → Consultar na Sefin antes de emitir"
                     .into(),
             ));
         }
@@ -265,6 +265,18 @@ impl Banco {
         }
         tx.commit().await?;
         Ok(())
+    }
+
+    /// Depois de restaurar um backup, a numeração gravada pode estar atrás da Sefin (notas emitidas
+    /// depois do backup): todas as empresas passam a exigir a conferência antes da próxima reserva.
+    pub async fn exigir_conferencia_de_numeracao(&self) -> Resultado<()> {
+        let mut tx = self.pool().begin().await?;
+        sqlx::query("UPDATE empresa SET conferir_numeracao = 1")
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        self.auditar("numeracao_a_conferir", None, Some("banco restaurado de backup"))
+            .await
     }
 
     pub async fn dps(&self, id: i64) -> Resultado<RegistroDps> {
@@ -580,6 +592,17 @@ mod testes {
             valor_servico: Valor::parse("1500").unwrap(),
             competencia: chrono::NaiveDate::from_ymd_opt(2026, 10, 16).unwrap(),
         }
+    }
+
+    #[tokio::test]
+    async fn banco_restaurado_exige_conferir_a_numeracao() {
+        let (banco, _, empresa) = banco_com_empresa().await;
+        banco.exigir_conferencia_de_numeracao().await.unwrap();
+        assert!(banco.empresa(empresa.id).await.unwrap().conferir_numeracao);
+        let erro = banco.reservar_dps(empresa.id).await.unwrap_err();
+        assert!(erro.to_string().contains("Consultar na Sefin"), "{erro}");
+        banco.marcar_numeracao_conferida(empresa.id).await.unwrap();
+        assert_eq!(banco.reservar_dps(empresa.id).await.unwrap().numero, 1);
     }
 
     #[tokio::test]

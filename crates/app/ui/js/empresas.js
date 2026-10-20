@@ -50,7 +50,7 @@ export async function renderizarEmpresas() {
             <td title="${esc(`${e.nome} — ${e.cnpj_formatado}`)}">${esc(e.nome)}</td>
             <td><span class="selo ${e.ambiente}">${NOME_AMBIENTE[e.ambiente]}</span>${
               e.conferir_numeracao
-                ? ` <span class="selo incerta" title="Importada de outra máquina: use Numeração / IM → Consultar na Sefin antes de emitir">Conferir numeração</span>`
+                ? ` <span class="selo incerta" title="Importada de outra máquina ou banco restaurado de backup: use Numeração / IM → Consultar na Sefin antes de emitir">Conferir numeração</span>`
                 : ""
             }</td>
             <td class="dado sec-1">${esc(e.serie)}</td>
@@ -100,7 +100,7 @@ async function excluirEmpresa(empresa) {
 $("#nova-empresa").addEventListener("click", () => editarEmpresa(null));
 
 /** Cadastro (`empresa` nulo) ou edição de empresa no mesmo diálogo. */
-function editarEmpresa(empresa) {
+export function editarEmpresa(empresa) {
   const dlg = $("#dlg-empresa");
   const form = $("form", dlg);
   form.reset();
@@ -166,7 +166,7 @@ function editarEmpresa(empresa) {
   });
 }
 
-function importarCertificado(empresa) {
+export function importarCertificado(empresa) {
   const dlg = $("#dlg-certificado");
   $("form", dlg).reset();
   pfxEscolhido = null;
@@ -183,7 +183,7 @@ function importarCertificado(empresa) {
   });
 }
 
-function editarNumeracao(empresa) {
+export function editarNumeracao(empresa) {
   const dlg = $("#dlg-numeracao");
   const form = $("form", dlg);
   form.reset();

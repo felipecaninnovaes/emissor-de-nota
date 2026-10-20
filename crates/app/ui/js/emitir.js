@@ -21,22 +21,92 @@ import { enviarEmailNota } from "./notas.js";
 import { editarRecorrencia } from "./recorrentes.js";
 import { editarTomador } from "./tomadores.js";
 import { atualizando } from "./atualizacao.js";
+import { irPara } from "./navegacao.js";
+import { editarEmpresa, editarNumeracao, importarCertificado } from "./empresas.js";
+import { editarServico } from "./servicos.js";
+
+/** Descrição que `aplicarServico` pôs no campo; diferente do campo = o operador mudou o texto. */
+let descricaoAplicada = null;
 
 export function renderizarServicosEmitir() {
   const sel = $("#servico");
+  const anterior = sel.value;
   sel.innerHTML = estado.servicos.length
     ? estado.servicos.map((s) => `<option value="${s.id}">${esc(s.nome)}</option>`).join("")
     : `<option value="">Cadastre um serviço em "Serviços"</option>`;
-  aplicarServico();
+  const mesmo = estado.servicos.find((s) => String(s.id) === anterior);
+  if (mesmo) {
+    // Lista recarregada com o mesmo serviço (cadastro editado): o que foi digitado fica; a
+    // descrição só acompanha o cadastro se o operador não a mudou.
+    sel.value = anterior;
+    descartarRevisao(); // a revisão aberta mostra o cadastro antigo
+    if ($("#descricao").value === descricaoAplicada) $("#descricao").value = descricaoAplicada = mesmo.descricao;
+    $("#bloco-obra").hidden = !CODIGOS_COM_OBRA.includes(mesmo.codigo_trib_nac);
+  } else {
+    aplicarServico();
+  }
+  atualizarPrimeirosPassos();
 }
 
 export function aplicarServico() {
   const s = estado.servicos.find((x) => x.id === Number($("#servico").value));
   if (!s) return;
-  $("#descricao").value = s.descricao;
+  $("#descricao").value = descricaoAplicada = s.descricao;
   if (s.valor_sugerido) $("#valor").value = moeda(s.valor_sugerido);
   $("#bloco-obra").hidden = !CODIGOS_COM_OBRA.includes(s.codigo_trib_nac);
 }
+
+// ---- primeiros passos: o que falta para a primeira nota, na ordem, com o botão que resolve
+
+const PASSOS = [
+  {
+    feito: () => estado.empresas.length > 0,
+    texto: "Cadastre a empresa que vai emitir as notas.",
+    botao: "Cadastrar empresa",
+    fazer: () => {
+      irPara("empresas");
+      editarEmpresa(null);
+    },
+  },
+  {
+    feito: () => !!estado.empresa?.certificado,
+    texto: "Importe o certificado digital A1 da empresa (arquivo .pfx ou .p12 e a senha dele).",
+    botao: "Importar certificado",
+    fazer: () => importarCertificado(estado.empresa),
+  },
+  {
+    feito: () => !!estado.empresa && !estado.empresa.conferir_numeracao,
+    texto: "Confira na Sefin a numeração das notas (outro emissor ou outra máquina pode ter usado a série).",
+    botao: "Conferir numeração",
+    fazer: () => editarNumeracao(estado.empresa),
+  },
+  {
+    feito: () => !!estado.empresa && estado.servicos.length > 0,
+    texto: "Cadastre o serviço que a empresa presta: código, impostos e o texto da nota.",
+    botao: "Cadastrar serviço",
+    fazer: () => {
+      irPara("servicos");
+      editarServico(null);
+    },
+  },
+];
+
+/** Mostra a lista enquanto falta algum passo; só o primeiro pendente tem botão. */
+export function atualizarPrimeirosPassos() {
+  const atual = PASSOS.findIndex((p) => !p.feito());
+  $("#primeiros-passos").hidden = atual < 0;
+  if (atual < 0) return;
+  $("#lista-passos").innerHTML = PASSOS.map((p, i) => {
+    const classe = p.feito() ? "feito" : i === atual ? "atual" : "depois";
+    const botao = i === atual ? `<button type="button" class="botao primario pequeno" data-passo="${i}">${esc(p.botao)}</button>` : "";
+    return `<li class="${classe}"><span>${esc(p.texto)}</span>${botao}</li>`;
+  }).join("");
+}
+
+$("#lista-passos").addEventListener("click", (ev) => {
+  const b = ev.target.closest("button[data-passo]");
+  if (b) PASSOS[Number(b.dataset.passo)].fazer();
+});
 
 $("#servico").addEventListener("change", aplicarServico);
 
@@ -242,14 +312,15 @@ async function revisar() {
   }
   for (const texto of previa.avisos) partes.push(`<div class="aviso atencao">${esc(texto)}</div>`);
   aviso.innerHTML = partes.join("");
+  $("#revisao-resumo").innerHTML = resumoValores(previa);
   const linhas = [
     ["Prestador", previa.prestador],
     ["Tomador", previa.tomador ?? "Não identificado"],
     ["Valor", "R$ " + moeda(previa.valor)],
     ["Competência", previa.competencia],
-    ["Série da DPS", previa.serie],
     ["Descrição", previa.descricao],
   ];
+  const tecnicos = [["Série da DPS", previa.serie]];
   if (pedido.obra) linhas.push(["Obra", descreverObra(pedido.obra)]);
   if (pedido.informacoes_complementares) linhas.push(["Inf. complementares", pedido.informacoes_complementares]);
   const reais = (v) => "R$ " + moeda(v);
@@ -267,10 +338,13 @@ async function revisar() {
   }
   if (previa.ibs_cbs) {
     const i = previa.ibs_cbs;
-    linhas.push(["IBS/CBS", `cIndOp ${i.indicador_operacao} · CST ${i.cst} · cClassTrib ${i.classificacao_tributaria}`]);
-    linhas.push(["Base do IBS/CBS (estimada)", reais(i.base_estimada) + " (a Sefin calcula as alíquotas e os valores)"]);
+    tecnicos.push(["IBS/CBS", `cIndOp ${i.indicador_operacao} · CST ${i.cst} · cClassTrib ${i.classificacao_tributaria}`]);
+    tecnicos.push(["Base do IBS/CBS (estimada)", reais(i.base_estimada) + " (a Sefin calcula as alíquotas e os valores)"]);
   }
-  $("#revisao-dados").innerHTML = linhas.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
+  const lista = (itens) => itens.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
+  $("#revisao-dados").innerHTML = lista(linhas);
+  $("#revisao-tecnico-dados").innerHTML = lista(tecnicos);
+  $("#revisao-tecnico").open = false;
   const xml = $("#revisao-xml");
   xml.hidden = !previa.xml;
   xml.open = false;
@@ -282,6 +356,34 @@ async function revisar() {
   $("#confirmar-emissao").disabled = previa.erros.length > 0;
   $("#revisao").hidden = false;
   $("#revisao").scrollIntoView({ behavior: "smooth" });
+}
+
+/** "1500.00" → centavos, sem ponto flutuante. */
+function centavos(valor) {
+  const [inteiro, frac = ""] = String(valor ?? "0").split(".");
+  return BigInt(inteiro || "0") * 100n + BigInt((frac + "00").slice(0, 2));
+}
+
+const reaisDeCentavos = (c) => "R$ " + moeda(`${c / 100n}.${String(c % 100n).padStart(2, "0")}`);
+
+/** Valor da nota, o que o cliente desconta (retenções) e o que a empresa recebe, em linguagem simples. */
+function resumoValores(previa) {
+  const total = centavos(previa.valor);
+  const liquido = previa.valor_liquido ? centavos(previa.valor_liquido) : total;
+  const caixa = (rotulo, valor, classe = "") =>
+    `<div class="${classe}"><span class="rotulo">${esc(rotulo)}</span><strong class="dado">${esc(valor)}</strong></div>`;
+  const caixas = [caixa("Valor da nota", reaisDeCentavos(total))];
+  if (total !== liquido) caixas.push(caixa("O cliente desconta (retenções)", "− " + reaisDeCentavos(total - liquido)));
+  caixas.push(caixa("A empresa recebe", reaisDeCentavos(liquido), "destaque"));
+  const notas = [];
+  if (total === liquido && !previa.iss_retido) notas.push("Sem retenções: o cliente paga o valor cheio da nota.");
+  if (previa.iss_retido && !previa.iss_retido_valor) {
+    notas.push(
+      "O cliente também desconta o ISS retido, calculado pela Sefin; para ver o valor aqui, informe a alíquota do ISS no cadastro do serviço.",
+    );
+  }
+  const texto = notas.map((n) => `<p class="ajuda resumo-nota">${esc(n)}</p>`).join("");
+  return `<div class="resumo-valores">${caixas.join("")}</div>${texto}`;
 }
 
 /** "Reter nesta nota": refaz a prévia com a escolha, que vale mais que o cadastro do tomador. */
@@ -365,11 +467,11 @@ $("#confirmar-emissao").addEventListener("click", async () => {
       aplicarServico();
       toast(`NFS-e ${r.numero ?? ""} autorizada.`);
     } else {
-      res.innerHTML = `<div class="aviso atencao"><strong>Sem resposta definitiva da Sefin.</strong><br>${esc(r.motivo)}
-        <br>Confira em "Notas emitidas" (botão Verificar) antes de emitir de novo.</div>`;
+      mostrarIncerta(res, r);
     }
   } catch (e) {
     res.innerHTML = `<div class="aviso erro"><strong>Nota não emitida.</strong><br>${esc(e)}</div>`;
+    oferecerCorrecoes(res, String(e), pedido);
   } finally {
     emissaoEmCurso = false;
     res.hidden = false;
@@ -377,6 +479,92 @@ $("#confirmar-emissao").addEventListener("click", async () => {
     botao.textContent = "Emitir nota";
   }
 });
+
+/** Sem resposta definitiva: a nota pode ter saído; "Verificar agora" consulta a Sefin pela DPS. */
+function mostrarIncerta(res, r) {
+  res.innerHTML = `<div class="aviso atencao"><span><strong>Sem resposta definitiva da Sefin.</strong><br>${esc(r.motivo)}
+      <br>Não emita esta nota de novo antes de verificar.</span></div>
+    <div class="acoes inicio">
+      <button class="botao primario" data-verificar>Verificar agora</button>
+      <button class="botao" data-ir="notas">Ver em Notas emitidas</button>
+    </div>`;
+  const botao = res.querySelector("[data-verificar]");
+  botao.onclick = async () => {
+    botao.disabled = true;
+    try {
+      const msg = await chamar("reconciliar", { dpsId: r.dps_id });
+      res.innerHTML = `<div class="aviso ok">${esc(msg)}</div>
+        <div class="acoes inicio"><button class="botao" data-ir="notas">Ver em Notas emitidas</button></div>`;
+    } catch (e) {
+      // Nos primeiros minutos a Sefin pode ainda não mostrar a nota: a mensagem diz quando tentar de novo.
+      toast(String(e), true);
+      botao.disabled = false;
+    }
+  };
+}
+
+/**
+ * Botões que resolvem as rejeições com orientação conhecida (`nfse-nacional/src/mensagens.rs`);
+ * a orientação em texto já vem no erro. Cada código leva à tela ou ao diálogo da correção.
+ */
+const CORRECOES = {
+  E0014: [{ texto: "Ajustar a numeração pela Sefin", fazer: ajustarNumeracaoAposRejeicao }],
+  E0084: [{ texto: "Editar a empresa", fazer: (p) => editarEmpresa(empresaDoPedido(p)) }],
+  E0116: [
+    { texto: "Editar a empresa", fazer: (p) => editarEmpresa(empresaDoPedido(p)) },
+    { texto: "Abrir Numeração / IM", fazer: (p) => editarNumeracao(empresaDoPedido(p)) },
+  ],
+  E0120: [{ texto: "Abrir Numeração / IM", fazer: (p) => editarNumeracao(empresaDoPedido(p)) }],
+  E0312: [{ texto: "Editar o serviço", fazer: (p) => editarServicoDoPedido(p) }],
+  E0710: [{ texto: "Editar o serviço", fazer: (p) => editarServicoDoPedido(p) }],
+  E0712: [{ texto: "Editar o serviço", fazer: (p) => editarServicoDoPedido(p) }],
+  E0713: [{ texto: "Editar o serviço", fazer: (p) => editarServicoDoPedido(p) }],
+  E0714: [{ texto: "Importar o certificado de novo", fazer: (p) => importarCertificado(empresaDoPedido(p)) }],
+  E0717: [{ texto: "Importar o certificado de novo", fazer: (p) => importarCertificado(empresaDoPedido(p)) }],
+};
+
+const empresaDoPedido = (pedido) => estado.empresas.find((e) => e.id === pedido.empresa_id);
+
+function editarServicoDoPedido(pedido) {
+  const s = estado.servicos.find((x) => x.id === pedido.servico_id);
+  if (!s) return toast('O serviço não está mais no cadastro; confira em "Serviços".', true);
+  editarServico(s);
+}
+
+function oferecerCorrecoes(res, erro, pedido) {
+  const codigos = [...new Set(erro.match(/\bE\d{4}\b/g) ?? [])];
+  const correcoes = codigos.flatMap((c) => CORRECOES[c] ?? []).filter(
+    (c, i, todas) => todas.findIndex((x) => x.texto === c.texto) === i,
+  );
+  if (!correcoes.length || !empresaDoPedido(pedido)) return;
+  const acoes = document.createElement("div");
+  acoes.className = "acoes inicio";
+  for (const c of correcoes) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "botao";
+    b.textContent = c.texto;
+    b.onclick = () => c.fazer(pedido, b);
+    acoes.append(b);
+  }
+  res.append(acoes);
+}
+
+/** E0014: a série já foi usada; consulta a Sefin, ajusta o próximo número e deixa a revisão pronta para reenviar. */
+async function ajustarNumeracaoAposRejeicao(pedido, botao) {
+  botao.disabled = true;
+  try {
+    const msg = await chamar("ajustar_numeracao", { empresaId: pedido.empresa_id });
+    const p = document.createElement("p");
+    p.className = "ajuda";
+    p.textContent = `${msg} Confira a revisão acima e clique em "Emitir nota" para enviar de novo.`;
+    botao.replaceWith(p);
+    $("#confirmar-emissao").focus();
+  } catch (e) {
+    toast(String(e), true);
+    botao.disabled = false;
+  }
+}
 
 export async function abrirNota(nfseId, pasta) {
   try {

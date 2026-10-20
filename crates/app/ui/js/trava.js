@@ -40,6 +40,9 @@ $("#form-trava").addEventListener("submit", async (ev) => {
   if (!cofreExiste) {
     if ([...senha].length < 10) return mostrarErro(erro, "A senha mestra precisa ter pelo menos 10 caracteres.");
     if (senha !== $("#senha2").value) return mostrarErro(erro, "As senhas não conferem.");
+    if (!$("#senha-anotada").checked) {
+      return mostrarErro(erro, "Anote a senha mestra em lugar seguro e marque a confirmação: sem ela, nada abre.");
+    }
   }
   const botao = $("#botao-trava");
   botao.disabled = true;
@@ -71,14 +74,25 @@ async function entrar(pendencias) {
   $("#mes-planilha").value = mesAnterior();
   await carregarEmpresas();
   await avisarVencimentos();
+  await avisarBackup();
   procurarAtualizacao(true);
-  if (!estado.empresas.length) {
-    irPara("empresas");
-    toast("Cadastre a primeira empresa para começar.");
-    return;
-  }
+  // Sem empresa, a tela de emissão mostra os primeiros passos, a começar pelo cadastro dela.
+  if (!estado.empresas.length) return;
   const ultima = lerPreferencia("tela");
   if (ultima && ultima !== "emitir" && TELAS.includes(ultima)) irPara(ultima);
+}
+
+/** Sem pasta de backup, o aviso fica no topo de todas as telas até ela ser definida em Configurações. */
+async function avisarBackup() {
+  const b = await invoke("obter_backup").catch(() => null);
+  if (!b || b.pasta.trim()) return;
+  $("#alertas").insertAdjacentHTML(
+    "beforeend",
+    `<div class="aviso atencao" id="aviso-backup"><span><strong>Backup desligado.</strong> Se este computador
+      estragar, as notas, os cadastros e os certificados se perdem. Escolha uma pasta fora dele (pendrive, HD externo ou
+      pasta sincronizada com a nuvem).</span>
+      <button type="button" class="botao pequeno" data-ir="configuracoes">Configurar backup</button></div>`,
+  );
 }
 
 async function avisarVencimentos() {

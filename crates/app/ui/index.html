@@ -25,6 +25,7 @@
       <div class="aviso atencao aviso-senha"><span><strong>Guarde esta senha em lugar seguro.</strong> Ela cifra o banco inteiro
         (cadastros, notas e numeração), os certificados de todas as empresas e os backups. Não há recuperação:
         se for esquecida, nada disso abre de novo, nem pelos backups.</span></div>
+      <label class="linha-check trava-campo"><input type="checkbox" id="senha-anotada"> Anotei a senha mestra em lugar seguro</label>
     </div>
     <div id="erro-trava" class="aviso erro trava-campo" role="alert" hidden></div>
     <div class="acoes"><button class="botao primario" id="botao-trava">Abrir</button></div>
@@ -56,6 +57,11 @@
       <span class="espaco"></span>
       <span id="info-certificado" class="ajuda"></span>
     </header>
+    <div id="faixa-teste" class="faixa-teste" role="status" hidden>
+      <span><strong>MODO TESTE (Homologação):</strong> as notas desta empresa não têm valor fiscal. Para emitir de verdade,
+        edite a empresa e escolha o ambiente Produção.</span>
+      <button type="button" class="botao pequeno" data-ir="empresas">Ir para Empresas</button>
+    </div>
 
     <div class="conteudo">
       <div id="alertas"></div>
@@ -63,6 +69,11 @@
       <!-- ---------- emitir ---------- -->
       <section data-tela="emitir">
         <h1 tabindex="-1">Emitir nota</h1>
+        <div class="cartao passos" id="primeiros-passos" hidden>
+          <h2>Primeiros passos</h2>
+          <p class="ajuda">Antes da primeira nota, faça estes passos na ordem. Esta lista some quando tudo estiver pronto.</p>
+          <ol id="lista-passos"></ol>
+        </div>
         <div class="cartao">
           <div class="grade">
             <div class="c12">
@@ -136,7 +147,12 @@
         <div class="cartao revisao" id="revisao" hidden>
           <h2>Conferência antes de emitir</h2>
           <div id="revisao-aviso"></div>
+          <div id="revisao-resumo"></div>
           <dl id="revisao-dados"></dl>
+          <details class="xml-dps" id="revisao-tecnico">
+            <summary>Detalhes técnicos</summary>
+            <dl id="revisao-tecnico-dados"></dl>
+          </details>
           <details class="xml-dps" id="revisao-xml" hidden>
             <summary>Ver XML da DPS</summary>
             <p class="ajuda">Como seria enviado, sem assinatura. O número da DPS e a hora de emissão são provisórios; valem os da emissão.</p>
@@ -378,8 +394,9 @@
           </div>
           <p class="ajuda" id="ultimo-backup"></p>
           <h3>Testar ou restaurar um backup</h3>
-          <p class="ajuda">Gera um banco novo a partir do backup e confere a integridade. Não substitui o banco em uso: para
-            restaurar de verdade, feche o sistema e troque o <code>emissor.db</code> e o <code>emissor.cofre</code> pelos arquivos gerados (o destino informado e o <code>.cofre</code> ao lado dele).</p>
+          <p class="ajuda"><strong>Restaurar backup</strong> troca os dados em uso pelos do backup e reinicia o sistema; o
+            banco atual fica guardado na pasta de dados do aplicativo. <strong>Testar restauração</strong> só gera um banco
+            novo no destino informado e confere a integridade, sem mexer no banco em uso.</p>
           <div class="com-botao linha-campo">
             <input id="restaurar-arquivo" aria-label="Arquivo de backup (.nfbk)" placeholder="Arquivo de backup (.nfbk)">
             <button class="botao" id="escolher-restaurar-arquivo">Escolher arquivo…</button>
@@ -391,6 +408,7 @@
           <div class="com-botao linha-campo">
             <input id="restaurar-senha" type="password" aria-label="Senha mestra" placeholder="Senha mestra" autocomplete="off">
             <button class="botao" id="restaurar-backup">Testar restauração</button>
+            <button class="botao perigo" id="restaurar-agora">Restaurar backup…</button>
           </div>
         </div>
         <div class="cartao">

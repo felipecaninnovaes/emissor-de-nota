@@ -84,7 +84,7 @@ O banco concentra os certificados de todos os clientes; quem copia o arquivo e d
 - **Feito** — consulta de CNPJ e CEP: só o documento ou o CEP sai da máquina.
 - **Feito** — banco inteiro cifrado em repouso com SQLCipher (chave derivada da senha mestra; [ADR 0013](decisoes/0013-banco-cifrado-sqlcipher.md)): nomes, CPFs, e-mails e valores não ficam legíveis no `emissor.db`.
 - **Pendente (LGPD)** — exportar ou anonimizar tomador PF sem notas. Os XML e PDF da pasta de saída continuam em claro (usar criptografia de disco).
-- **Feito** — backup cifrado do banco (que contém os XMLs autorizados), automático ao abrir o sistema e manual, com teste de restauração. 
+- **Feito** — backup cifrado do banco (que contém os XMLs autorizados), automático ao abrir o sistema e manual, com teste de restauração e restauração pelo próprio sistema (reinicia com o banco do backup e exige conferir a numeração).
 - **Pendente** — exportação ZIP da guarda de XML (confirmar o prazo de guarda com o contador responsável).
 - **Logs**: nunca registrar senha, chave privada ou XML completo.
 

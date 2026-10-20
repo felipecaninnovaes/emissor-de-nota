@@ -233,7 +233,7 @@ function mostrarCamposIbs(form) {
 
 $("#form-servico").elements.ibs_informar.addEventListener("change", () => mostrarCamposIbs($("#form-servico")));
 
-function editarServico(s) {
+export function editarServico(s) {
   if (!estado.empresa) return toast("Escolha a empresa.", true);
   const dlg = $("#dlg-servico");
   const form = $("form", dlg);

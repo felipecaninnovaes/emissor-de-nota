@@ -103,6 +103,9 @@ fn main() {
             let dados = pasta_dados::resolver(app.path().app_data_dir()?)?;
             dimensionar_primeira_abertura(app)?;
             std::fs::create_dir_all(&dados)?;
+            // Backup restaurado em Configurações: entra no lugar do banco antes de qualquer abertura.
+            // Se falhar, nada muda e o aviso aparece ao abrir o cofre (`backup::concluir_restauracao`).
+            let _ = comandos::backup::aplicar_restauracao_pendente(&dados);
             app.manage(Estado {
                 dados,
                 banco: std::sync::RwLock::new(None),
@@ -125,6 +128,7 @@ fn main() {
             comandos::backup::definir_pasta_backup,
             comandos::backup::fazer_backup,
             comandos::backup::restaurar_backup,
+            comandos::backup::restaurar_e_reiniciar,
             comandos::aparencia::obter_aparencia,
             comandos::aparencia::salvar_aparencia,
             comandos::empresas::listar_empresas,

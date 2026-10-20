@@ -17,7 +17,7 @@ Estado: aceita (18/10/2026).
 **Por quê.** Transferir a empresa (bloquear a origem) exigiria estado novo e um jeito de desfazer. Uma série por máquina exigiria que o operador entendesse séries. Exportar só cadastros não cria vínculo entre as máquinas. A colisão de números, que a Sefin recusa com E0014, fica coberta pela consulta obrigatória antes da primeira emissão. Quem precisa do histórico continua usando o `.nfbk`.
 
 **Detalhes.**
-- A marca é a coluna `empresa.conferir_numeracao` (migração 0008). Ajustar o número à mão não tira a marca: só a consulta à Sefin confere os números usados pela outra máquina.
+- A marca é a coluna `empresa.conferir_numeracao` (migração 0008). Ajustar o número à mão não tira a marca: só a consulta à Sefin confere os números usados pela outra máquina. A restauração de um backup usa a mesma marca, em todas as empresas.
 - Se as duas máquinas continuarem emitindo pela mesma empresa e série, a consulta só vale no momento em que roda. Para emitir nas duas, cada máquina precisa usar uma série própria.
 - Um arquivo inválido ou com a senha errada não grava nada. A importação é tudo ou nada: todas as empresas marcadas entram numa transação só, e um item inválido (recorrência de serviço ou tomador que não veio no arquivo, código de serviço inválido) desfaz tudo.
 - Uma recorrência de serviço desativado não é exportada, porque o serviço não vai no arquivo.

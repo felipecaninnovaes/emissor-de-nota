@@ -581,3 +581,46 @@ kbd {
   border: 1px solid var(--fio); border-radius: var(--raio-redondo);
 }
 .etiqueta-variavel:hover { border-color: var(--caneta); }
+
+/* ---------- ajuda para quem começa ---------- */
+/* Faixa sob o cabeçalho enquanto a empresa emite em Homologação (notas de teste). */
+.faixa-teste {
+  display: flex; align-items: center; gap: var(--espaco-3); flex-wrap: wrap;
+  padding: var(--espaco-2) var(--espaco-6); background: var(--amarelo-claro); color: var(--amarelo);
+  border-bottom: 2px dashed var(--amarelo);
+}
+.faixa-teste span { flex: 1 1 20rem; }
+.faixa-teste[hidden] { display: none; }
+.aviso .botao { margin-left: auto; flex: none; align-self: center; }
+
+/* Primeiros passos: o pendente atual tem o botão; os seguintes esperam; os feitos ficam riscados. */
+.passos ol { margin: var(--espaco-3) 0 0; padding: 0; list-style: none; counter-reset: passo; }
+.passos li {
+  counter-increment: passo; display: flex; align-items: center; gap: var(--espaco-3); flex-wrap: wrap;
+  padding: var(--espaco-2) 0; border-top: 1px solid var(--fio);
+}
+.passos li::before {
+  content: counter(passo); flex: none; width: 1.5rem; height: 1.5rem; border-radius: var(--raio-redondo);
+  display: inline-grid; place-items: center; font-family: var(--font-mono); font-size: 0.75rem;
+  border: 1px solid var(--fio-forte); color: var(--tinta-suave);
+}
+.passos li.feito { color: var(--tinta-suave); text-decoration: line-through; }
+.passos li.feito::before { content: "✓"; background: var(--verde-claro); color: var(--verde); border-color: var(--verde); }
+.passos li.atual::before { background: var(--caneta); color: var(--sobre-tinta); border-color: var(--caneta); }
+.passos li.atual { font-weight: 500; }
+.passos li.depois { color: var(--tinta-suave); }
+.passos li .botao { margin-left: auto; }
+
+/* Revisão: o que o cliente paga e o que a empresa recebe, antes dos detalhes. */
+.resumo-valores { display: flex; flex-wrap: wrap; gap: var(--espaco-3); margin-top: var(--espaco-3); }
+.resumo-valores > div {
+  flex: 1 1 11rem; display: flex; flex-direction: column; gap: var(--espaco-1);
+  padding: var(--espaco-3); border: 1px solid var(--fio-forte); border-radius: var(--raio-fino); background: var(--folha);
+}
+.resumo-valores .rotulo {
+  font-family: var(--font-condensed); font-size: 0.6875rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tinta-suave);
+}
+.resumo-valores strong { font-size: 1.25rem; }
+.resumo-valores .destaque { border-color: var(--verde); background: var(--verde-claro); }
+.resumo-valores .destaque strong { color: var(--verde); }
+.resumo-nota { margin: var(--espaco-2) 0 0; }

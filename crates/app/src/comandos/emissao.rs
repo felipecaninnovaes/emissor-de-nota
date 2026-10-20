@@ -242,8 +242,9 @@ pub struct ResultadoDto {
     numero: Option<String>,
     chave: Option<String>,
     avisos: Vec<String>,
-    /// Quando incerta: o que aconteceu.
+    /// Quando incerta: o que aconteceu e a DPS a verificar na Sefin.
     motivo: Option<String>,
+    dps_id: Option<i64>,
 }
 
 impl From<ResultadoEmissao> for ResultadoDto {
@@ -256,8 +257,9 @@ impl From<ResultadoEmissao> for ResultadoDto {
                 chave: Some(nfse.chave),
                 avisos,
                 motivo: None,
+                dps_id: None,
             },
-            ResultadoEmissao::Incerta { motivo, .. } => ResultadoDto {
+            ResultadoEmissao::Incerta { dps_id, motivo } => ResultadoDto {
                 autorizada: false,
                 nfse_id: None,
                 numero: None,
@@ -266,6 +268,7 @@ impl From<ResultadoEmissao> for ResultadoDto {
                 motivo: Some(format!(
                     "{motivo}. A nota pode ter sido autorizada: o sistema consulta a Sefin antes de qualquer reenvio."
                 )),
+                dps_id: Some(dps_id),
             },
         }
     }
