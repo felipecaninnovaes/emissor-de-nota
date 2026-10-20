@@ -600,6 +600,16 @@
       <p class="ajuda" data-empresa-dialogo></p>
     </header>
     <div class="dialogo-corpo">
+      <div class="grade modelo-servico">
+        <div class="c6"><label for="servico-modelo">Impostos conforme o regime</label><select id="servico-modelo">
+          <option value="">Manter como está</option>
+          <option value="simples" data-regime="me_epp">Simples Nacional (ME/EPP)</option>
+          <option value="mei" data-regime="mei">MEI</option>
+          <option value="presumido" data-regime="nao_optante">Lucro Presumido</option>
+          <option value="real" data-regime="nao_optante">Lucro Real</option></select></div>
+        <p class="c6 ajuda" id="servico-modelo-ajuda">Preenche o total de tributos, o PIS/COFINS próprio e o IBS/CBS com o padrão
+          do regime. As retenções dependem do serviço e do cliente: confira com o contador.</p>
+      </div>
       <div class="blocos">
         <fieldset class="bloco largo">
           <legend>Identificação</legend>
@@ -624,7 +634,7 @@
               <p class="ajuda">Clique numa etiqueta para inserir a variável; ela é trocada ao emitir.</p></div>
           </div>
         </fieldset>
-        <fieldset class="bloco">
+        <fieldset class="bloco largo">
           <legend>ISSQN</legend>
           <div class="grade">
             <div class="c6"><label for="servico-trib-issqn">Tributação</label><select id="servico-trib-issqn" name="trib_issqn">
@@ -639,19 +649,38 @@
               <p class="ajuda">Só se o município exigir.</p></div>
           </div>
         </fieldset>
-        <fieldset class="bloco">
+        <fieldset class="bloco largo">
+          <legend>Retenções na fonte (o tomador desconta e recolhe)</legend>
+          <p class="ajuda">Percentuais sobre o valor de cada nota; os valores são calculados na emissão. Os campos <strong>PIS %</strong> e <strong>COFINS %</strong> abaixo são o que o tomador <strong>retém</strong>: não repita neles o PIS e a COFINS próprios da empresa.</p>
+          <div class="grade">
+            <div class="c2 c-pct"><label for="servico-r-irrf">IRRF %</label><input id="servico-r-irrf" name="r_irrf" inputmode="decimal" data-formato="pct" class="campo-pct"></div>
+            <div class="c2 c-pct"><label for="servico-r-csll">CSLL %</label><input id="servico-r-csll" name="r_csll" inputmode="decimal" data-formato="pct" class="campo-pct"></div>
+            <div class="c2 c-pct"><label for="servico-r-cp">INSS %</label><input id="servico-r-cp" name="r_cp" inputmode="decimal" data-formato="pct" class="campo-pct"></div>
+            <div class="c2 c-pct"><label for="servico-r-pis">PIS % (retido)</label><input id="servico-r-pis" name="r_pis" inputmode="decimal" data-formato="pct" class="campo-pct"></div>
+            <div class="c2 c-pct"><label for="servico-r-cofins">COFINS % (retido)</label><input id="servico-r-cofins" name="r_cofins" inputmode="decimal" data-formato="pct" class="campo-pct"></div>
+            <p class="c12 ajuda" id="servico-tp-ret" aria-live="polite"></p>
+            <div class="c6"><label for="servico-aplicar-fed">Aplicar as retenções federais</label><select id="servico-aplicar-fed" name="aplicar_fed">
+              <option value="sempre">Em toda nota</option><option value="so_tomador_que_retem">Só para tomador que retém impostos federais</option></select></div>
+          </div>
+          <div class="aviso atencao" id="aviso-pis-cofins" role="status" hidden>PIS ou COFINS está preenchido como <strong>próprio</strong> e como <strong>retido</strong>. Vale só o retido: o próprio será ignorado nas notas em que o tomador retém. Se a empresa apura o PIS e a COFINS, apague o PIS % e o COFINS % das retenções.</div>
+        </fieldset>
+        <details class="largo avancadas" id="servico-avancadas">
+          <summary><span>Opções avançadas</span> <span class="ajuda" id="servico-avancadas-resumo"></span></summary>
+          <p class="ajuda">Total de tributos, PIS/COFINS da própria empresa e IBS/CBS. O modelo do regime já preenche; mude só com orientação do contador.</p>
+          <div class="blocos">
+        <fieldset class="bloco largo">
           <legend>Total aproximado de tributos</legend>
           <div class="grade">
             <div class="c12"><label for="servico-tot-tipo">Forma</label><select id="servico-tot-tipo" name="tot_tipo">
               <option value="percentual_simples">% do Simples Nacional</option>
               <option value="percentuais">% federal / estadual / municipal</option>
               <option value="nao_informado">Não informar</option></select></div>
-            <div class="c3"><label for="servico-tot-sn">Simples %</label><input id="servico-tot-sn" name="tot_sn" inputmode="decimal" data-formato="pct" class="campo-pct"></div>
+            <div class="c3"><label for="servico-tot-sn">Simples %</label><input id="servico-tot-sn" name="tot_sn" inputmode="decimal" data-formato="pct" class="campo-pct" placeholder="ex.: 6,00"></div>
             <div class="c3"><label for="servico-tot-fed">Federal %</label><input id="servico-tot-fed" name="tot_fed" inputmode="decimal" data-formato="pct" class="campo-pct"></div>
             <div class="c3"><label for="servico-tot-est">Estadual %</label><input id="servico-tot-est" name="tot_est" inputmode="decimal" data-formato="pct" class="campo-pct"></div>
             <div class="c3"><label for="servico-tot-mun">Municipal %</label><input id="servico-tot-mun" name="tot_mun" inputmode="decimal" data-formato="pct" class="campo-pct"></div>
           </div>
-          <p class="ajuda">Lei 12.741/2012. ME/EPP informa o % do Simples.</p>
+          <p class="ajuda">Lei 12.741/2012. ME/EPP do Simples informa o % do Simples (a alíquota da faixa da empresa); não optante, os percentuais federal, estadual e municipal; MEI, os percentuais ou nada.</p>
         </fieldset>
         <fieldset class="bloco largo">
           <legend>PIS e COFINS apuração própria</legend>
@@ -662,26 +691,6 @@
             <div class="c3 c-pct"><label for="servico-aliq-pis">PIS próprio %</label><input id="servico-aliq-pis" name="aliq_pis" inputmode="decimal" data-formato="pct" class="campo-pct" placeholder="ex.: 0,65"></div>
             <div class="c3 c-pct"><label for="servico-aliq-cofins">COFINS próprio %</label><input id="servico-aliq-cofins" name="aliq_cofins" inputmode="decimal" data-formato="pct" class="campo-pct" placeholder="ex.: 3,00"></div>
           </div>
-        </fieldset>
-        <fieldset class="bloco largo">
-          <legend>Retenções na fonte (o tomador desconta e recolhe)</legend>
-          <p class="ajuda">Percentuais sobre o valor de cada nota; os valores são calculados na emissão. Os campos <strong>PIS %</strong> e <strong>COFINS %</strong> abaixo são o que o tomador <strong>retém</strong>: não repita neles o PIS e a COFINS próprios da empresa.</p>
-          <div class="grade">
-            <div class="c2 c-pct"><label for="servico-r-irrf">IRRF %</label><input id="servico-r-irrf" name="r_irrf" inputmode="decimal" data-formato="pct" class="campo-pct"></div>
-            <div class="c2 c-pct"><label for="servico-r-csll">CSLL %</label><input id="servico-r-csll" name="r_csll" inputmode="decimal" data-formato="pct" class="campo-pct"></div>
-            <div class="c2 c-pct"><label for="servico-r-cp">INSS %</label><input id="servico-r-cp" name="r_cp" inputmode="decimal" data-formato="pct" class="campo-pct"></div>
-            <div class="c2 c-pct"><label for="servico-r-pis">PIS % (retido)</label><input id="servico-r-pis" name="r_pis" inputmode="decimal" data-formato="pct" class="campo-pct"></div>
-            <div class="c2 c-pct"><label for="servico-r-cofins">COFINS % (retido)</label><input id="servico-r-cofins" name="r_cofins" inputmode="decimal" data-formato="pct" class="campo-pct"></div>
-            <div class="c12"><label for="servico-tp-ret">Retenção PIS/COFINS/CSLL</label><select id="servico-tp-ret" name="tp_ret">
-              <option value="0">PIS/COFINS/CSLL não retidos</option><option value="1">PIS/COFINS retidos</option>
-              <option value="2">PIS/COFINS não retidos</option><option value="3">PIS/COFINS/CSLL retidos</option>
-              <option value="4">PIS/COFINS retidos, CSLL não retido</option><option value="5">PIS retido, COFINS/CSLL não retido</option>
-              <option value="6">COFINS retido, PIS/CSLL não retido</option><option value="7">PIS não retido, COFINS/CSLL retidos</option>
-              <option value="8">PIS/COFINS não retidos, CSLL retido</option><option value="9">COFINS não retido, PIS/CSLL retidos</option></select></div>
-            <div class="c6"><label for="servico-aplicar-fed">Aplicar as retenções federais</label><select id="servico-aplicar-fed" name="aplicar_fed">
-              <option value="sempre">Em toda nota</option><option value="so_tomador_que_retem">Só para tomador que retém impostos federais</option></select></div>
-          </div>
-          <div class="aviso atencao" id="aviso-pis-cofins" role="status" hidden>PIS ou COFINS está preenchido como <strong>próprio</strong> e como <strong>retido</strong>. Vale só o retido: o próprio será ignorado nas notas em que o tomador retém. Se a empresa apura o PIS e a COFINS, apague o PIS % e o COFINS % das retenções.</div>
         </fieldset>
         <fieldset class="bloco largo">
           <legend>IBS e CBS (Reforma Tributária)</legend>
@@ -708,6 +717,8 @@
           <p class="ajuda">A Sefin calcula a base e os valores (em 2026: CBS 0,9% e IBS 0,1%) e devolve na NFS-e.
             Obrigatório para empresas fora do Simples Nacional desde agosto/2026. Confira o cIndOp e o cClassTrib do serviço na tabela de correlação (Anexo VIII).</p>
         </fieldset>
+          </div>
+        </details>
       </div>
       <div id="erro-servico" class="aviso erro" role="alert" hidden></div>
     </div>

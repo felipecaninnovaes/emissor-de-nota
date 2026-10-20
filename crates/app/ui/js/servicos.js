@@ -233,6 +233,142 @@ function mostrarCamposIbs(form) {
 
 $("#form-servico").elements.ibs_informar.addEventListener("change", () => mostrarCamposIbs($("#form-servico")));
 
+/** Mostra só os percentuais da forma escolhida do total de tributos. */
+function mostrarCamposTotal(form) {
+  const f = form.elements;
+  f.tot_sn.closest(".c3").hidden = f.tot_tipo.value !== "percentual_simples";
+  for (const n of ["tot_fed", "tot_est", "tot_mun"]) f[n].closest(".c3").hidden = f.tot_tipo.value !== "percentuais";
+}
+
+$("#form-servico").elements.tot_tipo.addEventListener("change", () => mostrarCamposTotal($("#form-servico")));
+
+// ---- modelos por regime: preenchem o que depende do regime (total de tributos, PIS/COFINS próprio, IBS/CBS)
+
+/**
+ * Padrão de cada regime. As retenções e o ISS ficam como estão: dependem do serviço e do cliente.
+ * PIS/COFINS próprios: cumulativo (Lucro Presumido) e não cumulativo (Lucro Real), CST 01.
+ */
+const MODELOS = {
+  simples: { tot_tipo: "percentual_simples", cst: "00", aliq_pis: "", aliq_cofins: "", ibs_informar: "nao" },
+  mei: { tot_tipo: "nao_informado", cst: "00", aliq_pis: "", aliq_cofins: "", ibs_informar: "nao" },
+  presumido: { tot_tipo: "percentuais", cst: "01", aliq_pis: "0,65", aliq_cofins: "3,00", ibs_informar: "sim" },
+  real: { tot_tipo: "percentuais", cst: "01", aliq_pis: "1,65", aliq_cofins: "7,60", ibs_informar: "sim" },
+};
+
+/**
+ * Formas do total de tributos aceitas para cada situação no Simples, a primeira é a sugerida
+ * (`conferir_total_tributos` no nfse-core; a Sefin rejeita as outras com E0710, E0712 ou E0713).
+ */
+const TOTAL_POR_REGIME = {
+  me_epp: ["percentual_simples"],
+  nao_optante: ["percentuais"],
+  mei: ["percentuais", "nao_informado"],
+};
+
+const TOTAL_RECUSADO = {
+  me_epp: 'ME/EPP do Simples informa o total de tributos em "% do Simples Nacional".',
+  nao_optante: 'Empresa fora do Simples informa o total de tributos em "% federal / estadual / municipal".',
+  mei: 'MEI não usa o "% do Simples Nacional": escolha os percentuais ou "Não informar".',
+};
+
+function aplicarModelo(form, chave) {
+  const m = MODELOS[chave];
+  if (!m) return;
+  const f = form.elements;
+  f.tot_tipo.value = m.tot_tipo;
+  if (m.tot_tipo !== "percentual_simples") f.tot_sn.value = "";
+  if (m.tot_tipo !== "percentuais") for (const n of ["tot_fed", "tot_est", "tot_mun"]) f[n].value = "";
+  f.cst.value = m.cst;
+  f.aliq_pis.value = m.aliq_pis;
+  f.aliq_cofins.value = m.aliq_cofins;
+  f.ibs_informar.value = m.ibs_informar;
+  atualizarAvancadas(form);
+}
+
+$("#servico-modelo").addEventListener("change", (ev) => aplicarModelo($("#form-servico"), ev.target.value));
+
+/** Só os modelos do regime da empresa; com um só, ele já vem escolhido no serviço novo. */
+function prepararModelos(form, novo) {
+  const regime = estado.empresa.regime.simples;
+  const sel = $("#servico-modelo");
+  const opcoes = [...sel.options].filter((o) => o.value);
+  for (const o of opcoes) o.hidden = o.disabled = o.dataset.regime !== regime;
+  const doRegime = opcoes.filter((o) => !o.disabled);
+  sel.options[0].textContent = novo ? "Escolha o regime da empresa" : "Manter como está";
+  sel.value = "";
+  if (!novo) return;
+  form.elements.tot_tipo.value = TOTAL_POR_REGIME[regime]?.[0] ?? "nao_informado";
+  if (doRegime.length === 1) {
+    sel.value = doRegime[0].value;
+    aplicarModelo(form, sel.value);
+  }
+}
+
+/** Resumo, no título recolhido, do que está nas opções avançadas. */
+function resumirAvancadas(form) {
+  const f = form.elements;
+  const pct = (n) => (vazio(f[n].value) ?? "?") + "%";
+  const total = {
+    percentual_simples: `Simples ${pct("tot_sn")}`,
+    percentuais: `tributos ${pct("tot_fed")} / ${pct("tot_est")} / ${pct("tot_mun")}`,
+    nao_informado: "total de tributos não informado",
+  }[f.tot_tipo.value];
+  const pis = vazio(f.aliq_pis.value) || vazio(f.aliq_cofins.value)
+    ? `PIS ${vazio(f.aliq_pis.value) ?? "0"}% e COFINS ${vazio(f.aliq_cofins.value) ?? "0"}% próprios`
+    : "sem PIS/COFINS próprio";
+  const ibs = f.ibs_informar.value === "sim" ? `IBS/CBS ${soDigitos(f.ibs_class.value) || "?"}` : "sem IBS/CBS";
+  $("#servico-avancadas-resumo").textContent = `${total} · ${pis} · ${ibs}`;
+}
+
+function atualizarAvancadas(form) {
+  mostrarCamposIbs(form);
+  mostrarCamposTotal(form);
+  avisarPisCofinsDuplicado();
+  resumirAvancadas(form);
+  descreverRetencao(form);
+}
+
+for (const ev of ["input", "change"]) {
+  $("#servico-avancadas").addEventListener(ev, () => resumirAvancadas($("#form-servico")));
+}
+
+// ---- tpRetPisCofins: sai dos percentuais retidos, como na emissão (`tipo_retencao_pis_cofins` em nfse-emissor/src/montagem.rs)
+
+const NOME_TIPO_RETENCAO = [
+  "PIS, COFINS e CSLL não retidos",
+  "PIS e COFINS retidos",
+  "PIS e COFINS não retidos",
+  "PIS, COFINS e CSLL retidos",
+  "PIS e COFINS retidos, CSLL não retida",
+  "PIS retido, COFINS e CSLL não retidos",
+  "COFINS retida, PIS e CSLL não retidos",
+  "PIS não retido, COFINS e CSLL retidos",
+  "PIS e COFINS não retidos, CSLL retida",
+  "COFINS não retida, PIS e CSLL retidos",
+];
+
+/** Tipo guardado no serviço aberto; vale quando não há percentual de PIS, COFINS ou CSLL retido. */
+let tipoRetencaoGuardado = 0;
+
+function tipoRetencao(form) {
+  const f = form.elements;
+  const [pis, cofins, csll] = ["r_pis", "r_cofins", "r_csll"].map((n) => !!vazio(f[n].value));
+  if (!pis && !cofins && !csll) return tipoRetencaoGuardado;
+  if (pis && cofins) return csll ? 3 : 4;
+  if (pis) return csll ? 9 : 5;
+  if (cofins) return csll ? 7 : 6;
+  return 8;
+}
+
+function descreverRetencao(form) {
+  const t = tipoRetencao(form);
+  $("#servico-tp-ret").textContent = `A nota informa: ${NOME_TIPO_RETENCAO[t] ?? `código ${t}`} (tpRetPisCofins ${t}), conforme os percentuais acima.`;
+}
+
+for (const nome of ["r_pis", "r_cofins", "r_csll"]) {
+  $("#form-servico").elements[nome].addEventListener("input", () => descreverRetencao($("#form-servico")));
+}
+
 export function editarServico(s) {
   if (!estado.empresa) return toast("Escolha a empresa.", true);
   const dlg = $("#dlg-servico");
@@ -240,6 +376,8 @@ export function editarServico(s) {
   form.reset();
   // novo serviço: IBS/CBS ligado para o regime regular (obrigatório), desligado no Simples
   form.elements.ibs_informar.value = estado.empresa.regime.simples === "nao_optante" ? "sim" : "nao";
+  tipoRetencaoGuardado = s?.tributacao.federais?.pis_cofins?.tipo_retencao ?? 0;
+  $("#servico-avancadas").open = false;
   if (s) {
     const t = s.tributacao;
     const ibs = t.ibs_cbs;
@@ -259,7 +397,6 @@ export function editarServico(s) {
       cst: pc.cst ?? "00",
       aliq_pis: percentualTela(pc.aliquota_pis),
       aliq_cofins: percentualTela(pc.aliquota_cofins),
-      tp_ret: String(pc.tipo_retencao ?? 0),
       r_irrf: percentualTela(r.irrf),
       r_csll: percentualTela(r.csll),
       r_cp: percentualTela(r.cp),
@@ -289,13 +426,17 @@ export function editarServico(s) {
     }
     preencherForm(form, dados);
   }
-  mostrarCamposIbs(form);
-  avisarPisCofinsDuplicado();
+  prepararModelos(form, !s);
+  atualizarAvancadas(form);
   descreverCtn();
   descreverNbs();
   descreverClass();
   descreverIndOp();
   abrirDialogo(dlg, $("#erro-servico"), async (d) => {
+    const regime = estado.empresa.regime.simples;
+    if (TOTAL_POR_REGIME[regime] && !TOTAL_POR_REGIME[regime].includes(d.tot_tipo)) {
+      throw new ErroCampo("tot_tipo", TOTAL_RECUSADO[regime]);
+    }
     const retencoes = { aplicar: d.aplicar_fed };
     for (const k of ["irrf", "csll", "cp", "pis", "cofins"]) {
       const v = percentualDigitado(d["r_" + k]);
@@ -343,7 +484,7 @@ export function editarServico(s) {
           ...(s?.tributacao?.federais ?? {}),
           pis_cofins: {
             cst: d.cst.trim() || "00",
-            tipo_retencao: Number(d.tp_ret),
+            tipo_retencao: tipoRetencao(form),
             ...aliquotasProprias(d),
           },
         },

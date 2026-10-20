@@ -624,3 +624,10 @@ kbd {
 .resumo-valores .destaque { border-color: var(--verde); background: var(--verde-claro); }
 .resumo-valores .destaque strong { color: var(--verde); }
 .resumo-nota { margin: var(--espaco-2) 0 0; }
+
+/* Cadastro do serviço: modelo do regime no topo e o que depende dele recolhido em "Opções avançadas". */
+.modelo-servico { padding: var(--espaco-3) var(--espaco-4); background: var(--caneta-claro); border-radius: var(--raio-fino); align-items: center; }
+.avancadas { border: 1px dashed var(--fio-forte); border-radius: var(--raio-fino); padding: var(--espaco-3) var(--espaco-4); min-width: 0; }
+.avancadas > summary { cursor: pointer; font-weight: 600; }
+.avancadas > summary .ajuda { font-weight: 400; margin-left: var(--espaco-2); }
+.avancadas > .blocos { margin-top: var(--espaco-3); }

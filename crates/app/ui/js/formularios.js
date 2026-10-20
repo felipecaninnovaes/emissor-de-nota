@@ -166,6 +166,9 @@ function erroDoCampo(el) {
 }
 
 function marcarErro(el, mensagem) {
+  // campo dentro de um bloco recolhido (<details>): abre para o erro aparecer
+  const recolhido = el.closest("details:not([open])");
+  if (recolhido) recolhido.open = true;
   const celula = el.closest(".grade > *") ?? el.parentElement;
   let p = $(".erro-campo", celula);
   if (!p) {
@@ -197,9 +200,16 @@ export function limparErros(raiz) {
 }
 
 /** Valida os campos visíveis de `raiz`; devolve [{ el, msg }] na ordem da tela. */
+/** Visível, ou só escondido por um <details> fechado (que conta: o erro abre o bloco). */
+function emUso(el) {
+  if (el.getClientRects().length) return true;
+  const recolhido = el.closest("details:not([open])");
+  return !!recolhido && recolhido.getClientRects().length > 0 && !el.closest("[hidden]");
+}
+
 export function validarCampos(raiz) {
   return $$("input, select, textarea", raiz)
-    .filter((el) => !el.disabled && el.type !== "hidden" && el.type !== "checkbox" && el.getClientRects().length)
+    .filter((el) => !el.disabled && el.type !== "hidden" && el.type !== "checkbox" && emUso(el))
     .map((el) => {
       aplicarMascara(el);
       return { el, msg: erroDoCampo(el) };
