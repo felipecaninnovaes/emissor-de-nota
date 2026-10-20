@@ -28,6 +28,8 @@ cargo clippy --workspace --all-targets -- -D warnings
 
 O CI (`.github/workflows/ci.yml`) roda esses três no Windows e, no Ubuntu, `cargo test -p nfse-xml -- --include-ignored` (validação contra o XSD oficial com `xmllint` e assinatura contra `xmlsec1`).
 
+Antes de uma release, ou ao adicionar dependência, confira as licenças com `cargo deny check licenses` (precisa do `cargo install cargo-deny`). O `deny.toml` da raiz só permite licenças compatíveis com a AGPL-3.0 ([ADR 0016](decisoes/0016-licenca-agpl.md)); uma dependência com outra licença faz o comando falhar. O CI roda a mesma checagem no job `licencas`.
+
 O `target/` de desenvolvimento já chegou a 30 GB. O `Cargo.toml` raiz reduz o debug info (`debug = "line-tables-only"` no perfil `dev`); `cargo clean` periodicamente ajuda.
 
 ## Testes

@@ -24,7 +24,10 @@ import { carregarAparencia } from "./js/preferencias.js";
 import "./js/atualizacao.js";
 
 invoke("versao_app")
-  .then((v) => ($("#versao-app").textContent = v))
+  .then((v) => {
+    $("#versao-app").textContent = v;
+    $("#codigo-fonte-versao").textContent = `https://github.com/felipecaninnovaes/emissor-de-nota/tree/v${v}`;
+  })
   .catch(() => {});
 
 carregarAparencia();

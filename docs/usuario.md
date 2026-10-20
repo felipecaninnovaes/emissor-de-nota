@@ -72,6 +72,7 @@ Aceita XLSX, XLS, ODS e CSV, uma nota por linha; escolha o arquivo em **Escolher
 - **E-mail das notas**: servidor SMTP do escritório; **Enviar teste**. Pode enviar sozinho depois de cada emissão. Segurança "Nenhuma" (sem cifra) só serve para servidor da rede local sem login: com usuário preenchido é recusada, porque a senha iria aberta pela rede.
 - **Certificados vencendo** (60 dias) e **Envios sem resposta da Sefin**.
 - **Atualizações**: **Procurar atualizações** e **Atualizar agora**.
+- **Código-fonte**: endereço do código da versão instalada (licença AGPL-3.0).
 
 ## Atalhos
 
