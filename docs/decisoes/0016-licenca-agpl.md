@@ -2,7 +2,7 @@
 
 Estado: aceita (20/10/2026).
 
-**Contexto.** O repositório era MIT. O projeto é um produto de nicho (emissor de NFS-e) com risco real de apropriação: uma softhouse poderia empacotar o núcleo fiscal em produto fechado, ou alguém poderia hospedá-lo como serviço sem devolver nada. O autor quer manter o repositório público e viver de serviços, binário oficial e módulos pagos.
+**Contexto.** O repositório era MIT. O projeto é um produto de nicho (emissor de NFS-e) com risco real de apropriação: uma softhouse poderia empacotar o núcleo fiscal em produto fechado, ou alguém poderia hospedá-lo como serviço sem devolver nada. O autor quer manter o repositório público.
 
 **Decisão.** A partir desta mudança o código novo é `AGPL-3.0-only` (`LICENSE`, `license` em `Cargo.toml`, `copyright` em `tauri.conf.json`). Quem não quiser cumprir a AGPL pode pedir uma licença comercial ao titular dos direitos. Contribuições externas exigem a cessão de direitos descrita em [CONTRIBUTING.md](../../CONTRIBUTING.md), para o licenciamento duplo continuar possível.
 
