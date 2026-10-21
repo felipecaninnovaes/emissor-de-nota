@@ -416,6 +416,30 @@ fn pis_cofins_proprios_viram_base_e_valores() {
     assert_eq!((pc.base_calculo, pc.valor_pis, pc.valor_cofins), (None, None, None));
 }
 
+/// Nota do Portal Nacional (700,00): tipo 3 no cadastro, sem percentual de retenção; vRetCSLL = CSLL 7,00 + PIS 4,55 + COFINS 21,00.
+#[test]
+fn tipo_3_do_cadastro_soma_pis_cofins_em_vretcsll() {
+    let p = |v: &str| Some(Percentual::parse(v).unwrap());
+    let mut t = Tributacao::default();
+    t.federais.retencao_csll = Some(Valor::parse("7").unwrap());
+    t.federais.pis_cofins = Some(nfse_core::modelo::PisCofins {
+        cst: "01".into(),
+        base_calculo: None,
+        aliquota_pis: p("0.65"),
+        aliquota_cofins: p("3"),
+        valor_pis: None,
+        valor_cofins: None,
+        tipo_retencao: Some(3),
+    });
+    let f = federais_da_nota(&t, Valor::parse("700").unwrap());
+    assert_eq!(f.retencao_csll.unwrap().to_string(), "32.55");
+    let pc = f.pis_cofins.unwrap();
+    assert_eq!(
+        (pc.valor_pis.unwrap().to_string(), pc.valor_cofins.unwrap().to_string()),
+        ("4.55".into(), "21.00".into())
+    );
+}
+
 /// Nota real de 17/10/2026: 7.000,00 com IR 1,5%, PIS 0,65%, COFINS 3% e CSLL 1% deve dar líquido 6.569,50.
 #[test]
 fn retencoes_somam_no_valor_liquido() {

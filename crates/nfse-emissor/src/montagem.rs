@@ -223,6 +223,23 @@ pub fn federais_da_nota(t: &nfse_db::servicos::Tributacao, valor: Valor) -> nfse
         pc.base_calculo = Some(valor);
         pc.valor_pis = pc.aliquota_pis.map(|p| valor.aplicar_truncado(p));
         pc.valor_cofins = pc.aliquota_cofins.map(|p| valor.aplicar_truncado(p));
+        // Retidos pelo tipo do cadastro (sem percentual de retenção): como no Portal Nacional, vPis e
+        // vCofins seguem na DPS e também entram na soma de vRetCSLL.
+        let (pis_retido, cofins_retida) = match pc.tipo_retencao {
+            Some(1 | 3 | 4) => (true, true),
+            Some(5 | 9) => (true, false),
+            Some(6 | 7) => (false, true),
+            _ => (false, false),
+        };
+        let retidos = [(pis_retido, pc.valor_pis), (cofins_retida, pc.valor_cofins)]
+            .into_iter()
+            .filter_map(|(retido, v)| v.filter(|_| retido))
+            .map(|v| v.centesimos())
+            .sum::<i64>();
+        if retidos > 0 {
+            let csll = f.retencao_csll.map_or(0, |v| v.centesimos());
+            f.retencao_csll = Some(Valor::de_centesimos(csll + retidos));
+        }
     }
     // Com retenção percentual no serviço, o tipo sai dela (e não do que ficou no cadastro).
     if (r.pis.is_some() || r.cofins.is_some() || r.csll.is_some())
