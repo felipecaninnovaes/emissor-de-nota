@@ -3,7 +3,7 @@
 //! O XML sai sem espaços entre elementos e sem a assinatura; assinar depois com
 //! [`crate::assinar`] usando o Id devolvido.
 
-use nfse_core::modelo::{Documento, EnderecoNacional, IdentificacaoObra, LeiauteDps, TotalTributos};
+use nfse_core::modelo::{Documento, EnderecoNacional, IdentificacaoObra, LeiauteDps, SituacaoSimples, TotalTributos};
 use nfse_core::{Dps, DpsId};
 
 pub const NS_NFSE: &str = "http://www.sped.fazenda.gov.br/nfse";
@@ -196,7 +196,11 @@ pub fn gerar_dps(dps: &Dps) -> Result<(String, DpsId), DpsInvalida> {
     x.abrir("tribMun");
     x.campo("tribISSQN", v.issqn.tributacao.codigo());
     x.campo("tpRetISSQN", v.issqn.retencao.codigo());
-    x.opcional("pAliq", v.issqn.aliquota.map(|a| a.to_string()));
+    // E0617: a Sefin calcula a alíquota pelo parâmetro do município quando o prestador não é
+    // optante do Simples; informar `pAliq` nesse caso rejeita a DPS.
+    if dps.prestador.regime.simples != SituacaoSimples::NaoOptante {
+        x.opcional("pAliq", v.issqn.aliquota.map(|a| a.to_string()));
+    }
     x.fechar("tribMun");
     if !v.federais.vazio() {
         let f = &v.federais;
