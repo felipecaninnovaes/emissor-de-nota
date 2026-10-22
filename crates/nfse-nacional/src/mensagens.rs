@@ -39,7 +39,13 @@ pub fn orientacao(codigo: &str) -> Option<&'static str> {
              (validade, AC, uso Client Authentication) e confira se é o e-CNPJ da própria empresa."
         }
         "E1228" => "Assinatura com prefixo de namespace (ds:). Erro do emissor: informe o suporte.",
-        "E1235" | "E2400" => "Identificador da DPS mal formado. Erro do emissor: informe o suporte.",
+        "E0617" => {
+            "A alíquota do ISS não pode ir na DPS de prestador não optante do Simples Nacional: a Sefin              usa a do município. Se a nota foi emitida por versão anterior à 1.8.1, atualize o emissor;              senão, informe o suporte."
+        }
+        "E1235" => {
+            "A Sefin recusou a estrutura do XML da DPS (o texto mostra o elemento fora de lugar).              Costuma ser o leiaute da DPS: em Configurações → Leiaute da DPS, troque entre NT 009 e NT 004              para o ambiente da nota e emita de novo; se persistir, informe o suporte."
+        }
+        "E2400" => "Identificador da DPS mal formado. Erro do emissor: informe o suporte.",
         "E2404" => "Não há NFS-e gerada para esta DPS.",
         _ => return None,
     })
@@ -53,5 +59,7 @@ mod testes {
     fn codigos_conhecidos() {
         assert!(orientacao("E0120").unwrap().contains("inscrição municipal"));
         assert!(orientacao("E9999").is_none());
+        assert!(orientacao("E0617").unwrap().contains("não optante"));
+        assert!(orientacao("E1235").unwrap().contains("Leiaute da DPS"));
     }
 }
