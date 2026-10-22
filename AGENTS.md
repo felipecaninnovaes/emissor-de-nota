@@ -27,9 +27,9 @@ O CI roda fmt, clippy e testes no Windows. No Linux, `nfse-nacional::testes::ide
 - **Emissão:** a DPS é validada antes de reservar número; a DPS é gravada como `enviando` antes do envio; em resposta incerta, consultar a Sefin antes de reenviar. Não quebre essas garantias ([docs/fiscal.md](docs/fiscal.md)).
 - **Decisões já tomadas** que não devem ser revertidas sem conversa: [docs/decisoes/](docs/decisoes/) (por exemplo, `synchronous = FULL`, assinatura da Sefin só como aviso, interface sem bundler).
 - **Interface:** argumentos de primeiro nível do `invoke` em camelCase; sem estilo em linha; erros de validação junto do campo.
-- **Versão e release:** a tag `vX.Y.Z` precisa bater com `version` em `crates/app/Cargo.toml` (e o `Cargo.lock`); ver [docs/deploy.md](docs/deploy.md).
+- **Versão e release:** a tag `vX.Y.Z` precisa bater com `version` em `crates/app/Cargo.toml` (e o `Cargo.lock`); ver [docs/deploy.md](docs/deploy.md). Só faça o bump e a tag quando pedido, e então: (1) suba a `version` e atualize o `Cargo.lock`; (2) escreva no topo do [CHANGELOG.md](CHANGELOG.md) a seção `## X.Y.Z` com as alterações desde a tag anterior (`git log vANTERIOR..HEAD`), no formato das seções existentes, e acrescente a data na frase de abertura; (3) commit `Versão X.Y.Z`; (4) tag anotada com a descrição das alterações (`git tag -a vX.Y.Z -F <arquivo>`, título `Versão X.Y.Z` e, abaixo, o texto da seção do changelog). Envie a tag só com confirmação.
 - **Idioma:** código, comentários e mensagens em português do Brasil, no estilo do código vizinho.
-- Antes de commitar: `cargo fmt --all`, clippy sem avisos e os testes dos crates alterados.
+- **Commits:** toda alteração concluída vira commit logo em seguida, um commit por alteração, com mensagem em português descrevendo o que mudou; não acumule mudanças sem commit. Antes de commitar: `cargo fmt --all`, clippy sem avisos e os testes dos crates alterados.
 
 ## Armadilhas
 

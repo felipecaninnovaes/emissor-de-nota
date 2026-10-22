@@ -21,11 +21,15 @@ Os pacotes saem em `target/release/bundle/` (com `--target`, em `target/<alvo>/r
 ## Publicar uma versão
 
 1. Suba `version` em `crates/app/Cargo.toml` e atualize o `Cargo.lock` (um `cargo build` ou `cargo check` faz isso).
-2. Commit.
-3. Crie e envie a tag:
+2. Acrescente no topo do [CHANGELOG.md](../CHANGELOG.md) a seção `## X.Y.Z` com as alterações desde a tag anterior (`git log vANTERIOR..HEAD`) e a data na frase de abertura.
+3. Commit `Versão X.Y.Z`.
+4. Crie a tag anotada com a descrição das alterações (título `Versão X.Y.Z` e, abaixo, o texto da seção do changelog, num arquivo temporário fora do repositório) e envie:
 
 ```bash
-git tag vX.Y.Z
+git tag -a vX.Y.Z -F notas-da-versao.txt
+```
+
+```bash
 git push origin vX.Y.Z
 ```
 
