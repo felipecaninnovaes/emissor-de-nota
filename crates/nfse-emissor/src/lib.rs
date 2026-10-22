@@ -15,11 +15,13 @@ pub mod planilha_servicos;
 
 mod cancelamento;
 mod copia;
+mod diagnostico;
 mod envio_email;
 mod montagem;
 mod reconciliacao;
 
 pub use copia::Refazer;
+pub use diagnostico::mascarar_xml;
 pub use montagem::{
     VARIAVEIS_DESCRICAO, agora_brasilia, aplicar_mes_ref, federais_da_nota, montar_dps, texto_variaveis_desconhecidas,
     tributacao_da_nota, variaveis_desconhecidas,

@@ -547,6 +547,17 @@ async fn rejeicao_traz_orientacao_e_nao_bloqueia() {
         "{resposta}"
     );
 
+    let texto = c.emissor.diagnostico_nota(dps_id).await.unwrap();
+    assert!(
+        texto.contains("Situação: rejeitada") && texto.contains("Leiaute da DPS: nt"),
+        "{texto}"
+    );
+    assert!(texto.contains("--- Resposta da Sefin ---") && texto.contains("E0120"));
+    assert!(
+        texto.contains("<infDPS") && texto.contains("<CNPJ>***</CNPJ>"),
+        "{texto}"
+    );
+
     // Refazer traz os dados de volta para o formulário, com o mês já aplicado na descrição.
     let r = c.emissor.dados_para_refazer(dps_id).await.unwrap();
     assert_eq!(r.empresa_id, c.pedido.empresa_id);
