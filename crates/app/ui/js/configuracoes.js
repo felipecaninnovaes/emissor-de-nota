@@ -1,6 +1,6 @@
 // Configurações: pasta de saída, backup, e-mail e DPS pendentes.
 
-import { $, chamar, esc, estado, invoke, mesPadrao, toast, vazio } from "./util.js";
+import { $, chamar, copiarTexto, esc, estado, invoke, mesPadrao, toast, vazio } from "./util.js";
 import { confirmar, lerForm, limparErro, limparErros, mostrarErros, preencherForm, validarCampos } from "./formularios.js";
 import { aparencia } from "./preferencias.js";
 
@@ -11,6 +11,7 @@ export async function carregarConfiguracoes() {
   $("#pasta-saida").value = await invoke("obter_pasta");
   await carregarBackup();
   await carregarLeiautes();
+  await carregarDiagnostico();
   await carregarEmail();
   const venc = await invoke("certificados_vencendo", { dias: 60 });
   $("#lista-vencimentos").innerHTML = venc.length
@@ -177,6 +178,46 @@ for (const campo of document.querySelectorAll("[data-leiaute]")) {
     }
   });
 }
+
+// Diagnóstico e log.
+let textoDiagnostico = "";
+
+async function carregarDiagnostico() {
+  const d = await invoke("obter_diagnostico");
+  textoDiagnostico = d.texto;
+  $("#texto-diagnostico").value = d.texto;
+  $("#log-detalhado").checked = d.detalhado;
+}
+
+$("#atualizar-diagnostico").addEventListener("click", () => carregarDiagnostico().catch((e) => toast(String(e), true)));
+
+$("#copiar-diagnostico").addEventListener("click", async () => {
+  try {
+    await carregarDiagnostico();
+    await copiarTexto(textoDiagnostico);
+    toast("Diagnóstico copiado.");
+  } catch (e) {
+    toast(String(e), true);
+  }
+});
+
+$("#abrir-logs").addEventListener("click", async () => {
+  try {
+    await chamar("abrir_pasta_logs");
+  } catch (e) {
+    toast(String(e), true);
+  }
+});
+
+$("#log-detalhado").addEventListener("change", async (ev) => {
+  try {
+    await chamar("definir_log_detalhado", { ligado: ev.target.checked });
+    toast(ev.target.checked ? "Log detalhado ligado." : "Log detalhado desligado.");
+  } catch (e) {
+    toast(String(e), true);
+    ev.target.checked = !ev.target.checked;
+  }
+});
 
 async function carregarBackup() {
   const b = await invoke("obter_backup");

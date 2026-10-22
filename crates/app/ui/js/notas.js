@@ -1,6 +1,6 @@
 // Notas emitidas: lista, e-mail, cancelamento, refazer e copiar.
 
-import { $, NOME_SITUACAO, chamar, esc, estado, invoke, moeda, somarValores, toast, vazio } from "./util.js";
+import { $, NOME_SITUACAO, chamar, copiarTexto, esc, estado, invoke, moeda, somarValores, toast, vazio } from "./util.js";
 import { acoesLinha, detalheLinha, linhaVazia } from "./tabela.js";
 import { ErroCampo, abrirDialogo } from "./formularios.js";
 import { irPara } from "./navegacao.js";
@@ -27,6 +27,9 @@ export async function carregarNotas() {
       const acoes = [];
       if (n.situacao === "rejeitada") acoes.push({ acao: "refazer", texto: "Corrigir e emitir" });
       if (n.situacao === "incerta" || n.situacao === "enviando") acoes.push({ acao: "verificar", texto: "Verificar" });
+      if (["rejeitada", "incerta", "enviando"].includes(n.situacao)) {
+        acoes.push({ acao: "diagnostico", texto: "Diagnóstico" });
+      }
       if (n.nfse_id) {
         acoes.push({ acao: "pdf", texto: "PDF" }, { acao: "pasta", texto: "Pasta" });
         if (n.situacao === "autorizada" || n.situacao === "cancelada") {
@@ -137,6 +140,14 @@ $("#lista-notas").addEventListener("click", async (ev) => {
       return refazerNota(n);
     case "copiar":
       return copiarNota(n);
+    case "diagnostico":
+      try {
+        await copiarTexto(await chamar("diagnostico_nota", { dpsId: n.dps_id }));
+        toast("Diagnóstico copiado (dados pessoais omitidos).");
+      } catch (e) {
+        toast(String(e), true);
+      }
+      return;
     case "conferir":
       try {
         const cancelada = await chamar("sincronizar_cancelamento", { nfseId: n.nfse_id });

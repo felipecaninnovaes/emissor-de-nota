@@ -54,7 +54,7 @@ Descrição da nota: `aplicar_mes_ref` troca as variáveis (lista em [usuario.md
 
 ## Banco de dados
 
-Um SQLite (SQLCipher) por máquina (`emissor.db` em `app_data_dir()`), em modo WAL com `synchronous = FULL` ([ADR 0008](decisoes/0008-synchronous-full.md)). Migrações em `crates/nfse-db/migrations/` (numeradas a partir de `0001`), executadas pelo `sqlx::migrate!`. A recriação de tabela que exige desligar chaves estrangeiras roda como ajuste logo após as migrações (`crates/nfse-db/ajustes/`). Como num banco novo esse ajuste recria `dps` depois de todas as migrações, mudança na tabela `dps` vai em `ajustes.rs` (idempotente, depois da recriação), não numa migração: é o caso de `dps.enviado_em` e do índice `dps_empresa_id`. As migrações têm de ficar em CRLF (`.gitattributes`); ver [desenvolvimento.md](desenvolvimento.md#migrações-do-banco).
+Um SQLite (SQLCipher) por máquina (`emissor.db` em `app_data_dir()`), em modo WAL com `synchronous = FULL` ([ADR 0008](decisoes/0008-synchronous-full.md)). Migrações em `crates/nfse-db/migrations/` (numeradas a partir de `0001`), executadas pelo `sqlx::migrate!`. A recriação de tabela que exige desligar chaves estrangeiras roda como ajuste logo após as migrações (`crates/nfse-db/ajustes/`). Como num banco novo esse ajuste recria `dps` depois de todas as migrações, mudança na tabela `dps` vai em `ajustes.rs` (idempotente, depois da recriação), não numa migração: é o caso de `dps.enviado_em`, `dps.resposta_sefin` e do índice `dps_empresa_id`. As migrações têm de ficar em CRLF (`.gitattributes`); ver [desenvolvimento.md](desenvolvimento.md#migrações-do-banco).
 
 | Tabela | Conteúdo |
 | --- | --- |

@@ -122,6 +122,12 @@ Emitir ou cancelar em Produção exige `--ambiente producao --confirmo-producao`
 cargo run -p nfse-poc -- cancelar --pfx caminho/empresa.pfx --chave <chave de 50 posições> --motivo erro-na-emissao --justificativa "Valor informado errado" --ambiente producao --confirmo-producao
 ```
 
+## Log e diagnóstico
+
+O app usa `tracing`: `crates/app/src/registro.rs` grava `<dados>/logs/emissor.AAAA-MM-DD.log` (rotação diária, 14 arquivos, horário UTC) e registra pânicos. Os crates `nfse-emissor` e `nfse-nacional` emitem os eventos (`info!` no ciclo da emissão, `warn!` nas rejeições e falhas de rede, `debug!` no envio e na resposta); o filtro só abre o nível dos crates do emissor, e as bibliotecas ficam em aviso. O modo detalhado (`debug`) é um arquivo-marca `log-detalhado` na pasta de dados, porque o log sobe antes de o banco abrir. **Nunca** logar senha, chave privada, XML completo ou dados pessoais: use ids (`dps`, `chave`) e códigos.
+
+A coluna `dps.resposta_sefin` guarda o corpo da última resposta de erro da Sefin (até 20 mil caracteres, limpa a cada novo envio); o XML enviado já fica em `dps.xml_assinado`. `Emissor::diagnostico_nota` junta tudo num texto com os dados pessoais mascarados (`mascarar_xml` em `crates/nfse-emissor/src/diagnostico.rs`; ao incluir um elemento novo com dado pessoal na DPS, acrescente-o em `ELEMENTOS_MASCARADOS`). Os códigos de rejeição conhecidos e a orientação ao operador ficam em `crates/nfse-nacional/src/mensagens.rs`.
+
 ## Segurança do repositório
 
 O repositório é público. **Nunca** versionar certificados reais, senhas, bancos, XMLs ou PDFs de clientes. O `.gitignore` bloqueia `*.pfx`, `*.p12`, `*.pem`, `*.key`, `*.db`, `/certs/`, `.env`, entre outros; as únicas exceções são os certificados autoassinados de teste em `tests/fixtures/`.

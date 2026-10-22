@@ -413,6 +413,21 @@
           </div>
         </div>
         <div class="cartao">
+          <h2>Diagnóstico</h2>
+          <p class="ajuda">Informações para suporte: versão, sistema, leiautes e as últimas linhas do log. O log fica em arquivos
+            diários (os 14 mais recentes) e registra o ciclo da emissão e as respostas da Sefin, sem senhas nem o XML completo.
+            Para uma nota rejeitada, use <strong>Diagnóstico</strong> na lista de notas: copia o erro, a resposta da Sefin e a DPS
+            enviada com documentos, nomes, endereço e descrição omitidos.</p>
+          <div class="com-botao linha-campo">
+            <button class="botao" id="copiar-diagnostico">Copiar diagnóstico</button>
+            <button class="botao" id="abrir-logs">Abrir pasta de logs</button>
+            <button class="botao" id="atualizar-diagnostico">Atualizar</button>
+          </div>
+          <label class="linha-check"><input type="checkbox" id="log-detalhado"> Log detalhado (mais eventos internos; use só para
+            investigar um problema)</label>
+          <textarea id="texto-diagnostico" class="dado" rows="10" readonly aria-label="Diagnóstico"></textarea>
+        </div>
+        <div class="cartao">
           <h2>Backup do banco</h2>
           <p class="ajuda">Cópia cifrada com a senha mestra do banco inteiro (cadastros, numeração e os XMLs das notas).
             Use uma pasta fora desta máquina (unidade externa ou pasta sincronizada com a nuvem). O sistema faz um backup

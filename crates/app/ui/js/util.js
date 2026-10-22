@@ -58,6 +58,24 @@ export async function chamar(comando, args) {
   }
 }
 
+/** Copia para a área de transferência; sem a API moderna, usa um campo temporário. */
+export async function copiarTexto(texto) {
+  try {
+    await navigator.clipboard.writeText(texto);
+    return;
+  } catch {
+    const campo = document.createElement("textarea");
+    campo.value = texto;
+    campo.setAttribute("readonly", "");
+    campo.className = "sr";
+    document.body.append(campo);
+    campo.select();
+    const ok = document.execCommand("copy");
+    campo.remove();
+    if (!ok) throw new Error("não foi possível copiar; selecione o texto e copie à mão");
+  }
+}
+
 export function mostrarErro(el, erro) {
   el.textContent = String(erro);
   el.hidden = false;
