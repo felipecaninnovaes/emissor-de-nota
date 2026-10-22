@@ -1,6 +1,8 @@
 # Changelog
 
-Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0, a 1.2.0, a 1.3.0 e a 1.4.0, em 18/10/2026, a 1.5.0 e a 1.6.0, em 19/10/2026, a 1.7.0 e a 1.7.1, em 20/10/2026, e a 1.8.0 e a 1.8.1, em 22/10/2026; a versão vem de `crates/app/Cargo.toml`.
+Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0, a 1.2.0, a 1.3.0 e a 1.4.0, em 18/10/2026, a 1.5.0 e a 1.6.0, em 19/10/2026, a 1.7.0 e a 1.7.1, em 20/10/2026, e a 1.8.0 e a 1.8.1, em 22/10/2026; a versão vem de `crates/app/Cargo.toml`. A seção **Não publicado** junta o que já está na `main` e ainda não saiu em versão.
+
+## Não publicado
 
 ## 1.8.1
 
