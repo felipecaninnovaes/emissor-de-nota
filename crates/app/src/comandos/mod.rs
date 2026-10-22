@@ -8,6 +8,7 @@ pub(crate) mod backup;
 pub(crate) mod cofre;
 mod comum;
 pub(crate) mod consultas;
+pub(crate) mod diagnostico;
 pub(crate) mod dialogo;
 pub(crate) mod email;
 pub(crate) mod emissao;

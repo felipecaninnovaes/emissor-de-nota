@@ -7,6 +7,7 @@ mod cep;
 mod cnpj;
 mod comandos;
 mod pasta_dados;
+mod registro;
 
 use std::path::PathBuf;
 
@@ -103,6 +104,7 @@ fn main() {
             let dados = pasta_dados::resolver(app.path().app_data_dir()?)?;
             dimensionar_primeira_abertura(app)?;
             std::fs::create_dir_all(&dados)?;
+            registro::iniciar(&dados);
             // Backup restaurado em Configurações: entra no lugar do banco antes de qualquer abertura.
             // Se falhar, nada muda e o aviso aparece ao abrir o cofre (`backup::concluir_restauracao`).
             let _ = comandos::backup::aplicar_restauracao_pendente(&dados);
@@ -122,6 +124,10 @@ fn main() {
             comandos::cofre::definir_pasta,
             comandos::cofre::obter_leiautes,
             comandos::cofre::definir_leiaute,
+            comandos::diagnostico::obter_diagnostico,
+            comandos::diagnostico::definir_log_detalhado,
+            comandos::diagnostico::abrir_pasta_logs,
+            comandos::diagnostico::diagnostico_nota,
             comandos::dialogo::escolher_pasta,
             comandos::dialogo::escolher_arquivo,
             comandos::dialogo::ler_arquivo_escolhido,
