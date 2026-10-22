@@ -20,6 +20,7 @@ nfse-xml = { version = "0.1.0", path = "../nfse-xml" }
 serde = { version = "1", features = ["derive"] }
 thiserror = "2.0.21"
 tokio = { version = "1.53.3", features = ["rt-multi-thread", "macros"] }
+tracing = "0.1"
 
 [dev-dependencies]
 nfse-db = { path = "../nfse-db", features = ["teste"] }

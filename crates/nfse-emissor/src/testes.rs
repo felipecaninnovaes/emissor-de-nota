@@ -131,7 +131,7 @@ fn rejeicao(codigo: &str) -> ErroSefin {
             descricao: Some("descrição da Sefin".into()),
             complemento: None,
         }],
-        corpo: String::new(),
+        corpo: format!(r#"{{"erros":[{{"Codigo":"{codigo}"}}]}}"#),
     }
 }
 
@@ -538,6 +538,14 @@ async fn rejeicao_traz_orientacao_e_nao_bloqueia() {
     let dps = c.emissor.banco().dps(dps_id).await.unwrap();
     assert_eq!(dps.situacao, SituacaoDps::Rejeitada);
     assert!(c.emissor.banco().dps_pendentes().await.unwrap().is_empty());
+
+    // O diagnóstico fica guardado: o XML enviado e o corpo da resposta da Sefin.
+    assert!(dps.xml_assinado.is_some_and(|x| x.contains("<infDPS")));
+    let resposta = c.emissor.banco().resposta_sefin(dps_id).await.unwrap().unwrap();
+    assert!(
+        resposta.starts_with("HTTP 400") && resposta.contains("E0120"),
+        "{resposta}"
+    );
 
     // Refazer traz os dados de volta para o formulário, com o mês já aplicado na descrição.
     let r = c.emissor.dados_para_refazer(dps_id).await.unwrap();

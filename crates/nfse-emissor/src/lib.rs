@@ -344,6 +344,12 @@ impl<C: Conector> Emissor<C> {
         modelo.versao_aplicativo = self.versao_aplicativo.clone();
         modelo.leiaute = self.banco.leiaute_dps(empresa.ambiente).await?;
         nfse_xml::gerar_dps(&modelo)?;
+        tracing::info!(
+            empresa = empresa.id,
+            ambiente = ?empresa.ambiente,
+            leiaute = modelo.leiaute.codigo(),
+            "emissão: DPS validada"
+        );
         let (cert, sefin) = self.conectar(&empresa, empresa.ambiente).await?;
 
         let reserva = self.banco.reservar_dps(empresa.id).await?;
@@ -365,6 +371,7 @@ impl<C: Conector> Emissor<C> {
         }
         modelo.serie = reserva.serie.clone();
         modelo.numero = reserva.numero;
+        tracing::info!(dps = reserva.id, serie = %reserva.serie, numero = reserva.numero, "emissão: número reservado");
         let preparo = async {
             let (xml, id) = nfse_xml::gerar_dps(&modelo)?;
             let assinado = assinar_em_thread(xml, id.as_str().to_owned(), cert.clone()).await?;
@@ -374,6 +381,7 @@ impl<C: Conector> Emissor<C> {
         let assinado = match preparo.await {
             Ok(assinado) => assinado,
             Err(e) => {
+                tracing::error!(dps = reserva.id, erro = %e, "emissão: falha ao preparar a DPS");
                 // Não chegou à Sefin: a reserva não pode ficar presa (bloquearia a recorrência ou a linha).
                 self.banco
                     .registrar_rejeicao(reserva.id, &format!("não enviada: {e}"))
@@ -382,9 +390,15 @@ impl<C: Conector> Emissor<C> {
             }
         };
 
-        match sefin.emitir(&assinado).await {
+        tracing::info!(dps = reserva.id, "emissão: enviando à Sefin");
+        let resultado = sefin.emitir(&assinado).await;
+        self.registrar_resposta(reserva.id, &resultado).await;
+        match resultado {
             Ok(nfse) => match self.gravar(reserva.id, &nfse.chave_acesso, &nfse.xml).await {
-                Ok((nfse, avisos)) => Ok(ResultadoEmissao::Autorizada { nfse, avisos }),
+                Ok((nfse, avisos)) => {
+                    tracing::info!(dps = reserva.id, chave = %nfse.chave, "emissão: autorizada");
+                    Ok(ResultadoEmissao::Autorizada { nfse, avisos })
+                }
                 // A nota existe na Sefin: fica incerta para a reconciliação buscá-la de novo.
                 Err(e) => {
                     let motivo = format!(
@@ -400,6 +414,7 @@ impl<C: Conector> Emissor<C> {
             },
             Err(ErroSefin::Rejeitada { erros, .. }) => {
                 let mensagem = mensagem_rejeicao(&erros);
+                tracing::warn!(dps = reserva.id, %mensagem, "emissão: rejeitada pela Sefin");
                 self.banco.registrar_rejeicao(reserva.id, &mensagem).await?;
                 Err(ErroEmissao::Rejeitada {
                     dps_id: Some(reserva.id),
@@ -409,6 +424,7 @@ impl<C: Conector> Emissor<C> {
             // Não chegou a ser processada: pode tentar de novo.
             Err(e @ (ErroSefin::SemConexao(_) | ErroSefin::LimiteRequisicoes | ErroSefin::Identidade(_))) => {
                 let motivo = e.to_string();
+                tracing::warn!(dps = reserva.id, %motivo, "emissão: não enviada");
                 self.banco
                     .registrar_rejeicao(reserva.id, &format!("não enviada: {motivo}"))
                     .await?;
@@ -417,6 +433,7 @@ impl<C: Conector> Emissor<C> {
             // Pode ter sido processada (timeout, 5xx, resposta ilegível): reconciliar antes de qualquer coisa.
             Err(e) => {
                 let motivo = e.to_string();
+                tracing::warn!(dps = reserva.id, %motivo, "emissão: resposta incerta, consultando a Sefin");
                 self.banco.registrar_incerta(reserva.id, &motivo).await?;
                 match self.reconciliar_com(&sefin, reserva.id).await {
                     Ok(Some(nfse)) => Ok(ResultadoEmissao::Autorizada { nfse, avisos: vec![] }),
@@ -429,6 +446,26 @@ impl<C: Conector> Emissor<C> {
                     }),
                 }
             }
+        }
+    }
+
+    /// Guarda o corpo da rejeição (ou o texto do erro) da Sefin para o diagnóstico da nota. Falhar aqui
+    /// não pode atrapalhar a emissão: só vai para o log.
+    async fn registrar_resposta(&self, dps_id: i64, resultado: &Result<nfse_nacional::NfseAutorizada, ErroSefin>) {
+        let texto = match resultado {
+            Ok(_) => return,
+            Err(ErroSefin::Rejeitada { status, corpo, .. }) => format!(
+                "HTTP {status}
+{corpo}"
+            ),
+            Err(ErroSefin::Http { status, corpo }) => format!(
+                "HTTP {status}
+{corpo}"
+            ),
+            Err(e) => e.to_string(),
+        };
+        if let Err(e) = self.banco.guardar_resposta_sefin(dps_id, &texto).await {
+            tracing::warn!(dps = dps_id, erro = %e, "não foi possível guardar a resposta da Sefin");
         }
     }
 

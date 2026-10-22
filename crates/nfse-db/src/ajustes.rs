@@ -9,7 +9,23 @@ use crate::{ErroBanco, Resultado};
 
 pub(crate) async fn aplicar(pool: &SqlitePool) -> Resultado<()> {
     dps_unica_por_ambiente(pool).await?;
-    dps_enviado_em(pool).await
+    dps_enviado_em(pool).await?;
+    dps_resposta_sefin(pool).await
+}
+
+/// Coluna `dps.resposta_sefin` (corpo da última resposta da Sefin, para diagnóstico). Fica aqui, e não
+/// numa migração, pelo mesmo motivo de [`dps_enviado_em`].
+async fn dps_resposta_sefin(pool: &SqlitePool) -> Resultado<()> {
+    let tem_coluna = sqlx::query("SELECT 1 FROM pragma_table_info('dps') WHERE name = 'resposta_sefin'")
+        .fetch_optional(pool)
+        .await?
+        .is_some();
+    if !tem_coluna {
+        sqlx::query("ALTER TABLE dps ADD COLUMN resposta_sefin TEXT")
+            .execute(pool)
+            .await?;
+    }
+    Ok(())
 }
 
 /// Coluna `dps.enviado_em` e o índice da migração 0005. Ficam aqui, e não numa migração, porque

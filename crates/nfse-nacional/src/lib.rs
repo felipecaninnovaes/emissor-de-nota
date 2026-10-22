@@ -181,13 +181,17 @@ impl ClienteSefin {
     /// Envia a DPS assinada. Síncrono: em caso de sucesso já devolve a NFS-e autorizada.
     pub async fn emitir(&self, dps_assinada: &str) -> Result<NfseAutorizada, ErroSefin> {
         let corpo = serde_json::json!({ "dpsXmlGZipB64": gzip_base64(dps_assinada) });
+        tracing::debug!(base = %self.base, bytes = dps_assinada.len(), "enviando a DPS à Sefin");
         let resposta = self
             .http
             .post(format!("{}/nfse", self.base))
             .json(&corpo)
             .send()
             .await
-            .map_err(classificar_envio)?;
+            .map_err(|e| {
+                tracing::warn!(erro = %e, "falha de rede ao enviar a DPS");
+                classificar_envio(e)
+            })?;
         let (status, texto) = ler(resposta).await?;
         if status.is_success() {
             nfse_da_resposta(&texto)
@@ -403,6 +407,7 @@ async fn ler(resposta: reqwest::Response) -> Result<(StatusCode, String), ErroSe
     let status = resposta.status();
     // Falha ao ler o corpo depois do status: a Sefin já processou, então é incerto.
     let texto = resposta.text().await.map_err(|e| ErroSefin::Incerto(e.to_string()))?;
+    tracing::debug!(status = status.as_u16(), bytes = texto.len(), "resposta da Sefin");
     Ok((status, texto))
 }
 

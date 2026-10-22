@@ -115,6 +115,9 @@ pub struct NfseGravada {
     pub xml_sha256: String,
 }
 
+/// Tamanho máximo, em caracteres, da resposta da Sefin guardada para diagnóstico.
+const LIMITE_RESPOSTA_SEFIN: usize = 20_000;
+
 const SELECT_DPS: &str = "SELECT id, empresa_id, ambiente, serie, numero, id_dps, situacao, xml_assinado, tentativas, ultimo_erro, enviado_em FROM dps";
 
 fn dps_de(r: &SqliteRow) -> Resultado<RegistroDps> {
@@ -288,6 +291,27 @@ impl Banco {
         dps_de(&linha)
     }
 
+    /// Guarda a resposta da Sefin à tentativa atual (limitada, só para diagnóstico).
+    pub async fn guardar_resposta_sefin(&self, dps_id: i64, resposta: &str) -> Resultado<()> {
+        let resposta: String = resposta.chars().take(LIMITE_RESPOSTA_SEFIN).collect();
+        sqlx::query("UPDATE dps SET resposta_sefin = ?1 WHERE id = ?2")
+            .bind(resposta)
+            .bind(dps_id)
+            .execute(self.pool())
+            .await?;
+        Ok(())
+    }
+
+    /// Resposta da Sefin guardada por [`Banco::guardar_resposta_sefin`], se houver.
+    pub async fn resposta_sefin(&self, dps_id: i64) -> Resultado<Option<String>> {
+        Ok(sqlx::query("SELECT resposta_sefin FROM dps WHERE id = ?")
+            .bind(dps_id)
+            .fetch_optional(self.pool())
+            .await?
+            .ok_or(ErroBanco::NaoEncontrado("DPS"))?
+            .get(0))
+    }
+
     /// Modelo da DPS como foi enviado (`None` se nunca chegou a ser enviada).
     pub async fn modelo_dps(&self, id: i64) -> Resultado<Option<Dps>> {
         let json: Option<String> = sqlx::query("SELECT modelo_json FROM dps WHERE id = ?")
@@ -356,7 +380,7 @@ impl Banco {
         }
         let afetadas = sqlx::query(
             "UPDATE dps SET situacao = 'enviando', modelo_json = ?1, xml_assinado = ?2, tentativas = tentativas + 1,
-                 atualizado_em = ?3, enviado_em = ?3
+                 atualizado_em = ?3, enviado_em = ?3, resposta_sefin = NULL
              WHERE id = ?4 AND situacao IN ('reservada', 'rejeitada')",
         )
         .bind(json(modelo))
@@ -592,6 +616,29 @@ mod testes {
             valor_servico: Valor::parse("1500").unwrap(),
             competencia: chrono::NaiveDate::from_ymd_opt(2026, 10, 16).unwrap(),
         }
+    }
+
+    #[tokio::test]
+    async fn guarda_a_resposta_da_sefin_ate_o_proximo_envio() {
+        let (banco, _, empresa) = banco_com_empresa().await;
+        let r = banco.reservar_dps(empresa.id).await.unwrap();
+        assert_eq!(banco.resposta_sefin(r.id).await.unwrap(), None);
+        banco.registrar_envio(r.id, &modelo_para(&r), "<DPS/>").await.unwrap();
+        banco
+            .guardar_resposta_sefin(r.id, r#"{"erros":[{"Codigo":"E0617"}]}"#)
+            .await
+            .unwrap();
+        banco.registrar_rejeicao(r.id, "E0617").await.unwrap();
+        assert!(banco.resposta_sefin(r.id).await.unwrap().unwrap().contains("E0617"));
+        // Nova tentativa começa sem a resposta da anterior.
+        banco.registrar_envio(r.id, &modelo_para(&r), "<DPS/>").await.unwrap();
+        assert_eq!(banco.resposta_sefin(r.id).await.unwrap(), None);
+        // Resposta enorme é cortada.
+        banco.guardar_resposta_sefin(r.id, &"x".repeat(50_000)).await.unwrap();
+        assert_eq!(
+            banco.resposta_sefin(r.id).await.unwrap().unwrap().len(),
+            LIMITE_RESPOSTA_SEFIN
+        );
     }
 
     #[tokio::test]
