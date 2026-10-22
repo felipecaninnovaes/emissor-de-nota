@@ -1,6 +1,39 @@
 # Changelog
 
-Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0, a 1.2.0, a 1.3.0 e a 1.4.0, em 18/10/2026, a 1.5.0 e a 1.6.0, em 19/10/2026, e a 1.7.0, em 20/10/2026; a versão vem de `crates/app/Cargo.toml`.
+Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0, a 1.2.0, a 1.3.0 e a 1.4.0, em 18/10/2026, a 1.5.0 e a 1.6.0, em 19/10/2026, a 1.7.0 e a 1.7.1, em 20/10/2026, e a 1.8.0 e a 1.8.1, em 22/10/2026; a versão vem de `crates/app/Cargo.toml`.
+
+## 1.8.1
+
+Correção da DPS para prestador que não é optante do Simples. Sem mudança de esquema do banco.
+
+- A DPS deixa de informar a alíquota do ISS (`pAliq`) quando o prestador não é optante do Simples Nacional: a Sefin calcula a alíquota pelo parâmetro do município ativo no Sistema Nacional e recusava a nota com E0617.
+
+## 1.8.0
+
+DPS no leiaute da NT 009, com escolha do leiaute por ambiente, e correção da soma das retenções federais. Sem mudança de esquema do banco.
+
+**Emissão**
+
+- A DPS sai no leiaute da **NT 009**, que a Produção Restrita passou a exigir (rejeição E1235): o `finNFSe` sai do grupo IBS/CBS e vai para `infDPS`, entre `tpEmit` e `cLocEmi`; o `cNBS` vem antes de `xDescServ`; CST e `cClassTrib` ficam direto em `IBSCBS/valores/trib`.
+- **Configurações → Leiaute da DPS** escolhe o leiaute por ambiente, porque a Produção pode receber a NT 009 depois da Produção Restrita. Padrão: NT 009 na Produção Restrita e NT 004 na Produção.
+- O PDF da nota lê os campos nos dois leiautes.
+- Embutido o XSD de Produção Restrita de 20/10/2026 (NT 009); o pacote anterior continua para validar o leiaute NT 004.
+
+**Retenções**
+
+- Quando o tipo de retenção do cadastro marca PIS e/ou COFINS como retidos (sem percentual de retenção no serviço), os valores entram também na soma de `vRetCSLL`, como na nota do Portal Nacional; `vPis` e `vCofins` continuam na DPS.
+
+**Geral**
+
+- O workflow do instalador deixa de rodar os testes (o CI da `main` já cobre) e aquece o cache das dependências em push na `main` que altere o `Cargo.lock`.
+
+## 1.7.1
+
+Busca de tomador e de CEP mais fácil. Sem mudança de esquema do banco.
+
+- A busca de tomadores ignora maiúsculas e acentos ("saude" acha "Saúde").
+- Botão **Não sei o CEP** ao lado do CEP do tomador, da obra na emissão e da obra da recorrência: pede UF, cidade e rua, consulta o ViaCEP e lista os CEPs; escolher um preenche o campo e completa o endereço. Só UF, cidade e rua saem da máquina nessa busca.
+- Depois de autorizar a nota, a tela limpa também o valor; se o serviço tem valor sugerido, ele volta preenchido.
 
 ## 1.7.0
 
