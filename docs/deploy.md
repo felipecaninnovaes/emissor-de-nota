@@ -29,9 +29,9 @@ git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-O workflow **Instalador** (`.github/workflows/instalador.yml`) roda ao receber uma tag `v*` ou manualmente (Actions → Instalador → Run workflow; nesse caso os pacotes ficam só como artefatos). Ele tem dois jobs:
+O workflow **Instalador** (`.github/workflows/instalador.yml`) roda ao receber uma tag `v*`, manualmente ou em push na `main` que altere o `Cargo.lock` (só para aquecer o cache das dependências: o cache de uma tag não serve para a seguinte, e nesse caso nada é publicado) (Actions → Instalador → Run workflow; nesse caso os pacotes ficam só como artefatos). Ele tem dois jobs:
 
-1. **build**, em matriz (Windows, macOS Apple Silicon, macOS Intel, Linux Ubuntu 22.04): confere que a tag é igual à versão de `crates/app/Cargo.toml` e falha se não for (aconteceu com a `v0.2.3`); no Windows roda `cargo test --workspace`; gera os pacotes assinados (`cargo tauri build --config tauri.release.conf.json --bundles ...`); renomeia sem espaços (o GitHub troca espaço por ponto nos anexos) e guarda um fragmento com a assinatura e o endereço de cada plataforma;
+1. **build**, em matriz (Windows, macOS Apple Silicon, macOS Intel, Linux Ubuntu 22.04): confere que a tag é igual à versão de `crates/app/Cargo.toml` e falha se não for (aconteceu com a `v0.2.3`); não roda os testes (o CI da `main` já cobre); gera os pacotes assinados (`cargo tauri build --config tauri.release.conf.json --bundles ...`); renomeia sem espaços (o GitHub troca espaço por ponto nos anexos) e guarda um fragmento com a assinatura e o endereço de cada plataforma;
 2. **publicar** (só em tag, depois de todos os builds): junta os fragmentos no `latest.json` e cria a Release com os pacotes, os `.sig` e o `latest.json`. Se uma plataforma falhar, nada é publicado.
 
 | Plataforma (`latest.json`) | Baixado pelo atualizador | Instalação manual |

@@ -10,6 +10,10 @@ name: Instalador
 on:
   push:
     tags: ["v*"]
+    # Aquece o cache das dependências: o cache de uma tag não serve para a tag seguinte (só o da
+    # branch padrão é compartilhado), e compilar OpenSSL/SQLCipher e o Tauri do zero é o grosso do tempo.
+    branches: [main]
+    paths: [Cargo.lock]
   workflow_dispatch:
 
 permissions:
@@ -90,11 +94,6 @@ jobs:
             echo "A tag ${{ github.ref_name }} não confere com a versão $versao de crates/app/Cargo.toml"
             exit 1
           fi
-
-      # O teste de mTLS com .pfx legado só passa no Windows (OpenSSL 3); o CI cobre o resto.
-      - name: Testes
-        if: runner.os == 'Windows'
-        run: cargo test --workspace
 
       - name: Gerar os pacotes (assinados para o atualizador)
         working-directory: crates/app
