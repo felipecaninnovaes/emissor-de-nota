@@ -342,6 +342,7 @@ impl<C: Conector> Emissor<C> {
             return Err(ErroEmissao::Regra(texto_variaveis_desconhecidas(&desconhecidas)));
         }
         modelo.versao_aplicativo = self.versao_aplicativo.clone();
+        modelo.leiaute = self.banco.leiaute_dps(empresa.ambiente).await?;
         nfse_xml::gerar_dps(&modelo)?;
         let (cert, sefin) = self.conectar(&empresa, empresa.ambiente).await?;
 

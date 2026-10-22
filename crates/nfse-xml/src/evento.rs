@@ -158,7 +158,7 @@ pub(crate) mod testes {
         let arquivo = std::env::temp_dir().join("nfse-pedido-cancelamento.xml");
         std::fs::write(&arquivo, assinado).unwrap();
         let xsd = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../xsd/v1.01-prodrest-20260727/pedRegEvento_v1.01.xsd");
+            .join("../../xsd/v1.01-prodrest-20261020/pedRegEvento_v1.01.xsd");
         let saida = std::process::Command::new("xmllint")
             .args(["--noout", "--schema"])
             .arg(xsd)

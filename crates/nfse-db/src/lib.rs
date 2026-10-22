@@ -23,6 +23,13 @@ use sqlx::{Row, SqlitePool};
 
 pub use cofre::{CabecalhoCofre, Cofre, ErroCofre};
 
+fn chave_leiaute(ambiente: nfse_core::modelo::Ambiente) -> &'static str {
+    match ambiente {
+        nfse_core::modelo::Ambiente::Producao => "leiaute_dps_producao",
+        nfse_core::modelo::Ambiente::Homologacao => "leiaute_dps_restrita",
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum ErroBanco {
     #[error("erro no banco de dados: {0}")]
@@ -111,6 +118,25 @@ impl Banco {
         Ok(())
     }
 
+    /// Leiaute da DPS escolhido para o ambiente; sem escolha, o padrão do ambiente.
+    pub async fn leiaute_dps(&self, ambiente: nfse_core::modelo::Ambiente) -> Resultado<nfse_core::modelo::LeiauteDps> {
+        use nfse_core::modelo::LeiauteDps;
+        Ok(self
+            .configuracao(chave_leiaute(ambiente))
+            .await?
+            .and_then(|c| LeiauteDps::do_codigo(&c))
+            .unwrap_or_else(|| LeiauteDps::padrao(ambiente)))
+    }
+
+    pub async fn definir_leiaute_dps(
+        &self,
+        ambiente: nfse_core::modelo::Ambiente,
+        leiaute: nfse_core::modelo::LeiauteDps,
+    ) -> Resultado<()> {
+        self.definir_configuracao(chave_leiaute(ambiente), leiaute.codigo())
+            .await
+    }
+
     /// Cofre com Argon2 leve para os testes dos crates que usam o banco em memória. Não grava
     /// o cabeçalho: quem precisa de arquivo usa [`Banco::criar_protegido_rapido`].
     #[cfg(any(test, feature = "teste"))]
@@ -169,6 +195,26 @@ mod testes {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[tokio::test]
+    async fn leiaute_da_dps_tem_padrao_por_ambiente_e_escolha_gravada() {
+        use nfse_core::modelo::{Ambiente, LeiauteDps};
+        let banco = Banco::em_memoria().await.unwrap();
+        assert_eq!(
+            banco.leiaute_dps(Ambiente::Homologacao).await.unwrap(),
+            LeiauteDps::Nt009
+        );
+        assert_eq!(banco.leiaute_dps(Ambiente::Producao).await.unwrap(), LeiauteDps::Nt004);
+        banco
+            .definir_leiaute_dps(Ambiente::Producao, LeiauteDps::Nt009)
+            .await
+            .unwrap();
+        assert_eq!(banco.leiaute_dps(Ambiente::Producao).await.unwrap(), LeiauteDps::Nt009);
+        assert_eq!(
+            banco.leiaute_dps(Ambiente::Homologacao).await.unwrap(),
+            LeiauteDps::Nt009
+        );
     }
 
     #[tokio::test]

@@ -35,6 +35,44 @@ impl Ambiente {
     }
 }
 
+/// Esquema XML da DPS. A Sefin troca o leiaute por ambiente em datas diferentes, então o
+/// emissor gera o que o ambiente de destino aceita (Configurações).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LeiauteDps {
+    /// NT 009: `finNFSe` em `infDPS`, `cNBS` antes de `xDescServ`, `CST` e `cClassTrib` em `IBSCBS/valores/trib`.
+    #[default]
+    Nt009,
+    /// NT 004 (com `tpRetPisCofins` da NT 007): o leiaute vigente em Produção até a NT 009 entrar.
+    Nt004,
+}
+
+impl LeiauteDps {
+    /// Valor gravado nas configurações.
+    pub fn codigo(self) -> &'static str {
+        match self {
+            LeiauteDps::Nt009 => "nt009",
+            LeiauteDps::Nt004 => "nt004",
+        }
+    }
+
+    pub fn do_codigo(codigo: &str) -> Option<Self> {
+        match codigo {
+            "nt009" => Some(LeiauteDps::Nt009),
+            "nt004" => Some(LeiauteDps::Nt004),
+            _ => None,
+        }
+    }
+
+    /// Padrão de cada ambiente: a Produção Restrita recebe as mudanças primeiro.
+    pub fn padrao(ambiente: Ambiente) -> Self {
+        match ambiente {
+            Ambiente::Homologacao => LeiauteDps::Nt009,
+            Ambiente::Producao => LeiauteDps::Nt004,
+        }
+    }
+}
+
 /// CNPJ ou CPF (grupo de escolha `CNPJ|CPF` do leiaute).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -427,6 +465,9 @@ pub struct Substituicao {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Dps {
     pub ambiente: Ambiente,
+    /// Esquema em que o XML é gerado; não vai no XML.
+    #[serde(default)]
+    pub leiaute: LeiauteDps,
     /// `dhEmi`, com fuso (Brasília: -03:00). Não pode estar no futuro em relação à Sefin.
     pub emissao: DateTime<FixedOffset>,
     /// `verAplic`

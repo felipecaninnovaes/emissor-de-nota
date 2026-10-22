@@ -10,6 +10,7 @@ export async function carregarConfiguracoes() {
   $("#cfg-mes-padrao").value = estado.mesPadrao;
   $("#pasta-saida").value = await invoke("obter_pasta");
   await carregarBackup();
+  await carregarLeiautes();
   await carregarEmail();
   const venc = await invoke("certificados_vencendo", { dias: 60 });
   $("#lista-vencimentos").innerHTML = venc.length
@@ -157,6 +158,25 @@ $("#salvar-pasta").addEventListener("click", async () => {
     toast(String(e), true);
   }
 });
+
+// Leiaute da DPS por ambiente: grava ao trocar o seletor.
+async function carregarLeiautes() {
+  const l = await invoke("obter_leiautes");
+  $("#leiaute-restrita").value = l.restrita;
+  $("#leiaute-producao").value = l.producao;
+}
+
+for (const campo of document.querySelectorAll("[data-leiaute]")) {
+  campo.addEventListener("change", async () => {
+    try {
+      await chamar("definir_leiaute", { ambiente: campo.dataset.leiaute, leiaute: campo.value });
+      toast("Leiaute salvo.");
+    } catch (e) {
+      toast(String(e), true);
+      carregarLeiautes();
+    }
+  });
+}
 
 async function carregarBackup() {
   const b = await invoke("obter_backup");

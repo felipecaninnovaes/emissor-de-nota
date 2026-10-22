@@ -120,6 +120,8 @@ fn main() {
             comandos::cofre::bloquear_cofre,
             comandos::cofre::obter_pasta,
             comandos::cofre::definir_pasta,
+            comandos::cofre::obter_leiautes,
+            comandos::cofre::definir_leiaute,
             comandos::dialogo::escolher_pasta,
             comandos::dialogo::escolher_arquivo,
             comandos::dialogo::ler_arquivo_escolhido,

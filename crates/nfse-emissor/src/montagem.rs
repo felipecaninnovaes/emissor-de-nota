@@ -2,7 +2,7 @@
 
 use chrono::{DateTime, Datelike, FixedOffset, NaiveDate, Utc};
 
-use nfse_core::modelo::{Documento, OperacaoGovernamental, Prestador, Servico as ServicoDps, Valores};
+use nfse_core::modelo::{Documento, LeiauteDps, OperacaoGovernamental, Prestador, Servico as ServicoDps, Valores};
 use nfse_core::{Dps, Valor};
 use nfse_db::empresas::Empresa;
 use nfse_db::servicos::Servico;
@@ -293,6 +293,7 @@ pub fn montar_dps(
     }
     Dps {
         ambiente: empresa.ambiente,
+        leiaute: LeiauteDps::padrao(empresa.ambiente),
         emissao,
         versao_aplicativo: VERSAO_APLICATIVO.into(),
         serie: empresa.serie.clone(),

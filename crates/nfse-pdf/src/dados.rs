@@ -595,8 +595,11 @@ pub fn ler(xml: &str) -> Result<Danfse, ErroDados> {
             .and_then(|v| txt(v, &["vCalcBM"]))
             .or_else(|| trib_mun.and_then(|t| txt(t, &["BM", "vRedBCBM"])));
         let deducoes = valores_nfse
-            .and_then(|v| txt(v, &["vCalcDR"]))
-            .or_else(|| valores_dps.and_then(|v| txt(v, &["vDedRed", "vDR"])));
+            .and_then(|v| txt(v, &["vCalcAjusteBCISSQN"]).or_else(|| txt(v, &["vCalcDR"])))
+            .or_else(|| {
+                valores_dps
+                    .and_then(|v| txt(v, &["vAjusteBC", "vAjusteBCISSQN"]).or_else(|| txt(v, &["vDedRed", "vDR"])))
+            });
         let desc_incond = desc.and_then(|d| txt(d, &["vDescIncond"]));
         Issqn {
             tipo: ou_traco(descricao(TRIB_ISSQN, trib_issqn)),
@@ -634,7 +637,8 @@ pub fn ler(xml: &str) -> Result<Danfse, ErroDados> {
         mostrar_pis_cofins: ano_competencia <= 2026,
     };
 
-    let g = ibscbs_dps.and_then(|i| em(i, &["valores", "trib", "gIBSCBS"]));
+    // NT 009 subiu CST e cClassTrib para `trib`; antes ficavam em `trib/gIBSCBS`.
+    let g = ibscbs_dps.and_then(|i| em(i, &["valores", "trib", "gIBSCBS"]).or_else(|| em(i, &["valores", "trib"])));
     let iv = ibscbs_nfse.and_then(|i| filho(i, "valores"));
     let tot = ibscbs_nfse.and_then(|i| filho(i, "totCIBS"));
     let par = |a: String, b: String| {
@@ -782,7 +786,11 @@ pub fn ler(xml: &str) -> Result<Danfse, ErroDados> {
         emitente: ou_traco(descricao(EMITENTE, txt(dps, &["tpEmit"]))),
         situacao: ou_traco(descricao(SITUACAO, txt(inf, &["cStat"])).map(|s| limitar(&s, 40))),
         finalidade: ou_traco(
-            descricao(FINALIDADE, ibscbs_dps.and_then(|i| txt(i, &["finNFSe"]))).map(|s| limitar(&s, 40)),
+            descricao(
+                FINALIDADE,
+                txt(dps, &["finNFSe"]).or_else(|| ibscbs_dps.and_then(|i| txt(i, &["finNFSe"]))),
+            )
+            .map(|s| limitar(&s, 40)),
         ),
         prestador: prestador(prest, emit, &municipios),
         simples_nacional: ou_traco(descricao(SIMPLES, txt(prest, &["regTrib", "opSimpNac"])).map(|s| limitar(&s, 40))),

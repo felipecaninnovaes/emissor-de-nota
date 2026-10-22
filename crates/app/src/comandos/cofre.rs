@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use serde::Serialize;
 use tauri::State;
 
+use nfse_core::modelo::{Ambiente, LeiauteDps};
 use nfse_db::Banco;
 use nfse_emissor::{ConectorSefin, Emissor};
 
@@ -113,6 +114,32 @@ pub async fn bloquear_cofre(estado: State<'_, Estado>) -> R<()> {
 #[tauri::command]
 pub async fn obter_pasta(estado: State<'_, Estado>) -> R<String> {
     Ok(pasta_configurada(&estado).await?.display().to_string())
+}
+
+#[derive(Serialize)]
+pub struct LeiautesDto {
+    producao: LeiauteDps,
+    restrita: LeiauteDps,
+}
+
+#[tauri::command]
+pub async fn obter_leiautes(estado: State<'_, Estado>) -> R<LeiautesDto> {
+    exigir_cofre(&estado).await?;
+    let banco = estado.banco()?;
+    Ok(LeiautesDto {
+        producao: banco.leiaute_dps(Ambiente::Producao).await.map_err(texto)?,
+        restrita: banco.leiaute_dps(Ambiente::Homologacao).await.map_err(texto)?,
+    })
+}
+
+#[tauri::command]
+pub async fn definir_leiaute(estado: State<'_, Estado>, ambiente: Ambiente, leiaute: LeiauteDps) -> R<()> {
+    exigir_cofre(&estado).await?;
+    estado
+        .banco()?
+        .definir_leiaute_dps(ambiente, leiaute)
+        .await
+        .map_err(texto)
 }
 
 #[tauri::command]

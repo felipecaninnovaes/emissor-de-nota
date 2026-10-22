@@ -34,7 +34,9 @@ Implementação própria em `crates/nfse-xml/src/assinatura.rs` e `c14n.rs`, con
 ## Leiaute e XSD
 
 - A ordem dos elementos segue o `xs:sequence` do XSD. A DPS usa o leiaute 1.01, gravado em cada DPS.
-- Validamos com o XSD de **Produção Restrita** (`xsd/v1.01-prodrest-20260727`): o de Produção tem o padrão da série escrito com `^...$`, que em XSD são literais, e recusa qualquer série ([xsd/README.md](../xsd/README.md), [ADR 0005](decisoes/0005-xsd-de-producao-restrita.md)).
+- **Leiaute da DPS por ambiente:** a Sefin aplica as Notas Técnicas em datas diferentes na Produção Restrita e na Produção, então Configurações → Leiaute da DPS escolhe, por ambiente, entre `NT 009` e `NT 004` (`LeiauteDps` em `nfse-core`; chaves `leiaute_dps_restrita` e `leiaute_dps_producao` em `configuracao`). Padrão: NT 009 na Produção Restrita e NT 004 na Produção. A escolha é lida a cada emissão e não muda DPS já gravadas. As duas versões gravam `versao="1.01"`.
+- **NT 009 × NT 004** (E1235 da Sefin quando o leiaute não é o do ambiente): `finNFSe` sai do grupo `IBSCBS` e fica em `infDPS`, entre `tpEmit` e `cLocEmi`; `cNBS` passa a vir antes de `xDescServ` em `cServ`; `CST` e `cClassTrib` do IBS/CBS sobem para `IBSCBS/valores/trib` (na NT 004 ficam em `gIBSCBS`). Os testes com `xmllint` validam cada leiaute no seu pacote (`v1.01-prodrest-20261020` e `v1.01-prodrest-20260727`).
+- Validamos com o XSD de **Produção Restrita** (`xsd/v1.01-prodrest-20261020`): o de Produção tem o padrão da série escrito com `^...$`, que em XSD são literais, e recusa qualquer série ([xsd/README.md](../xsd/README.md), [ADR 0005](decisoes/0005-xsd-de-producao-restrita.md)).
 - A validação roda em testes marcados `#[ignore]` que exigem `xmllint` e `xmlsec1` (rodam no CI).
 
 ## Id da DPS e numeração

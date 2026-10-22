@@ -393,6 +393,26 @@
           </div>
         </div>
         <div class="cartao">
+          <h2>Leiaute da DPS</h2>
+          <p class="ajuda">Versão do esquema XML enviado à Sefin. A Produção Restrita recebe as Notas Técnicas antes da
+            Produção: se a Sefin recusar a nota com <code>E1235</code> (falha no esquema XML), troque o leiaute do ambiente.
+            Vale para as próximas emissões; as DPS já gravadas não mudam.</p>
+          <div class="linha-campo">
+            <label for="leiaute-restrita">Produção Restrita</label>
+            <select id="leiaute-restrita" data-leiaute="homologacao">
+              <option value="nt009">NT 009 (mais recente)</option>
+              <option value="nt004">NT 004 (anterior)</option>
+            </select>
+          </div>
+          <div class="linha-campo">
+            <label for="leiaute-producao">Produção</label>
+            <select id="leiaute-producao" data-leiaute="producao">
+              <option value="nt009">NT 009 (mais recente)</option>
+              <option value="nt004">NT 004 (anterior)</option>
+            </select>
+          </div>
+        </div>
+        <div class="cartao">
           <h2>Backup do banco</h2>
           <p class="ajuda">Cópia cifrada com a senha mestra do banco inteiro (cadastros, numeração e os XMLs das notas).
             Use uma pasta fora desta máquina (unidade externa ou pasta sincronizada com a nuvem). O sistema faz um backup

@@ -137,13 +137,14 @@ pub(crate) async fn validar_pedido(
         Some(id) => Some(b.tomador(empresa.id, id).await.map_err(texto)?),
         None => None,
     };
-    let dps = nfse_emissor::montar_dps(
+    let mut dps = nfse_emissor::montar_dps(
         &empresa,
         tomador.as_ref(),
         &servico,
         pedido,
         nfse_emissor::agora_brasilia(),
     );
+    dps.leiaute = b.leiaute_dps(empresa.ambiente).await.map_err(texto)?;
     let mut erros = dps.validar();
     let desconhecidas = nfse_emissor::variaveis_desconhecidas(&dps.servico.descricao);
     if !desconhecidas.is_empty() {

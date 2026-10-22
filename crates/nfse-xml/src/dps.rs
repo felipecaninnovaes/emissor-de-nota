@@ -3,7 +3,7 @@
 //! O XML sai sem espaços entre elementos e sem a assinatura; assinar depois com
 //! [`crate::assinar`] usando o Id devolvido.
 
-use nfse_core::modelo::{Documento, EnderecoNacional, IdentificacaoObra, TotalTributos};
+use nfse_core::modelo::{Documento, EnderecoNacional, IdentificacaoObra, LeiauteDps, TotalTributos};
 use nfse_core::{Dps, DpsId};
 
 pub const NS_NFSE: &str = "http://www.sped.fazenda.gov.br/nfse";
@@ -83,6 +83,7 @@ pub fn gerar_dps(dps: &Dps) -> Result<(String, DpsId), DpsInvalida> {
     }
     let id = dps.id().map_err(|e| DpsInvalida(vec![e.to_string()]))?;
 
+    let nt009 = dps.leiaute == LeiauteDps::Nt009;
     let mut x = Xml(String::with_capacity(2048));
     x.0.push_str(r#"<?xml version="1.0" encoding="UTF-8"?>"#);
     x.0.push_str(&format!(
@@ -99,6 +100,10 @@ pub fn gerar_dps(dps: &Dps) -> Result<(String, DpsId), DpsInvalida> {
     x.campo("dCompet", dps.competencia.format("%Y-%m-%d").to_string());
     // Emitente: sempre o prestador nesta versão.
     x.campo("tpEmit", "1");
+    // NT 009: finNFSe saiu do grupo IBSCBS e fica aqui, antes de cLocEmi (0 = NFS-e regular).
+    if nt009 {
+        x.campo("finNFSe", "0");
+    }
     x.campo("cLocEmi", &dps.municipio_emissor);
 
     if let Some(s) = &dps.substituicao {
@@ -143,8 +148,13 @@ pub fn gerar_dps(dps: &Dps) -> Result<(String, DpsId), DpsInvalida> {
     x.abrir("cServ");
     x.campo("cTribNac", &s.codigo_tributacao_nacional);
     x.opcional("cTribMun", s.codigo_tributacao_municipal.as_ref());
-    x.campo("xDescServ", &s.descricao);
-    x.opcional("cNBS", s.nbs.as_ref());
+    if nt009 {
+        x.opcional("cNBS", s.nbs.as_ref());
+        x.campo("xDescServ", &s.descricao);
+    } else {
+        x.campo("xDescServ", &s.descricao);
+        x.opcional("cNBS", s.nbs.as_ref());
+    }
     x.fechar("cServ");
     if let Some(o) = &s.obra {
         x.abrir("obra");
@@ -240,7 +250,9 @@ pub fn gerar_dps(dps: &Dps) -> Result<(String, DpsId), DpsInvalida> {
 
     if let Some(i) = &dps.ibs_cbs {
         x.abrir("IBSCBS");
-        x.campo("finNFSe", "0");
+        if !nt009 {
+            x.campo("finNFSe", "0");
+        }
         x.campo("indFinal", if i.consumo_pessoal == Some(true) { "1" } else { "0" });
         x.campo("cIndOp", &i.indicador_operacao);
         x.opcional("tpOper", i.governamental.map(|g| g.tipo_operacao.to_string()));
@@ -248,10 +260,15 @@ pub fn gerar_dps(dps: &Dps) -> Result<(String, DpsId), DpsInvalida> {
         x.campo("indDest", if i.destinatario_diferente_do_tomador { "1" } else { "0" });
         x.abrir("valores");
         x.abrir("trib");
-        x.abrir("gIBSCBS");
-        x.campo("CST", &i.cst);
-        x.campo("cClassTrib", &i.classificacao_tributaria);
-        x.fechar("gIBSCBS");
+        if nt009 {
+            x.campo("CST", &i.cst);
+            x.campo("cClassTrib", &i.classificacao_tributaria);
+        } else {
+            x.abrir("gIBSCBS");
+            x.campo("CST", &i.cst);
+            x.campo("cClassTrib", &i.classificacao_tributaria);
+            x.fechar("gIBSCBS");
+        }
         x.fechar("trib");
         x.fechar("valores");
         x.fechar("IBSCBS");
@@ -279,15 +296,15 @@ mod testes {
             r#"<DPS xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.01">"#,
             r#"<infDPS Id="DPS351110221122233300018100001000000000000001">"#,
             "<tpAmb>2</tpAmb><dhEmi>2026-10-16T10:00:00-03:00</dhEmi><verAplic>emissor-nfse/0.1.0</verAplic>",
-            "<serie>1</serie><nDPS>1</nDPS><dCompet>2026-10-16</dCompet><tpEmit>1</tpEmit><cLocEmi>3511102</cLocEmi>",
+            "<serie>1</serie><nDPS>1</nDPS><dCompet>2026-10-16</dCompet><tpEmit>1</tpEmit><finNFSe>0</finNFSe><cLocEmi>3511102</cLocEmi>",
             "<prest><CNPJ>11222333000181</CNPJ><IM>12345</IM><fone>1733334444</fone><email>contato@exemplo.com.br</email>",
             "<regTrib><opSimpNac>3</opSimpNac><regApTribSN>1</regApTribSN><regEspTrib>0</regEspTrib></regTrib></prest>",
             "<toma><CNPJ>12ABC34501DE35</CNPJ><xNome>CLINICA EXEMPLO LTDA</xNome>",
             "<end><endNac><cMun>3511102</cMun><CEP>15800000</CEP></endNac><xLgr>RUA EXEMPLO</xLgr><nro>100</nro>",
             "<xBairro>CENTRO</xBairro></end></toma>",
-            "<serv><locPrest><cLocPrestacao>3511102</cLocPrestacao></locPrest><cServ><cTribNac>170101</cTribNac>",
+            "<serv><locPrest><cLocPrestacao>3511102</cLocPrestacao></locPrest><cServ><cTribNac>170101</cTribNac><cNBS>113022100</cNBS>",
             "<xDescServ>Serviços prestados referentes a 10/2026 &amp; itens &lt;auxiliares&gt;.</xDescServ>",
-            "<cNBS>113022100</cNBS></cServ></serv>",
+            "</cServ></serv>",
             "<valores><vServPrest><vServ>1500.00</vServ></vServPrest><trib><tribMun><tribISSQN>1</tribISSQN>",
             "<tpRetISSQN>1</tpRetISSQN></tribMun><tribFed><piscofins><CST>00</CST><tpRetPisCofins>0</tpRetPisCofins>",
             "</piscofins></tribFed><totTrib><pTotTribSN>11.48</pTotTribSN></totTrib></trib></valores>",
@@ -311,9 +328,7 @@ mod testes {
         dps.ibs_cbs = Some(ibs.clone());
         let (xml, _) = gerar_dps(&dps).unwrap();
         assert!(
-            xml.contains(
-                "<IBSCBS><finNFSe>0</finNFSe><indFinal>0</indFinal><cIndOp>030101</cIndOp><indDest>0</indDest>"
-            ),
+            xml.contains("<IBSCBS><indFinal>0</indFinal><cIndOp>030101</cIndOp><indDest>0</indDest>"),
             "{xml}"
         );
         ibs.governamental = Some(OperacaoGovernamental {
@@ -349,9 +364,6 @@ mod testes {
         let mut cnpj_numerico = exemplo();
         cnpj_numerico.tomador.as_mut().unwrap().documento =
             Documento::Cnpj(nfse_core::Cnpj::parse("11222333000181").unwrap());
-        // Só o leiaute de Produção Restrita de 27/07/2026: o de Produção (09/02/2026) tem o padrão
-        // da série com `^...$`, que em XSD são literais, e recusa qualquer série.
-        let versao = "v1.01-prodrest-20260727";
         let mut obra_cno = exemplo();
         obra_cno.servico.codigo_tributacao_nacional = "070201".into();
         obra_cno.servico.obra = Some(nfse_core::modelo::Obra {
@@ -382,29 +394,61 @@ mod testes {
             }),
         });
         let casos = [exemplo(), cnpj_numerico, obra_cno, obra_endereco, ente_publico];
-        for (i, dps) in casos.into_iter().enumerate() {
-            let (xml, id) = gerar_dps(&dps).unwrap();
-            for (sufixo, conteudo) in [
-                ("", xml.clone()),
-                ("-assinada", crate::assinar(&xml, id.as_str(), &cert).unwrap()),
-            ] {
-                let arquivo = dir.join(format!("dps-{i}{sufixo}.xml"));
-                std::fs::write(&arquivo, conteudo).unwrap();
-                let saida = std::process::Command::new("xmllint")
-                    .arg("--noout")
-                    .arg("--schema")
-                    .arg(raiz.join("xsd").join(versao).join("DPS_v1.01.xsd"))
-                    .arg(&arquivo)
-                    .output()
-                    .unwrap();
-                assert!(
-                    saida.status.success(),
-                    "{versao} {}: {}",
-                    arquivo.display(),
-                    String::from_utf8_lossy(&saida.stderr)
-                );
+        // Só pacotes de Produção Restrita: o de Produção (09/02/2026) tem o padrão da série com
+        // `^...$`, que em XSD são literais, e recusa qualquer série.
+        for (leiaute, versao) in [
+            (LeiauteDps::Nt009, "v1.01-prodrest-20261020"),
+            (LeiauteDps::Nt004, "v1.01-prodrest-20260727"),
+        ] {
+            for (i, dps) in casos.iter().cloned().enumerate() {
+                let mut dps = dps;
+                dps.leiaute = leiaute;
+                let (xml, id) = gerar_dps(&dps).unwrap();
+                for (sufixo, conteudo) in [
+                    ("", xml.clone()),
+                    ("-assinada", crate::assinar(&xml, id.as_str(), &cert).unwrap()),
+                ] {
+                    let arquivo = dir.join(format!("dps-{i}{sufixo}.xml"));
+                    std::fs::write(&arquivo, conteudo).unwrap();
+                    let saida = std::process::Command::new("xmllint")
+                        .arg("--noout")
+                        .arg("--schema")
+                        .arg(raiz.join("xsd").join(versao).join("DPS_v1.01.xsd"))
+                        .arg(&arquivo)
+                        .output()
+                        .unwrap();
+                    assert!(
+                        saida.status.success(),
+                        "{versao} {}: {}",
+                        arquivo.display(),
+                        String::from_utf8_lossy(&saida.stderr)
+                    );
+                }
             }
         }
+    }
+
+    #[test]
+    fn leiaute_nt004_mantem_a_ordem_anterior() {
+        use nfse_core::modelo::IbsCbs;
+        let mut dps = exemplo();
+        dps.leiaute = LeiauteDps::Nt004;
+        dps.ibs_cbs = Some(IbsCbs {
+            consumo_pessoal: None,
+            indicador_operacao: "030101".into(),
+            destinatario_diferente_do_tomador: false,
+            cst: "200".into(),
+            classificacao_tributaria: "200029".into(),
+            governamental: None,
+        });
+        let (xml, _) = gerar_dps(&dps).unwrap();
+        assert!(xml.contains("<tpEmit>1</tpEmit><cLocEmi>"), "{xml}");
+        assert!(xml.contains("<IBSCBS><finNFSe>0</finNFSe><indFinal>"), "{xml}");
+        assert!(xml.contains("</xDescServ><cNBS>"), "{xml}");
+        assert!(
+            xml.contains("<trib><gIBSCBS><CST>200</CST><cClassTrib>200029</cClassTrib></gIBSCBS></trib>"),
+            "{xml}"
+        );
     }
 
     #[test]
