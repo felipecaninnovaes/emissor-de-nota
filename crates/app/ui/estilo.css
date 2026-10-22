@@ -306,6 +306,7 @@ td .acoes { margin: 0; padding: 0; border: 0; justify-content: flex-start; flex-
 .w-situacao.larga { width: 12rem; }
 .w-acoes { width: 9.5rem; }
 .w-acoes.larga { width: 10.5rem; }
+.w-acoes.mais-larga { width: 12.75rem; }
 .w-acoes.estreita { width: 5.5rem; }
 .w-documento { width: 11.5rem; }
 .w-municipio { width: 7rem; }
@@ -373,7 +374,7 @@ tbody tr.detalhe:hover { background: var(--papel); }
 .detalhe-motivo p:last-child { margin-bottom: 0; }
 
 /* texto só para leitor de tela */
-.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.sr { position: absolute; top: 0; left: 0; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .vazio { color: var(--tinta-suave); text-align: center; padding: calc(1.75rem * var(--densidade)); }
 
 /* ---------- carimbos (selos) ---------- */

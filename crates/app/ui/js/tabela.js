@@ -15,7 +15,8 @@ export function acoesLinha(acoes, i, alvo) {
   const botao = (a) =>
     `<button type="button" class="botao pequeno${a.perigo ? " perigo" : ""}" data-acao="${a.acao}" data-i="${i}"
       aria-label="${esc(`${a.texto} — ${alvo}`)}">${esc(a.texto)}</button>`;
-  if (acoes.length <= 2) return `<div class="acoes-linha">${acoes.map(botao).join("")}</div>`;
+  // `menu: true` manda a ação para "Mais" mesmo com poucas ações (a coluna não tem largura para dois botões longos)
+  if (acoes.length <= 2 && !acoes.some((a) => a.menu)) return `<div class="acoes-linha">${acoes.map(botao).join("")}</div>`;
   const id = `menu-linha-${++sequenciaMenu}`;
   const itens = acoes
     .slice(1)

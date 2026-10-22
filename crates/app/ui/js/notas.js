@@ -28,7 +28,7 @@ export async function carregarNotas() {
       if (n.situacao === "rejeitada") acoes.push({ acao: "refazer", texto: "Corrigir e emitir" });
       if (n.situacao === "incerta" || n.situacao === "enviando") acoes.push({ acao: "verificar", texto: "Verificar" });
       if (["rejeitada", "incerta", "enviando"].includes(n.situacao)) {
-        acoes.push({ acao: "diagnostico", texto: "Diagnóstico" });
+        acoes.push({ acao: "diagnostico", texto: "Diagnóstico", menu: true });
       }
       if (n.nfse_id) {
         acoes.push({ acao: "pdf", texto: "PDF" }, { acao: "pasta", texto: "Pasta" });

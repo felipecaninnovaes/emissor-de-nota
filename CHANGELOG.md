@@ -4,6 +4,7 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 
 ## Não publicado
 
+- Corrigido o botão **Diagnóstico** que vazava da coluna de ações nas notas rejeitadas (agora fica em **Mais ▾**) e a barra de rolagem vertical que aparecia em várias telas sem haver o que rolar.
 - **Configurações → Diagnóstico**: versão, sistema, leiautes da DPS e as últimas linhas do log, com **Copiar diagnóstico**, **Abrir pasta de logs** e **Log detalhado**. O aplicativo passa a gravar um log por dia (14 dias) com o ciclo da emissão e as respostas da Sefin, sem senhas nem o XML completo.
 - **Notas → Diagnóstico** (rejeitada, incerta ou enviando): copia o erro, a resposta da Sefin e a DPS enviada, com documentos, nomes, endereço e descrição do serviço omitidos. A resposta da Sefin fica guardada no banco (coluna `dps.resposta_sefin`, sem nova migração).
 - A rejeição **E1235** passa a orientar a troca do leiaute da DPS e o **E0617** explica a alíquota para não optante.
