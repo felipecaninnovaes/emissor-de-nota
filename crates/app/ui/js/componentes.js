@@ -17,7 +17,7 @@ export function mostrarTomadorEscolhido({ escolhido, busca, resultados, termo, r
 /** Vincula à empresa escolhida um tomador cadastrado por outra; e-mails e retenção começam vazios. */
 export async function vincularTomador(t) {
   const vinculado = await invoke("vincular_tomador", { empresaId: estado.empresa.id, pessoaId: t.pessoa_id });
-  toast("Tomador vinculado a esta empresa. Confira e-mails e retenções em Tomadores.");
+  toast("Tomador vinculado a esta empresa, com as retenções da outra empresa. Confira em Tomadores.");
   return vinculado;
 }
 

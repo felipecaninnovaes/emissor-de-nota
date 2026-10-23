@@ -340,7 +340,8 @@ impl Banco {
     }
 
     /// Tomadores cadastrados por outras empresas e ainda não vinculados a esta (mesma busca de
-    /// `buscar_tomadores`), para vincular sem cadastrar de novo. E-mails e retenção vêm zerados: são do vínculo.
+    /// `buscar_tomadores`), para vincular sem cadastrar de novo. E-mails e retenção vêm zerados: são do
+    /// vínculo (a retenção é copiada ao vincular, em [`Banco::vincular_tomador_cadastrado`]).
     pub async fn buscar_tomadores_de_outras_empresas(
         &self,
         empresa_id: i64,
@@ -360,21 +361,29 @@ impl Banco {
         filtrar_por_termo(&linhas, termo)
     }
 
-    /// Vincula a empresa a um tomador já cadastrado por outra (sem e-mails, observação, retenção nem tipo).
+    /// Vincula a empresa a um tomador já cadastrado por outra. A retenção e o tipo vêm do vínculo
+    /// de outra empresa (o que tiver retenção ou tipo marcado; entre eles, o mais recente), porque
+    /// dependem do tomador; e-mails e observação, não.
     pub async fn vincular_tomador_cadastrado(&self, empresa_id: i64, pessoa_id: i64) -> Resultado<TomadorVinculado> {
-        let existe = sqlx::query("SELECT 1 FROM empresa_tomador WHERE pessoa_id = ?")
-            .bind(pessoa_id)
-            .fetch_optional(self.pool())
-            .await?
-            .is_some();
-        if !existe {
-            return Err(ErroBanco::NaoEncontrado("tomador"));
-        }
-        sqlx::query("INSERT INTO empresa_tomador (empresa_id, pessoa_id) VALUES (?, ?) ON CONFLICT DO NOTHING")
-            .bind(empresa_id)
-            .bind(pessoa_id)
-            .execute(self.pool())
-            .await?;
+        let origem = sqlx::query(
+            "SELECT retem_federais, retem_iss, tipo FROM empresa_tomador WHERE pessoa_id = ?
+             ORDER BY (retem_federais OR retem_iss OR tipo <> 'privado') DESC, rowid DESC LIMIT 1",
+        )
+        .bind(pessoa_id)
+        .fetch_optional(self.pool())
+        .await?
+        .ok_or(ErroBanco::NaoEncontrado("tomador"))?;
+        sqlx::query(
+            "INSERT INTO empresa_tomador (empresa_id, pessoa_id, retem_federais, retem_iss, tipo)
+             VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING",
+        )
+        .bind(empresa_id)
+        .bind(pessoa_id)
+        .bind(origem.get::<bool, _>(0))
+        .bind(origem.get::<bool, _>(1))
+        .bind(origem.get::<String, _>(2))
+        .execute(self.pool())
+        .await?;
         self.tomador(empresa_id, pessoa_id).await
     }
 
@@ -574,9 +583,20 @@ mod testes {
         assert_eq!(outros.len(), 1);
         assert!(!outros[0].retem_federais && outros[0].emails.is_none());
 
+        // Uma terceira empresa vincula sem marcar retenção; a quarta herda a da clínica 1 mesmo assim.
+        let mut terceira = nova_empresa();
+        terceira.cnpj = Cnpj::parse("11444777000161").unwrap();
+        let terceira = banco.cadastrar_empresa(&terceira).await.unwrap();
+        banco.salvar_tomador(terceira.id, &convenio(), "manual").await.unwrap();
+
         let v = banco.vincular_tomador_cadastrado(clinica2.id, id).await.unwrap();
         assert_eq!(v.pessoa_id, id);
-        assert!(!v.retem_federais, "a retenção não é herdada da outra empresa");
+        assert!(
+            v.retem_federais && v.retem_iss,
+            "a retenção vem do vínculo da outra empresa"
+        );
+        assert_eq!(v.tipo, TipoTomador::Federal);
+        assert!(v.emails.is_none());
         assert!(
             banco
                 .buscar_tomadores_de_outras_empresas(clinica2.id, "convenio")

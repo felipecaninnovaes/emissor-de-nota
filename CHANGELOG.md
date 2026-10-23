@@ -5,6 +5,7 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 ## Não publicado
 
 - **Serviços → Mais ▾ → Duplicar** abre o cadastro preenchido com os dados de um serviço já cadastrado (nome com "(cópia)"); salvar cria outro serviço, com o mesmo código de tributação e a descrição ou as alíquotas que forem trocadas, sem mudar o original.
+- Tomador vinculado de outra empresa passa a vir com o tipo e as retenções (**Retém impostos federais**, **Retém ISS**) do cadastro feito na outra empresa, em vez de vazios.
 - Nota sem tomador deixa de aceitar retenção: a revisão não mostra mais as caixas **Reter nesta nota** e a validação recusa retenção federal ou ISS retido antes de reservar o número, em vez da rejeição da Sefin.
 
 ## 1.9.0
