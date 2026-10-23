@@ -283,6 +283,13 @@ td .acoes { margin: 0; padding: 0; border: 0; justify-content: flex-start; flex-
    inteiro no title e no detalhe da linha). O cartão é o container: em larguras menores somem primeiro as
    colunas .sec-1 e depois as .sec-2 (o conteúdo continua no detalhe); abaixo disso a tabela rola na horizontal. */
 .cartao.tabela { padding: 0; container: tabela / inline-size; }
+/* rodapé da tabela com a faixa mostrada e os botões de página (div com role, não <nav>: as regras
+   de `nav` são do menu lateral) */
+.paginacao {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--espaco-2);
+  padding: var(--espaco-2) var(--espaco-3); border-top: 1px solid var(--fio-forte); font-size: 0.875rem;
+}
+.paginacao > span { margin-right: auto; color: var(--tinta-suave); }
 .tabela table { table-layout: fixed; }
 .tabela th.num { text-align: right; }
 .tabela td { vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

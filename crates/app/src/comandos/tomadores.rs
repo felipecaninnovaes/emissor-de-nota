@@ -47,6 +47,33 @@ pub async fn buscar_tomadores(estado: State<'_, Estado>, empresa_id: i64, termo:
         .collect())
 }
 
+#[derive(Serialize)]
+pub struct PaginaTomadoresDto {
+    itens: Vec<TomadorDto>,
+    total: usize,
+}
+
+/// Uma página (contada de 0) da lista da tela Tomadores, com o total que casa com a busca.
+#[tauri::command]
+pub async fn listar_tomadores(
+    estado: State<'_, Estado>,
+    empresa_id: i64,
+    termo: String,
+    pagina: usize,
+    por_pagina: usize,
+) -> R<PaginaTomadoresDto> {
+    exigir_cofre(&estado).await?;
+    let p = estado
+        .banco()?
+        .listar_tomadores(empresa_id, &termo, pagina, por_pagina)
+        .await
+        .map_err(texto)?;
+    Ok(PaginaTomadoresDto {
+        itens: p.itens.into_iter().map(Into::into).collect(),
+        total: p.total,
+    })
+}
+
 /// Tomadores de outras empresas que esta ainda não vinculou (para vincular em vez de cadastrar de novo).
 #[tauri::command]
 pub async fn buscar_tomadores_de_outras_empresas(

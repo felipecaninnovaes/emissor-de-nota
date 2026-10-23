@@ -167,9 +167,10 @@ fn sem_acentos(texto: &str) -> String {
         .collect()
 }
 
-/// Até 20 tomadores cujo nome contém o termo ou cujo documento começa com ele. O filtro é feito aqui
-/// porque o `LIKE ... COLLATE NOCASE` do SQLite só ignora maiúsculas ASCII, não acentos.
-fn filtrar_por_termo(linhas: &[SqliteRow], termo: &str) -> Resultado<Vec<TomadorVinculado>> {
+/// Tomadores cujo nome contém o termo ou cujo documento começa com ele (termo vazio: todos). O
+/// filtro é feito aqui porque o `LIKE ... COLLATE NOCASE` do SQLite só ignora maiúsculas ASCII, não
+/// acentos.
+fn casam_com_termo<'a>(linhas: &'a [SqliteRow], termo: &str) -> impl Iterator<Item = Resultado<TomadorVinculado>> + 'a {
     let termo = termo.trim();
     let nome_buscado = sem_acentos(termo);
     let so_documento: String = termo
@@ -177,17 +178,19 @@ fn filtrar_por_termo(linhas: &[SqliteRow], termo: &str) -> Resultado<Vec<Tomador
         .filter(|c| c.is_ascii_alphanumeric())
         .collect::<String>()
         .to_uppercase();
-    let mut achados = Vec::new();
-    for linha in linhas {
-        let t = tomador_de(linha)?;
+    linhas.iter().map(tomador_de).filter(move |t| {
+        let Ok(t) = t else { return true }; // o erro segue adiante
         let (_, documento) = tipo_e_numero(&t.tomador.documento);
         let casa_documento = !so_documento.is_empty() && documento.starts_with(&so_documento);
-        if casa_documento || sem_acentos(&t.tomador.nome).contains(&nome_buscado) {
-            achados.push(t);
-            if achados.len() == 20 {
-                break;
-            }
-        }
+        casa_documento || sem_acentos(&t.tomador.nome).contains(&nome_buscado)
+    })
+}
+
+/// Até 20 tomadores que casam com o termo ([`casam_com_termo`]).
+fn filtrar_por_termo(linhas: &[SqliteRow], termo: &str) -> Resultado<Vec<TomadorVinculado>> {
+    let mut achados = Vec::new();
+    for t in casam_com_termo(linhas, termo).take(20) {
+        achados.push(t?);
     }
     Ok(achados)
 }
@@ -228,6 +231,13 @@ impl Banco {
         tx.commit().await?;
         Ok(pessoa_id)
     }
+}
+
+/// Uma página da lista de tomadores e quantos casam com a busca, em todas as páginas.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PaginaTomadores {
+    pub itens: Vec<TomadorVinculado>,
+    pub total: usize,
 }
 
 /// Tomador lido da planilha de importação. `None` (coluna ausente ou célula vazia) mantém o que já
@@ -389,6 +399,32 @@ impl Banco {
             .fetch_all(self.pool())
             .await?;
         filtrar_por_termo(&linhas, termo)
+    }
+
+    /// Uma página (contada de 0) dos tomadores da empresa que casam com o termo (mesma busca de
+    /// `buscar_tomadores`, termo vazio lista todos), em ordem de nome, e o total que casa.
+    pub async fn listar_tomadores(
+        &self,
+        empresa_id: i64,
+        termo: &str,
+        pagina: usize,
+        por_pagina: usize,
+    ) -> Resultado<PaginaTomadores> {
+        let linhas = sqlx::query(&format!("{SELECT_TOMADOR} WHERE v.empresa_id = ? ORDER BY p.nome"))
+            .bind(empresa_id)
+            .fetch_all(self.pool())
+            .await?;
+        let por_pagina = por_pagina.max(1);
+        let inicio = pagina.saturating_mul(por_pagina);
+        let mut pagina = PaginaTomadores::default();
+        for (i, t) in casam_com_termo(&linhas, termo).enumerate() {
+            let t = t?;
+            if (inicio..inicio + por_pagina).contains(&i) {
+                pagina.itens.push(t);
+            }
+            pagina.total += 1;
+        }
+        Ok(pagina)
     }
 
     /// Tomadores cadastrados por outras empresas e ainda não vinculados a esta (mesma busca de
@@ -713,6 +749,54 @@ mod testes {
                 .is_empty()
         );
         assert!(banco.vincular_tomador_cadastrado(clinica2.id, 9_999).await.is_err());
+    }
+
+    /// CPF válido a partir dos 9 primeiros dígitos.
+    fn cpf_com_digitos(base: u64) -> String {
+        let mut d: Vec<u32> = format!("{base:09}").chars().map(|c| c.to_digit(10).unwrap()).collect();
+        for n in [10, 11] {
+            let soma: u32 = d.iter().zip((2..=n).rev()).map(|(x, p)| x * p).sum();
+            d.push(soma * 10 % 11 % 10);
+        }
+        d.iter().map(|x| char::from_digit(*x, 10).unwrap()).collect()
+    }
+
+    #[tokio::test]
+    async fn lista_em_paginas_com_o_total() {
+        let (banco, _, empresa) = banco_com_empresa().await;
+        for i in 0..30u64 {
+            let t = Tomador {
+                documento: Documento::Cpf(Cpf::parse(&cpf_com_digitos(123_456_000 + i)).unwrap()),
+                inscricao_municipal: None,
+                nome: format!("CLIENTE {i:02}{}", if i % 10 == 0 { " ÁGUA" } else { "" }),
+                endereco: None,
+                telefone: None,
+                email: None,
+            };
+            banco.salvar_tomador(empresa.id, &t, "manual").await.unwrap();
+        }
+        let p = banco.listar_tomadores(empresa.id, "", 0, 25).await.unwrap();
+        assert_eq!((p.itens.len(), p.total), (25, 30));
+        assert_eq!(p.itens[0].tomador.nome, "CLIENTE 00 ÁGUA");
+        let p = banco.listar_tomadores(empresa.id, "", 1, 25).await.unwrap();
+        assert_eq!((p.itens.len(), p.total), (5, 30));
+        assert_eq!(p.itens[0].tomador.nome, "CLIENTE 25");
+        assert!(
+            banco
+                .listar_tomadores(empresa.id, "", 9, 25)
+                .await
+                .unwrap()
+                .itens
+                .is_empty()
+        );
+
+        let p = banco.listar_tomadores(empresa.id, "agua", 0, 2).await.unwrap();
+        assert_eq!((p.itens.len(), p.total), (2, 3));
+        assert_eq!(
+            banco.buscar_tomadores(empresa.id, "").await.unwrap().len(),
+            20,
+            "a busca da emissão segue em 20"
+        );
     }
 
     #[tokio::test]

@@ -7,21 +7,35 @@ import { FILTRO_PLANILHA, ligarEscolhaArquivo, vincularTomador } from "./compone
 
 let tomadoresCarregados = [];
 
+const POR_PAGINA = 25;
+let pagina = 0; // contada de 0
+let empresaDaLista = null; // trocar de empresa volta para a primeira página
+
 export async function carregarTomadores() {
   const corpo = $("#lista-tomadores");
   if (!estado.empresa) {
     corpo.innerHTML = linhaVazia(5, "Nenhuma empresa selecionada.", { ir: "empresas", texto: "Cadastrar empresa" });
+    desenharPaginacao(0);
     return;
   }
-  tomadoresCarregados = await invoke("buscar_tomadores", {
-    empresaId: estado.empresa.id,
-    termo: $("#busca-tomadores").value,
-  });
+  if (empresaDaLista !== estado.empresa.id) pagina = 0;
+  empresaDaLista = estado.empresa.id;
   const termo = $("#busca-tomadores").value.trim();
-  if (termo) {
+  const listar = () =>
+    invoke("listar_tomadores", { empresaId: estado.empresa.id, termo, pagina, porPagina: POR_PAGINA });
+  let resultado = await listar();
+  // A página pode ter sumido (busca mais curta, tomador removido): volta para a última que existe.
+  if (!resultado.itens.length && pagina > 0) {
+    pagina = Math.max(0, Math.ceil(resultado.total / POR_PAGINA) - 1);
+    resultado = await listar();
+  }
+  tomadoresCarregados = resultado.itens;
+  // Os de outras empresas (até 20) vêm só na primeira página, depois dos desta.
+  if (termo && pagina === 0) {
     const outros = await invoke("buscar_tomadores_de_outras_empresas", { empresaId: estado.empresa.id, termo });
     tomadoresCarregados.push(...outros.map((t) => ({ ...t, de_outra_empresa: true })));
   }
+  desenharPaginacao(resultado.total);
   corpo.innerHTML = tomadoresCarregados.length
     ? tomadoresCarregados
         .map(
@@ -34,14 +48,36 @@ export async function carregarTomadores() {
         </tr>`,
         )
         .join("")
-    : linhaVazia(5, "Nenhum tomador encontrado (a lista mostra até 20; use a busca).", {
+    : linhaVazia(5, "Nenhum tomador encontrado.", {
         clicar: "#novo-tomador",
         texto: "Novo tomador",
       });
 }
 
+/** "41 a 50 de 50 tomadores" e os botões de página; some com uma página só. */
+function desenharPaginacao(total) {
+  const paginas = Math.ceil(total / POR_PAGINA);
+  $("#paginacao-tomadores").hidden = paginas <= 1;
+  const inicio = pagina * POR_PAGINA;
+  $("#tomadores-faixa").textContent =
+    `${inicio + 1} a ${Math.min(inicio + POR_PAGINA, total)} de ${total} tomadores · página ${pagina + 1} de ${paginas}`;
+  $("#tomadores-anterior").disabled = pagina === 0;
+  $("#tomadores-proxima").disabled = pagina >= paginas - 1;
+}
+
+for (const [id, passo] of [
+  ["#tomadores-anterior", -1],
+  ["#tomadores-proxima", 1],
+]) {
+  $(id).addEventListener("click", () => {
+    pagina = Math.max(0, pagina + passo);
+    carregarTomadores().catch((e) => toast(String(e), true));
+  });
+}
+
 let buscaTomadores = 0;
 $("#busca-tomadores").addEventListener("input", () => {
+  pagina = 0;
   clearTimeout(buscaTomadores);
   buscaTomadores = setTimeout(() => carregarTomadores().catch((e) => toast(String(e), true)), 250);
 });
