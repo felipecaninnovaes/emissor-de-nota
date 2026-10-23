@@ -293,7 +293,7 @@
           <div class="barra-filtros barra-busca">
             <input id="busca-tomadores" type="search" placeholder="Buscar por nome ou CNPJ/CPF..." aria-label="Buscar tomador por nome ou CNPJ/CPF">
           </div>
-          <div class="barra-acoes"><button class="botao primario" id="novo-tomador">Novo tomador</button></div>
+          <div class="barra-acoes"><button class="botao" id="importar-tomadores" title="De uma planilha (.xlsx, .xls, .ods ou .csv)">Importar tomadores</button><button class="botao primario" id="novo-tomador">Novo tomador</button></div>
         </div>
         <div class="cartao tabela">
           <div class="rolagem">
@@ -810,6 +810,38 @@
       <div id="erro-importar-servicos" class="aviso erro" role="alert" hidden></div>
     </div>
     <div class="acoes"><button class="botao" value="cancelar" formnovalidate>Cancelar</button><button class="botao primario" value="salvar" id="importar-servicos-ok">Importar</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-importar-tomadores" class="largo" aria-labelledby="titulo-dlg-importar-tomadores">
+  <form method="dialog" id="form-importar-tomadores" novalidate>
+    <header class="dialogo-topo">
+      <h2 id="titulo-dlg-importar-tomadores">Importar tomadores</h2>
+      <p class="ajuda" data-empresa-dialogo></p>
+    </header>
+    <div class="dialogo-corpo">
+      <div class="grade">
+        <div class="c9"><label for="importar-tomadores-arquivo">Planilha</label>
+          <div class="com-botao"><input id="importar-tomadores-arquivo" readonly data-arquivo placeholder="Nenhuma planilha escolhida">
+            <button type="button" class="botao" id="escolher-importar-tomadores">Escolher arquivo…</button></div></div>
+        <div class="c3 celula-botoes"><button type="button" class="botao" id="modelo-tomadores">Baixar modelo</button></div>
+        <p class="c12 ajuda">Uma linha por tomador. Obrigatórias: <b>CNPJ/CPF</b> e <b>Nome</b>. As demais colunas (inscrição municipal,
+          endereço com o município pelo código IBGE, telefone, e-mails, tipo de tomador e retenções com Sim ou Não) seguem o modelo.
+          Tomador já cadastrado é atualizado; célula vazia mantém o que já está gravado.</p>
+      </div>
+      <div class="cartao tabela">
+        <div class="rolagem">
+        <table>
+          <caption class="sr">Tomadores a importar</caption>
+          <thead><tr><th scope="col" class="w-check"><input type="checkbox" id="importar-tomadores-todos" title="Marcar todos" aria-label="Marcar todos"></th>
+            <th scope="col" class="w-codigo">CNPJ/CPF</th><th scope="col">Nome</th><th scope="col" class="sec-1">Situação</th></tr></thead>
+          <tbody id="lista-importar-tomadores"></tbody>
+        </table>
+        </div>
+      </div>
+      <div id="erro-importar-tomadores" class="aviso erro" role="alert" hidden></div>
+    </div>
+    <div class="acoes"><button class="botao" value="cancelar" formnovalidate>Cancelar</button><button class="botao primario" value="salvar" id="importar-tomadores-ok">Importar</button></div>
   </form>
 </dialog>
 

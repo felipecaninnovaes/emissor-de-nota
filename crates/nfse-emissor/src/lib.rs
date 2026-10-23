@@ -12,6 +12,7 @@ pub mod email;
 pub mod importacao;
 pub mod planilha;
 pub mod planilha_servicos;
+pub mod planilha_tomadores;
 
 mod cancelamento;
 mod copia;

@@ -1,9 +1,9 @@
-// Tomadores: cadastro, e-mails e retenções por empresa.
+// Tomadores: cadastro, e-mails e retenções por empresa, e importação por planilha.
 
 import { $, chamar, esc, estado, formatarDocumento, invoke, soDigitos, toast, vazio } from "./util.js";
-import { acoesLinha, linhaVazia } from "./tabela.js";
+import { acoesLinha, linhaVazia, selecaoEmTabela } from "./tabela.js";
 import { ErroCampo, abrirDialogo, preencherForm } from "./formularios.js";
-import { vincularTomador } from "./componentes.js";
+import { FILTRO_PLANILHA, ligarEscolhaArquivo, vincularTomador } from "./componentes.js";
 
 let tomadoresCarregados = [];
 
@@ -129,3 +129,88 @@ export function editarTomador(dto, depois, { empresaId = estado.empresa?.id, doc
     form.elements.documento.dispatchEvent(new Event("change"));
   }
 }
+
+// ---------------------------------------------------------------- importar tomadores
+
+/** Linhas lidas da planilha: [{ linha, documento, nome, item, erros }]; `item` vazio quando há erro. */
+let tomadoresAImportar = [];
+
+function desenharTomadoresAImportar(vazioTexto) {
+  const corpo = $("#lista-importar-tomadores");
+  $("#importar-tomadores-todos").checked = false;
+  corpo.innerHTML = tomadoresAImportar.length
+    ? tomadoresAImportar
+        .map((it, i) => {
+          const ok = !!it.item && !it.erros.length;
+          const situacao = ok
+            ? `<span class="selo autorizada">Pronto</span>`
+            : `<span class="selo rejeitada" title="${esc(it.erros.join("\n"))}">${esc(it.erros.join("; "))}</span>`;
+          const documento = it.item ? formatarDocumento(it.item.tomador.documento) : it.documento;
+          const alvo = `linha ${it.linha}: ${it.nome || documento}`;
+          return `<tr>
+            <td><input type="checkbox" data-i="${i}" ${ok ? "checked" : "disabled"} aria-label="${esc(`Marcar ${alvo}`)}"></td>
+            <td class="dado">${esc(documento)}</td>
+            <td title="${esc(alvo)}">${esc(it.nome || "(sem nome)")}</td>
+            <td class="sec-1">${situacao}</td>
+          </tr>`;
+        })
+        .join("")
+    : `<tr><td colspan="4" class="vazio">${esc(vazioTexto)}</td></tr>`;
+  selecaoImportarTomadores.atualizar();
+}
+
+const selecaoImportarTomadores = selecaoEmTabela({
+  lista: "#lista-importar-tomadores",
+  itens: () => tomadoresAImportar,
+  botao: "#importar-tomadores-ok",
+  rotulo: "Importar",
+  todos: "#importar-tomadores-todos",
+});
+
+let planilhaTomadores = null; // { nome, bytes } da planilha escolhida
+
+async function lerPlanilhaTomadores() {
+  tomadoresAImportar = [];
+  // O campo volta vazio no reset do diálogo; o conteúdo guardado só vale com o nome à mostra.
+  const arquivo = $("#importar-tomadores-arquivo").value && planilhaTomadores;
+  if (!arquivo) return desenharTomadoresAImportar("Escolha a planilha (.xlsx, .xls, .ods ou .csv).");
+  try {
+    tomadoresAImportar = await chamar("ler_planilha_tomadores", { nome: arquivo.nome, bytes: arquivo.bytes });
+  } catch (e) {
+    return desenharTomadoresAImportar(String(e));
+  }
+  desenharTomadoresAImportar("Nenhuma linha com dados na planilha.");
+}
+
+ligarEscolhaArquivo(
+  $("#importar-tomadores-arquivo"),
+  $("#escolher-importar-tomadores"),
+  { titulo: "Escolher planilha de tomadores", ...FILTRO_PLANILHA },
+  (a) => {
+    planilhaTomadores = a;
+    return lerPlanilhaTomadores();
+  },
+);
+
+$("#modelo-tomadores").addEventListener("click", async () => {
+  try {
+    toast(`Modelo salvo em ${await chamar("salvar_modelo_tomadores")}`);
+  } catch (e) {
+    toast(String(e), true);
+  }
+});
+
+$("#importar-tomadores").addEventListener("click", () => {
+  if (!estado.empresa) return toast("Escolha a empresa.", true);
+  const empresaId = estado.empresa.id;
+  const dlg = $("#dlg-importar-tomadores");
+  $("form", dlg).reset();
+  lerPlanilhaTomadores();
+  abrirDialogo(dlg, $("#erro-importar-tomadores"), async () => {
+    const itens = selecaoImportarTomadores.marcados().map((it) => it.item);
+    if (!itens.length) throw "Marque os tomadores a importar.";
+    const r = await chamar("importar_tomadores", { empresaId, itens });
+    toast(`Tomadores: ${r.novos} novo(s), ${r.atualizados} atualizado(s).`);
+    return carregarTomadores;
+  });
+});

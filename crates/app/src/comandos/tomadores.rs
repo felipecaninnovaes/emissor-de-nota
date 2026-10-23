@@ -1,12 +1,14 @@
-//! Cadastro de tomadores.
+//! Cadastro de tomadores, com importação por planilha.
 
 use serde::Serialize;
 use tauri::State;
 
 use nfse_core::modelo::Tomador;
-use nfse_db::tomadores::{RetencaoDoVinculo, TipoTomador, TomadorVinculado};
+use nfse_db::tomadores::{
+    ResumoImportacaoTomadores, RetencaoDoVinculo, TipoTomador, TomadorImportado, TomadorVinculado,
+};
 
-use super::comum::{R, exigir_cofre, texto, vazio_para_none};
+use super::comum::{R, exigir_cofre, gravar_e_abrir_csv, texto, vazio_para_none};
 use crate::Estado;
 
 #[derive(Serialize)]
@@ -103,4 +105,57 @@ pub async fn salvar_tomador(
         )
         .await
         .map_err(texto)
+}
+
+#[derive(Serialize)]
+pub struct LinhaTomadorDto {
+    linha: usize,
+    documento: String,
+    nome: String,
+    /// Vazio quando a linha tem erro.
+    item: Option<TomadorImportado>,
+    erros: Vec<String>,
+}
+
+/// Lê a planilha de tomadores para a tela conferir antes de importar.
+#[tauri::command]
+pub async fn ler_planilha_tomadores(nome: String, bytes: Vec<u8>) -> R<Vec<LinhaTomadorDto>> {
+    Ok(nfse_emissor::planilha_tomadores::ler(&nome, &bytes)?
+        .into_iter()
+        .map(|l| LinhaTomadorDto {
+            linha: l.numero,
+            documento: l.documento,
+            nome: l.nome,
+            item: l.item,
+            erros: l.erros,
+        })
+        .collect())
+}
+
+/// Grava na empresa os tomadores marcados da planilha (tudo ou nada).
+#[tauri::command]
+pub async fn importar_tomadores(
+    estado: State<'_, Estado>,
+    empresa_id: i64,
+    itens: Vec<TomadorImportado>,
+) -> R<ResumoImportacaoTomadores> {
+    exigir_cofre(&estado).await?;
+    if itens.is_empty() {
+        return Err("Nenhum tomador escolhido.".into());
+    }
+    estado
+        .banco()?
+        .importar_tomadores(empresa_id, &itens)
+        .await
+        .map_err(texto)
+}
+
+#[tauri::command]
+pub async fn salvar_modelo_tomadores(estado: State<'_, Estado>) -> R<String> {
+    gravar_e_abrir_csv(
+        &estado,
+        "modelo-importacao-tomadores.csv",
+        &nfse_emissor::planilha_tomadores::modelo_csv(),
+    )
+    .await
 }

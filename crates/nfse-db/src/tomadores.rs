@@ -113,6 +113,11 @@ pub(crate) const SELECT_TOMADOR: &str =
     v.retem_federais, v.retem_iss, v.tipo
     FROM empresa_tomador v JOIN pessoa p ON p.id = v.pessoa_id";
 
+/// Mesmas colunas de [`SELECT_TOMADOR`], só da pessoa (e-mails e retenção zerados: são do vínculo).
+const SELECT_PESSOA: &str = "SELECT p.id, p.tipo, p.documento, p.inscricao_municipal, p.nome, p.municipio, p.cep,
+    p.logradouro, p.numero, p.complemento, p.bairro, p.telefone, p.email, NULL, NULL, 0, 0, 'privado'
+    FROM pessoa p";
+
 pub(crate) fn tomador_de(r: &SqliteRow) -> Resultado<TomadorVinculado> {
     let municipio: Option<String> = r.get(5);
     let endereco = match (municipio, r.get::<Option<String>, _>(6), r.get::<Option<String>, _>(7)) {
@@ -223,6 +228,53 @@ impl Banco {
         tx.commit().await?;
         Ok(pessoa_id)
     }
+}
+
+/// Tomador lido da planilha de importação. `None` (coluna ausente ou célula vazia) mantém o que já
+/// está gravado.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TomadorImportado {
+    pub tomador: Tomador,
+    #[serde(default)]
+    pub emails: Option<String>,
+    #[serde(default)]
+    pub retem_federais: Option<bool>,
+    #[serde(default)]
+    pub retem_iss: Option<bool>,
+    #[serde(default)]
+    pub tipo: Option<TipoTomador>,
+}
+
+/// Quantos tomadores a importação vinculou à empresa e quantos já estavam vinculados (atualizados).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+pub struct ResumoImportacaoTomadores {
+    pub novos: usize,
+    pub atualizados: usize,
+}
+
+/// Retenção e tipo do vínculo de outra empresa com a pessoa: o que tiver retenção ou tipo marcado;
+/// entre eles, o mais recente.
+async fn retencao_de_outra_empresa<'e, E: sqlx::SqliteExecutor<'e>>(
+    executor: E,
+    empresa_id: i64,
+    pessoa_id: i64,
+) -> Resultado<Option<RetencaoDoVinculo>> {
+    sqlx::query(
+        "SELECT retem_federais, retem_iss, tipo FROM empresa_tomador WHERE pessoa_id = ? AND empresa_id <> ?
+         ORDER BY (retem_federais OR retem_iss OR tipo <> 'privado') DESC, rowid DESC LIMIT 1",
+    )
+    .bind(pessoa_id)
+    .bind(empresa_id)
+    .fetch_optional(executor)
+    .await?
+    .map(|r| {
+        Ok(RetencaoDoVinculo {
+            federais: r.get(0),
+            iss: r.get(1),
+            tipo: TipoTomador::do_texto(r.get(2))?,
+        })
+    })
+    .transpose()
 }
 
 /// Cria ou atualiza a pessoa e garante o vínculo com a empresa, dentro da transação.
@@ -347,14 +399,12 @@ impl Banco {
         empresa_id: i64,
         termo: &str,
     ) -> Resultado<Vec<TomadorVinculado>> {
-        let linhas = sqlx::query(
-            "SELECT p.id, p.tipo, p.documento, p.inscricao_municipal, p.nome, p.municipio, p.cep,
-                 p.logradouro, p.numero, p.complemento, p.bairro, p.telefone, p.email, NULL, NULL, 0, 0, 'privado'
-             FROM pessoa p
+        let linhas = sqlx::query(&format!(
+            "{SELECT_PESSOA}
              WHERE p.id IN (SELECT pessoa_id FROM empresa_tomador)
                AND p.id NOT IN (SELECT pessoa_id FROM empresa_tomador WHERE empresa_id = ?)
-             ORDER BY p.nome",
-        )
+             ORDER BY p.nome"
+        ))
         .bind(empresa_id)
         .fetch_all(self.pool())
         .await?;
@@ -362,29 +412,87 @@ impl Banco {
     }
 
     /// Vincula a empresa a um tomador já cadastrado por outra. A retenção e o tipo vêm do vínculo
-    /// de outra empresa (o que tiver retenção ou tipo marcado; entre eles, o mais recente), porque
-    /// dependem do tomador; e-mails e observação, não.
+    /// de outra empresa ([`retencao_de_outra_empresa`]), porque dependem do tomador; e-mails e
+    /// observação, não.
     pub async fn vincular_tomador_cadastrado(&self, empresa_id: i64, pessoa_id: i64) -> Resultado<TomadorVinculado> {
-        let origem = sqlx::query(
-            "SELECT retem_federais, retem_iss, tipo FROM empresa_tomador WHERE pessoa_id = ?
-             ORDER BY (retem_federais OR retem_iss OR tipo <> 'privado') DESC, rowid DESC LIMIT 1",
-        )
-        .bind(pessoa_id)
-        .fetch_optional(self.pool())
-        .await?
-        .ok_or(ErroBanco::NaoEncontrado("tomador"))?;
+        let origem = retencao_de_outra_empresa(self.pool(), empresa_id, pessoa_id)
+            .await?
+            .ok_or(ErroBanco::NaoEncontrado("tomador"))?;
         sqlx::query(
             "INSERT INTO empresa_tomador (empresa_id, pessoa_id, retem_federais, retem_iss, tipo)
              VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING",
         )
         .bind(empresa_id)
         .bind(pessoa_id)
-        .bind(origem.get::<bool, _>(0))
-        .bind(origem.get::<bool, _>(1))
-        .bind(origem.get::<String, _>(2))
+        .bind(origem.federais)
+        .bind(origem.iss)
+        .bind(origem.tipo.como_texto())
         .execute(self.pool())
         .await?;
         self.tomador(empresa_id, pessoa_id).await
+    }
+
+    /// Grava os tomadores da planilha na empresa, tudo ou nada. Campo vazio (`None`) mantém o que
+    /// já está gravado na pessoa e no vínculo; num vínculo novo, a retenção e o tipo vazios vêm de
+    /// outra empresa, como em [`Banco::vincular_tomador_cadastrado`].
+    pub async fn importar_tomadores(
+        &self,
+        empresa_id: i64,
+        itens: &[TomadorImportado],
+    ) -> Resultado<ResumoImportacaoTomadores> {
+        let mut resumo = ResumoImportacaoTomadores::default();
+        let mut tx = self.pool().begin().await?;
+        for it in itens {
+            let (_, documento) = tipo_e_numero(&it.tomador.documento);
+            let anterior = sqlx::query(&format!("{SELECT_PESSOA} WHERE p.documento = ?"))
+                .bind(documento)
+                .fetch_optional(&mut *tx)
+                .await?
+                .map(|r| tomador_de(&r))
+                .transpose()?;
+            let mut t = it.tomador.clone();
+            if let Some(a) = anterior.map(|a| a.tomador) {
+                t.inscricao_municipal = t.inscricao_municipal.or(a.inscricao_municipal);
+                t.endereco = t.endereco.or(a.endereco);
+                t.telefone = t.telefone.or(a.telefone);
+                t.email = t.email.or(a.email);
+            }
+            let ja_vinculado = sqlx::query(
+                "SELECT 1 FROM empresa_tomador v JOIN pessoa p ON p.id = v.pessoa_id
+                 WHERE v.empresa_id = ? AND p.documento = ?",
+            )
+            .bind(empresa_id)
+            .bind(documento)
+            .fetch_optional(&mut *tx)
+            .await?
+            .is_some();
+            let pessoa_id = gravar_tomador(&mut tx, empresa_id, &t, "planilha").await?;
+            let herdada = if ja_vinculado {
+                None
+            } else {
+                retencao_de_outra_empresa(&mut *tx, empresa_id, pessoa_id).await?
+            };
+            sqlx::query(
+                "UPDATE empresa_tomador SET emails = COALESCE(?, emails), retem_federais = COALESCE(?, retem_federais),
+                     retem_iss = COALESCE(?, retem_iss), tipo = COALESCE(?, tipo)
+                 WHERE empresa_id = ? AND pessoa_id = ?",
+            )
+            .bind(&it.emails)
+            .bind(it.retem_federais.or(herdada.map(|h| h.federais)))
+            .bind(it.retem_iss.or(herdada.map(|h| h.iss)))
+            .bind(it.tipo.or(herdada.map(|h| h.tipo)).map(TipoTomador::como_texto))
+            .bind(empresa_id)
+            .bind(pessoa_id)
+            .execute(&mut *tx)
+            .await?;
+            if ja_vinculado {
+                resumo.atualizados += 1;
+            } else {
+                resumo.novos += 1;
+            }
+        }
+        tx.commit().await?;
+        Ok(resumo)
     }
 
     /// Pessoa já cadastrada (por qualquer empresa), para reaproveitar sem nova consulta de CNPJ.
@@ -605,5 +713,86 @@ mod testes {
                 .is_empty()
         );
         assert!(banco.vincular_tomador_cadastrado(clinica2.id, 9_999).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn importa_mantendo_o_que_vem_vazio() {
+        let (banco, _, clinica1) = banco_com_empresa().await;
+        let mut outra = nova_empresa();
+        outra.cnpj = Cnpj::parse("11222333000262").unwrap();
+        let clinica2 = banco.cadastrar_empresa(&outra).await.unwrap();
+        let id = banco.salvar_tomador(clinica1.id, &convenio(), "manual").await.unwrap();
+        banco
+            .definir_retencao_tomador(
+                clinica1.id,
+                id,
+                RetencaoDoVinculo {
+                    federais: true,
+                    iss: false,
+                    tipo: TipoTomador::Municipal,
+                },
+            )
+            .await
+            .unwrap();
+
+        // Na planilha: o convênio só com documento e nome, e um tomador novo com o resto preenchido.
+        let mut so_nome = convenio();
+        so_nome.nome = "CONVENIO RENOMEADO".into();
+        so_nome.endereco = None;
+        let novo = Tomador {
+            documento: Documento::Cpf(Cpf::parse("52998224725").unwrap()),
+            inscricao_municipal: Some("9876".into()),
+            nome: "MARIA EXEMPLO".into(),
+            endereco: None,
+            telefone: Some("17999990000".into()),
+            email: None,
+        };
+        let itens = [
+            TomadorImportado {
+                tomador: so_nome,
+                emails: None,
+                retem_federais: None,
+                retem_iss: None,
+                tipo: None,
+            },
+            TomadorImportado {
+                tomador: novo,
+                emails: Some("maria@exemplo.com".into()),
+                retem_federais: Some(false),
+                retem_iss: Some(true),
+                tipo: None,
+            },
+        ];
+        let resumo = banco.importar_tomadores(clinica2.id, &itens).await.unwrap();
+        assert_eq!((resumo.novos, resumo.atualizados), (2, 0));
+
+        let c = banco.tomador(clinica2.id, id).await.unwrap();
+        assert_eq!(c.tomador.nome, "CONVENIO RENOMEADO");
+        assert_eq!(
+            c.tomador.endereco,
+            convenio().endereco,
+            "endereço vazio na planilha mantém o gravado"
+        );
+        assert!(
+            c.retem_federais && !c.retem_iss,
+            "vínculo novo herda a retenção da outra empresa"
+        );
+        assert_eq!(c.tipo, TipoTomador::Municipal);
+
+        let maria = banco.pessoa_por_documento("52998224725").await.unwrap().unwrap();
+        let m = banco.tomador(clinica2.id, maria).await.unwrap();
+        assert!(m.retem_iss && !m.retem_federais);
+        assert_eq!(m.emails.as_deref(), Some("maria@exemplo.com"));
+
+        // De novo, com a retenção desmarcada: atualiza o vínculo que já existe.
+        let mut de_novo = itens[0].clone();
+        de_novo.retem_federais = Some(false);
+        let resumo = banco.importar_tomadores(clinica2.id, &[de_novo]).await.unwrap();
+        assert_eq!((resumo.novos, resumo.atualizados), (0, 1));
+        assert!(!banco.tomador(clinica2.id, id).await.unwrap().retem_federais);
+        assert!(
+            banco.tomador(clinica1.id, id).await.unwrap().retem_federais,
+            "a outra empresa não muda"
+        );
     }
 }
