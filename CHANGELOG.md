@@ -4,6 +4,7 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 
 ## Não publicado
 
+- A lista de **Tomadores** passa a mostrar todos os tomadores da empresa, 25 por página, com **Anterior**/**Próxima** e a contagem embaixo da tabela; antes parava nos 20 primeiros e só a busca achava os outros.
 - **Serviços → Mais ▾ → Duplicar** abre o cadastro preenchido com os dados de um serviço já cadastrado (nome com "(cópia)"); salvar cria outro serviço, com o mesmo código de tributação e a descrição ou as alíquotas que forem trocadas, sem mudar o original.
 - Tomador vinculado de outra empresa passa a vir com o tipo e as retenções (**Retém impostos federais**, **Retém ISS**) do cadastro feito na outra empresa, em vez de vazios.
 - A **inscrição municipal** passa a ser obrigatória no cadastro da empresa (também ao editar uma empresa salva sem ela).

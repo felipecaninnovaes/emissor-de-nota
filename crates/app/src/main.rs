@@ -152,6 +152,7 @@ fn main() {
             comandos::empresas::ler_exportacao_empresas,
             comandos::empresas::importar_empresas,
             comandos::tomadores::buscar_tomadores,
+            comandos::tomadores::listar_tomadores,
             comandos::tomadores::buscar_tomadores_de_outras_empresas,
             comandos::tomadores::vincular_tomador,
             comandos::tomadores::salvar_tomador,
