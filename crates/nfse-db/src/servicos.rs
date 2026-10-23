@@ -324,6 +324,28 @@ mod testes {
         assert!(banco.servicos(empresa.id).await.unwrap().is_empty());
     }
 
+    /// "Duplicar" na tela salva a cópia sem id: vira outro serviço com o mesmo código, e o
+    /// original não muda.
+    #[tokio::test]
+    async fn copia_com_mesmo_codigo_e_outro_servico() {
+        let (banco, _, empresa) = banco_com_empresa().await;
+        let mut original = honorarios(empresa.id);
+        original.id = Some(banco.salvar_servico(&original).await.unwrap());
+
+        let mut copia = original.clone();
+        copia.id = None;
+        copia.nome = "Honorários mensais (cópia)".into();
+        copia.descricao = "ASSESSORIA FISCAL REFERENTE A {mes_ref}".into();
+        copia.tributacao.total_tributos = TotalTributos::PercentualSimples(Percentual::parse("6").unwrap());
+        let id_copia = banco.salvar_servico(&copia).await.unwrap();
+        copia.id = Some(id_copia);
+
+        assert_ne!(Some(id_copia), original.id);
+        assert_eq!(banco.servico(original.id.unwrap()).await.unwrap(), original);
+        assert_eq!(banco.servico(id_copia).await.unwrap(), copia);
+        assert_eq!(banco.servicos(empresa.id).await.unwrap(), vec![original, copia]);
+    }
+
     #[tokio::test]
     async fn importa_atualizando_pelo_nome() {
         let (banco, _, empresa) = banco_com_empresa().await;

@@ -45,6 +45,7 @@ export async function carregarServicos() {
             <td>${acoesLinha(
               [
                 { acao: "editar", texto: "Editar" },
+                { acao: "duplicar", texto: "Duplicar" },
                 { acao: "desativar", texto: "Remover", perigo: true },
               ],
               i,
@@ -61,6 +62,7 @@ $("#lista-servicos").addEventListener("click", async (ev) => {
   if (!b) return;
   const s = estado.servicos[Number(b.dataset.i)];
   if (b.dataset.acao === "editar") return editarServico(s);
+  if (b.dataset.acao === "duplicar") return editarServico(s, { copia: true });
   if (!(await confirmar(`Remover o serviço "${s.nome}" da lista? As notas já emitidas não mudam.`))) return;
   try {
     await chamar("desativar_servico", { id: s.id });
@@ -369,11 +371,13 @@ for (const nome of ["r_pis", "r_cofins", "r_csll"]) {
   $("#form-servico").elements[nome].addEventListener("input", () => descreverRetencao($("#form-servico")));
 }
 
-export function editarServico(s) {
+/** Abre o cadastro do serviço; com `copia`, o formulário vem preenchido com `s` e salvar cria outro. */
+export function editarServico(s, { copia = false } = {}) {
   if (!estado.empresa) return toast("Escolha a empresa.", true);
   const dlg = $("#dlg-servico");
   const form = $("form", dlg);
   form.reset();
+  $("#titulo-dlg-servico").textContent = copia ? "Duplicar serviço" : "Serviço";
   // novo serviço: IBS/CBS ligado para o regime regular (obrigatório), desligado no Simples
   form.elements.ibs_informar.value = estado.empresa.regime.simples === "nao_optante" ? "sim" : "nao";
   tipoRetencaoGuardado = s?.tributacao.federais?.pis_cofins?.tipo_retencao ?? 0;
@@ -385,7 +389,7 @@ export function editarServico(s) {
     const r = t.retencoes ?? {};
     const tot = t.total_tributos;
     const dados = {
-      nome: s.nome,
+      nome: copia ? `${s.nome} (cópia)` : s.nome,
       codigo_trib_nac: s.codigo_trib_nac,
       nbs: s.nbs,
       descricao: s.descricao,
@@ -470,7 +474,7 @@ export function editarServico(s) {
           }
         : null;
     const servico = {
-      id: s?.id ?? null,
+      id: copia ? null : (s?.id ?? null),
       empresa_id: estado.empresa.id,
       nome: d.nome.trim(),
       descricao: d.descricao.trim(),
@@ -496,7 +500,7 @@ export function editarServico(s) {
       valor_sugerido: valorDigitado(d.valor_sugerido),
     };
     await chamar("salvar_servico", { servico });
-    toast("Serviço salvo.");
+    toast(copia ? "Serviço criado a partir da cópia." : "Serviço salvo.");
     return carregarServicos;
   });
 }
