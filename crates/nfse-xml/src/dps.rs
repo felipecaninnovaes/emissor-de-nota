@@ -397,7 +397,16 @@ mod testes {
                 tipo_operacao: 1,
             }),
         });
-        let casos = [exemplo(), cnpj_numerico, obra_cno, obra_endereco, ente_publico];
+        let mut sem_tomador = exemplo();
+        sem_tomador.tomador = None;
+        let casos = [
+            exemplo(),
+            cnpj_numerico,
+            obra_cno,
+            obra_endereco,
+            ente_publico,
+            sem_tomador,
+        ];
         // Só pacotes de Produção Restrita: o de Produção (09/02/2026) tem o padrão da série com
         // `^...$`, que em XSD são literais, e recusa qualquer série.
         for (leiaute, versao) in [

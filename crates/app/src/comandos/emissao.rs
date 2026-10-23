@@ -169,8 +169,9 @@ pub async fn previa_dps(estado: State<'_, Estado>, pedido: PedidoDto) -> R<Previ
         None => None,
     };
     let t = &servico.tributacao;
-    let retencao_condicional =
-        t.retencoes.aplicar != AplicarRetencao::Sempre || t.aplicar_retencao_iss != AplicarRetencao::Sempre;
+    // Sem tomador não há quem retenha: as caixas "Reter nesta nota" não aparecem.
+    let retencao_condicional = tomador.is_some()
+        && (t.retencoes.aplicar != AplicarRetencao::Sempre || t.aplicar_retencao_iss != AplicarRetencao::Sempre);
     let f = &dps.valores.federais;
     let retido: i64 = [f.retencao_irrf, f.retencao_cp, f.retencao_csll]
         .into_iter()

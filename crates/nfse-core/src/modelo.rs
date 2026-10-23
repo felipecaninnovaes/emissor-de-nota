@@ -534,16 +534,30 @@ impl Dps {
             v.erro("prestador.regime.regime_especial", "deve ser 0 a 6 ou 9");
         }
 
+        let f = &self.valores.federais;
+        let retem_federal = [f.retencao_irrf, f.retencao_cp, f.retencao_csll]
+            .into_iter()
+            .flatten()
+            .any(|r| r.centesimos() > 0);
+        if self.tomador.is_none() {
+            if retem_federal {
+                v.erro(
+                    "valores.federais",
+                    "nota sem tomador não tem quem retenha tributos federais; informe o tomador ou desmarque a retenção",
+                );
+            }
+            if self.valores.issqn.retencao == RetencaoIssqn::RetidoPeloTomador {
+                v.erro(
+                    "valores.issqn.retencao",
+                    "nota sem tomador não tem quem retenha o ISS; informe o tomador ou desmarque a retenção",
+                );
+            }
+        }
         if let Some(t) = &self.tomador {
             v.opcional_texto("tomador.inscricao_municipal", &t.inscricao_municipal, 1, 15);
             v.texto("tomador.nome", &t.nome, 1, 300);
             v.opcional_telefone("tomador.telefone", &t.telefone);
             v.opcional_texto_xsd("tomador.email", &t.email, 1, 80);
-            let f = &self.valores.federais;
-            let retem_federal = [f.retencao_irrf, f.retencao_cp, f.retencao_csll]
-                .into_iter()
-                .flatten()
-                .any(|r| r.centesimos() > 0);
             if matches!(t.documento, Documento::Cpf(_)) && retem_federal {
                 v.erro(
                     "valores.federais",
@@ -830,6 +844,21 @@ pub(crate) mod testes {
         assert!(!erro(&dps), "{:?}", dps.validar());
         dps.tomador.as_mut().unwrap().documento = Documento::Cpf(Cpf::parse("52998224725").unwrap());
         assert!(erro(&dps));
+    }
+
+    #[test]
+    fn nota_sem_tomador_nao_tem_retencao() {
+        let mut dps = dps_exemplo();
+        dps.tomador = None;
+        assert_eq!(dps.validar(), Vec::<String>::new());
+        dps.valores.federais.retencao_irrf = Some(Valor::de_centesimos(1_000));
+        dps.valores.issqn.retencao = RetencaoIssqn::RetidoPeloTomador;
+        let erros = dps.validar();
+        assert!(erros.iter().any(|e| e.starts_with("valores.federais:")), "{erros:?}");
+        assert!(
+            erros.iter().any(|e| e.starts_with("valores.issqn.retencao:")),
+            "{erros:?}"
+        );
     }
 
     #[test]

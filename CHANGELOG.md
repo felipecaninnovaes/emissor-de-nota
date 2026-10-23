@@ -4,6 +4,8 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 
 ## Não publicado
 
+- Nota sem tomador deixa de aceitar retenção: a revisão não mostra mais as caixas **Reter nesta nota** e a validação recusa retenção federal ou ISS retido antes de reservar o número, em vez da rejeição da Sefin.
+
 ## 1.9.0
 
 Diagnóstico e log para investigar rejeições da Sefin. Sem nova migração; o banco ganha a coluna `dps.resposta_sefin` por ajuste de esquema ao abrir.
