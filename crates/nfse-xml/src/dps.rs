@@ -399,6 +399,76 @@ mod testes {
         });
         let mut sem_tomador = exemplo();
         sem_tomador.tomador = None;
+
+        use nfse_core::modelo::{PisCofins, RetencaoIssqn, TributosFederais};
+        use nfse_core::{Percentual, Valor};
+        let valor = |c| Some(Valor::de_centesimos(c));
+        let percentual = |p| Some(Percentual::parse(p).unwrap());
+        // Retidos pelo tomador: PIS, COFINS e CSLL somados em vRetCSLL (tpRetPisCofins = 3).
+        let mut retencoes_federais = exemplo();
+        retencoes_federais.valores.federais = TributosFederais {
+            pis_cofins: Some(PisCofins {
+                cst: "01".into(),
+                base_calculo: None,
+                aliquota_pis: None,
+                aliquota_cofins: None,
+                valor_pis: None,
+                valor_cofins: None,
+                tipo_retencao: Some(3),
+            }),
+            retencao_cp: valor(16_500),
+            retencao_irrf: valor(2_250),
+            retencao_csll: valor(6_975),
+        };
+        let pis_cofins_proprios = |dps: &mut Dps| {
+            dps.valores.federais.pis_cofins = Some(PisCofins {
+                cst: "01".into(),
+                base_calculo: valor(150_000),
+                aliquota_pis: percentual("0.65"),
+                aliquota_cofins: percentual("3.00"),
+                valor_pis: valor(975),
+                valor_cofins: valor(4_500),
+                tipo_retencao: Some(0),
+            });
+        };
+        let mut pis_cofins_no_simples = exemplo();
+        pis_cofins_proprios(&mut pis_cofins_no_simples);
+        let mut iss_retido = exemplo();
+        iss_retido.valores.issqn.retencao = RetencaoIssqn::RetidoPeloTomador;
+        iss_retido.valores.issqn.aliquota = percentual("2.00");
+        let mut tomador_cpf = exemplo();
+        tomador_cpf.tomador.as_mut().unwrap().documento = Documento::Cpf(nfse_core::Cpf::parse("52998224725").unwrap());
+        let mut descontos = exemplo();
+        descontos.valores.desconto_incondicionado = valor(10_000);
+        descontos.valores.desconto_condicionado = valor(5_000);
+        // Fora do Simples: IBS/CBS obrigatório, sem pAliq (E0617) e totTrib em percentuais ou valores.
+        let mut nao_optante = exemplo();
+        nao_optante.prestador.regime.simples = SituacaoSimples::NaoOptante;
+        nao_optante.prestador.regime.apuracao_simples = None;
+        nao_optante.valores.issqn.aliquota = percentual("2.00");
+        pis_cofins_proprios(&mut nao_optante);
+        nao_optante.valores.total_tributos = TotalTributos::Percentuais {
+            federal: Percentual::parse("13.45").unwrap(),
+            estadual: Percentual::parse("0.00").unwrap(),
+            municipal: Percentual::parse("2.00").unwrap(),
+        };
+        nao_optante.ibs_cbs = Some(nfse_core::modelo::IbsCbs {
+            consumo_pessoal: Some(false),
+            indicador_operacao: "030101".into(),
+            destinatario_diferente_do_tomador: false,
+            cst: "000".into(),
+            classificacao_tributaria: "000001".into(),
+            governamental: None,
+        });
+        let mut nao_optante_com_retencoes = nao_optante.clone();
+        nao_optante_com_retencoes.valores.federais.retencao_irrf = valor(2_250);
+        nao_optante_com_retencoes.valores.federais.retencao_csll = valor(6_975);
+        nao_optante_com_retencoes.valores.total_tributos = TotalTributos::Valores {
+            federal: Valor::de_centesimos(20_175),
+            estadual: Valor::de_centesimos(0),
+            municipal: Valor::de_centesimos(3_000),
+        };
+
         let casos = [
             exemplo(),
             cnpj_numerico,
@@ -406,6 +476,13 @@ mod testes {
             obra_endereco,
             ente_publico,
             sem_tomador,
+            retencoes_federais,
+            pis_cofins_no_simples,
+            iss_retido,
+            tomador_cpf,
+            descontos,
+            nao_optante,
+            nao_optante_com_retencoes,
         ];
         // Só pacotes de Produção Restrita: o de Produção (09/02/2026) tem o padrão da série com
         // `^...$`, que em XSD são literais, e recusa qualquer série.
