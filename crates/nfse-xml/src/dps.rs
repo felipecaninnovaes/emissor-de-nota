@@ -404,16 +404,17 @@ mod testes {
         use nfse_core::{Percentual, Valor};
         let valor = |c| Some(Valor::de_centesimos(c));
         let percentual = |p| Some(Percentual::parse(p).unwrap());
-        // Retidos pelo tomador: PIS, COFINS e CSLL somados em vRetCSLL (tpRetPisCofins = 3).
+        // Retidos pelo tomador: PIS, COFINS e CSLL somados em vRetCSLL (tpRetPisCofins = 3), com vPis
+        // e vCofins também como débito de apuração própria, como no Portal Nacional.
         let mut retencoes_federais = exemplo();
         retencoes_federais.valores.federais = TributosFederais {
             pis_cofins: Some(PisCofins {
                 cst: "01".into(),
-                base_calculo: None,
-                aliquota_pis: None,
-                aliquota_cofins: None,
-                valor_pis: None,
-                valor_cofins: None,
+                base_calculo: valor(150_000),
+                aliquota_pis: percentual("0.65"),
+                aliquota_cofins: percentual("3.00"),
+                valor_pis: valor(975),
+                valor_cofins: valor(4_500),
                 tipo_retencao: Some(3),
             }),
             retencao_cp: valor(16_500),

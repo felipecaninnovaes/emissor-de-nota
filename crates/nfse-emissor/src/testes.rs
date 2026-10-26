@@ -368,10 +368,13 @@ fn retencoes_percentuais_viram_valores() {
     assert_eq!(f.retencao_csll.unwrap().to_string(), "57.41");
     assert_eq!(f.retencao_cp, None);
     let pc = f.pis_cofins.unwrap();
-    // retido vai só em vRetCSLL: sem base nem valores de apuração própria (não reduz a base do IBS/CBS)
-    assert_eq!(pc.base_calculo, None);
-    assert_eq!((pc.valor_pis, pc.valor_cofins), (None, None));
-    assert_eq!((pc.aliquota_pis, pc.aliquota_cofins), (None, None));
+    // retido também sai como débito próprio, com os mesmos valores somados em vRetCSLL
+    assert_eq!(pc.base_calculo.unwrap().to_string(), "1234.56");
+    assert_eq!(
+        (pc.valor_pis.unwrap().to_string(), pc.valor_cofins.unwrap().to_string()),
+        ("8.02".into(), "37.04".into())
+    );
+    assert_eq!((pc.aliquota_pis, pc.aliquota_cofins), (p("0.65"), p("3")));
     // PIS, COFINS e CSLL retidos: sem isso a Sefin não os desconta do valor líquido.
     assert_eq!(pc.tipo_retencao, Some(3));
 }
@@ -409,11 +412,44 @@ fn pis_cofins_proprios_viram_base_e_valores() {
         (pc.valor_pis, pc.valor_cofins.unwrap().to_string()),
         (None, "19.50".into())
     );
-    // retido: segue só em vRetCSLL, sem valores próprios
+    // PIS retido: vPis igual ao retido (arredondado, como em vRetCSLL); COFINS própria segue truncada
     t.federais.pis_cofins.as_mut().unwrap().aliquota_pis = p("0.65");
     t.retencoes.pis = p("0.65");
-    let pc = federais_da_nota(&t, valor).pis_cofins.unwrap();
-    assert_eq!((pc.base_calculo, pc.valor_pis, pc.valor_cofins), (None, None, None));
+    let f = federais_da_nota(&t, valor);
+    assert_eq!(f.retencao_csll.unwrap().to_string(), "4.23");
+    let pc = f.pis_cofins.unwrap();
+    assert_eq!(
+        (pc.valor_pis.unwrap().to_string(), pc.valor_cofins.unwrap().to_string()),
+        ("4.23".into(), "19.50".into())
+    );
+}
+
+/// Nota real de 26/10/2026 (64.715,35, IR 1,5%, CSLL 1%, PIS 0,65% e COFINS 3% retidos): o DANFSe saiu com
+/// "PIS/COFINS - Débito Apuração Própria" zerados porque vPis/vCofins não iam na DPS.
+#[test]
+fn retencao_percentual_tambem_leva_vpis_e_vcofins() {
+    let p = |v: &str| Some(Percentual::parse(v).unwrap());
+    let t = Tributacao {
+        retencoes: nfse_db::servicos::RetencoesPercentuais {
+            irrf: p("1.5"),
+            csll: p("1"),
+            cp: None,
+            pis: p("0.65"),
+            cofins: p("3"),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let f = federais_da_nota(&t, Valor::parse("64715.35").unwrap());
+    assert_eq!(f.retencao_irrf.unwrap().to_string(), "970.73");
+    assert_eq!(f.retencao_csll.unwrap().to_string(), "3009.26");
+    let pc = f.pis_cofins.unwrap();
+    assert_eq!(pc.base_calculo.unwrap().to_string(), "64715.35");
+    assert_eq!(
+        (pc.valor_pis.unwrap().to_string(), pc.valor_cofins.unwrap().to_string()),
+        ("420.65".into(), "1941.46".into())
+    );
+    assert_eq!(pc.tipo_retencao, Some(3));
 }
 
 /// Nota do Portal Nacional (700,00): tipo 3 no cadastro, sem percentual de retenção; vRetCSLL = CSLL 7,00 + PIS 4,55 + COFINS 21,00.

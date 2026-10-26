@@ -207,13 +207,14 @@ pub fn federais_da_nota(t: &nfse_db::servicos::Tributacao, valor: Valor) -> nfse
             valor_cofins: None,
             tipo_retencao: None,
         });
-        // Retido não é débito próprio: vPis/vCofins saem da base do IBS/CBS na Sefin, e repetir
-        // aqui o que já está em vRetCSLL reduz a base duas vezes (nota real: base = valor − ISS).
-        pc.base_calculo = None;
-        pc.aliquota_pis = None;
-        pc.aliquota_cofins = None;
-        pc.valor_pis = None;
-        pc.valor_cofins = None;
+        // Como no Portal Nacional, o retido também segue como débito de apuração própria (vPis/vCofins
+        // com os mesmos valores somados em vRetCSLL); sem eles o DANFSe sai com PIS e COFINS zerados e a
+        // Sefin não os desconta da base do IBS/CBS. Tributo não retido usa a alíquota própria, truncada.
+        pc.base_calculo = Some(valor);
+        pc.aliquota_pis = r.pis.or(pc.aliquota_pis);
+        pc.aliquota_cofins = r.cofins.or(pc.aliquota_cofins);
+        pc.valor_pis = aplicar(r.pis).or_else(|| pc.aliquota_pis.map(|p| valor.aplicar_truncado(p)));
+        pc.valor_cofins = aplicar(r.cofins).or_else(|| pc.aliquota_cofins.map(|p| valor.aplicar_truncado(p)));
     } else if let Some(pc) = f.pis_cofins.as_mut()
         && matches!(pc.cst.as_str(), "01" | "02")
         && (pc.aliquota_pis.is_some() || pc.aliquota_cofins.is_some())
