@@ -69,12 +69,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.alvo }}
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.chave }}
+      # Antes do cache: com um cargo-binstall antigo restaurado em ~/.cargo/bin, o install-action
+      # tenta "atualizar" apagando um arquivo que não existe e o job falha (macOS, v1.11.0).
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-binstall
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.chave }}
       - name: Instalar tauri-cli
         run: cargo binstall tauri-cli@^2 --no-confirm
 
