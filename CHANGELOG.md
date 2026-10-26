@@ -4,6 +4,7 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 
 ## Não publicado
 
+- Corrigida a mensagem de nota autorizada (e a de nota não emitida) na tela de emissão, que espalhava o título, "Chave:" e a chave em colunas desalinhadas.
 - Nota com PIS/COFINS retidos passa a levar também a base, as alíquotas e os valores de PIS e COFINS: o DANFSe deixava zerados "PIS - Débito Apuração Própria" e "COFINS - Débito Apuração Própria", e a base do IBS/CBS não descontava esses valores.
 - A lista de **Tomadores** passa a mostrar todos os tomadores da empresa, 25 por página, com **Anterior**/**Próxima** e a contagem embaixo da tabela; antes parava nos 20 primeiros e só a busca achava os outros.
 - **Serviços → Mais ▾ → Duplicar** abre o cadastro preenchido com os dados de um serviço já cadastrado (nome com "(cópia)"); salvar cria outro serviço, com o mesmo código de tributação e a descrição ou as alíquotas que forem trocadas, sem mudar o original.

@@ -413,8 +413,8 @@ $("#confirmar-emissao").addEventListener("click", async () => {
     const r = await chamar("emitir", { pedido });
     $("#revisao").hidden = true;
     if (r.autorizada) {
-      res.innerHTML = `<div class="aviso ok"><strong>NFS-e ${esc(r.numero ?? "")} autorizada.</strong><br>
-          Chave: <code>${esc(r.chave)}</code></div>
+      res.innerHTML = `<div class="aviso ok"><div><strong>NFS-e ${esc(r.numero ?? "")} autorizada.</strong><br>
+          Chave: <code>${esc(r.chave)}</code></div></div>
         ${r.avisos
           .map((a) => `<div class="aviso ${a.startsWith("E-mail enviado") ? "ok" : "atencao"}">${esc(a)}</div>`)
           .join("")}
@@ -471,7 +471,7 @@ $("#confirmar-emissao").addEventListener("click", async () => {
       mostrarIncerta(res, r);
     }
   } catch (e) {
-    res.innerHTML = `<div class="aviso erro"><strong>Nota não emitida.</strong><br>${esc(e)}</div>`;
+    res.innerHTML = `<div class="aviso erro"><div><strong>Nota não emitida.</strong><br>${esc(e)}</div></div>`;
     oferecerCorrecoes(res, String(e), pedido);
   } finally {
     emissaoEmCurso = false;
