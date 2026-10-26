@@ -1,11 +1,20 @@
 # Changelog
 
-Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0, a 1.2.0, a 1.3.0 e a 1.4.0, em 18/10/2026, a 1.5.0 e a 1.6.0, em 19/10/2026, a 1.7.0 e a 1.7.1, em 20/10/2026, a 1.8.0 e a 1.8.1, em 22/10/2026, e a 1.9.0, em 22/10/2026; a versão vem de `crates/app/Cargo.toml`. A seção **Não publicado** junta o que já está na `main` e ainda não saiu em versão.
+Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0, a 1.2.0, a 1.3.0 e a 1.4.0, em 18/10/2026, a 1.5.0 e a 1.6.0, em 19/10/2026, a 1.7.0 e a 1.7.1, em 20/10/2026, a 1.8.0 e a 1.8.1, em 22/10/2026, a 1.9.0, em 22/10/2026, a 1.10.0, em 23/10/2026, e a 1.11.0, em 26/10/2026; a versão vem de `crates/app/Cargo.toml`. A seção **Não publicado** junta o que já está na `main` e ainda não saiu em versão.
 
 ## Não publicado
 
-- Corrigida a mensagem de nota autorizada (e a de nota não emitida) na tela de emissão, que espalhava o título, "Chave:" e a chave em colunas desalinhadas.
+## 1.11.0
+
+PIS e COFINS retidos aparecem no DANFSe como débito de apuração própria. Sem nova migração nem mudança no esquema do banco.
+
 - Nota com PIS/COFINS retidos passa a levar também a base, as alíquotas e os valores de PIS e COFINS: o DANFSe deixava zerados "PIS - Débito Apuração Própria" e "COFINS - Débito Apuração Própria", e a base do IBS/CBS não descontava esses valores.
+- Corrigida a mensagem de nota autorizada (e a de nota não emitida) na tela de emissão, que espalhava o título, "Chave:" e a chave em colunas desalinhadas.
+
+## 1.10.0
+
+Importação de tomadores por planilha, paginação de tomadores e duplicação de serviço. Sem nova migração nem mudança no esquema do banco.
+
 - A lista de **Tomadores** passa a mostrar todos os tomadores da empresa, 25 por página, com **Anterior**/**Próxima** e a contagem embaixo da tabela; antes parava nos 20 primeiros e só a busca achava os outros.
 - **Serviços → Mais ▾ → Duplicar** abre o cadastro preenchido com os dados de um serviço já cadastrado (nome com "(cópia)"); salvar cria outro serviço, com o mesmo código de tributação e a descrição ou as alíquotas que forem trocadas, sem mudar o original.
 - Tomador vinculado de outra empresa passa a vir com o tipo e as retenções (**Retém impostos federais**, **Retém ISS**) do cadastro feito na outra empresa, em vez de vazios.
