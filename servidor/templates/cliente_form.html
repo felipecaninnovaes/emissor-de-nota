@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<form method="post" action="{{ acao }}" class="cartao estreito">
+  <h1>{{ titulo }}</h1>
+  <label for="nome">Nome</label>
+  <input id="nome" name="nome" value="{{ dados.nome }}" required autofocus>
+  {% if let Some(e) = erro %}<p class="erro-campo">{{ e }}</p>{% endif %}
+  <label for="documento">CNPJ ou CPF</label>
+  <input id="documento" name="documento" value="{{ dados.documento }}">
+  <label for="email">E-mail</label>
+  <input id="email" name="email" type="email" value="{{ dados.email }}">
+  <label for="observacao">Observação</label>
+  <textarea id="observacao" name="observacao" rows="3">{{ dados.observacao }}</textarea>
+  <button class="botao primario">Salvar</button>
+</form>
+{% endblock %}

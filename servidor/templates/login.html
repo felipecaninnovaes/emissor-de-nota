@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<form method="post" action="/login" class="cartao estreito">
+  <h1>Entrar</h1>
+  {% if let Some(e) = erro %}<p class="aviso erro">{{ e }}</p>{% endif %}
+  <label for="usuario">Usuário</label>
+  <input id="usuario" name="usuario" autocomplete="username" required autofocus>
+  <label for="senha">Senha</label>
+  <input id="senha" name="senha" type="password" autocomplete="current-password" required>
+  <button class="botao primario">Entrar</button>
+</form>
+{% endblock %}

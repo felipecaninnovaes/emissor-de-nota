@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="cartao estreito">
+  <h1>Token de {{ nome }}</h1>
+  <p class="aviso atencao">Copie agora: o token não aparece de novo. Se perder, gere outro na página do cliente.</p>
+  <input class="dado" value="{{ token }}" readonly aria-label="Token">
+  <p>No aplicativo: <strong>Configurações → Backup na nuvem</strong>, cole o endereço deste servidor e o token, e clique em <strong>Salvar</strong> e <strong>Testar conexão</strong>.</p>
+  <a class="botao primario" href="/clientes/{{ cliente_id }}">Ir para o cliente</a>
+</div>
+{% endblock %}

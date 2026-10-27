@@ -1,0 +1,76 @@
+:root {
+  color-scheme: light dark;
+  --fundo: #f6f7f9;
+  --cartao: #ffffff;
+  --texto: #1d232b;
+  --suave: #5b6673;
+  --borda: #d9dee4;
+  --primaria: #1f6feb;
+  --verde: #1a7f37;
+  --verde-claro: #e6f4ea;
+  --vermelho: #c62828;
+  --vermelho-claro: #fdecea;
+  --amarelo: #8a5a00;
+  --amarelo-claro: #fff4d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fundo: #14171b;
+    --cartao: #1c2026;
+    --texto: #e6e9ed;
+    --suave: #9aa4af;
+    --borda: #2f353d;
+    --primaria: #4c8dff;
+    --verde: #5cc27a;
+    --verde-claro: #183324;
+    --vermelho: #ff7b72;
+    --vermelho-claro: #3a1d1d;
+    --amarelo: #e3b341;
+    --amarelo-claro: #3a2f12;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fundo); color: var(--texto); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+.topo { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.75rem 1.5rem; background: var(--cartao); border-bottom: 1px solid var(--borda); }
+.topo nav { display: flex; align-items: center; gap: 1rem; }
+.topo nav form { margin: 0; }
+main { max-width: 72rem; margin: 0 auto; padding: 1.5rem; }
+h1 { font-size: 1.5rem; margin: 0 0 1rem; }
+h2 { font-size: 1.15rem; margin: 2rem 0 0.5rem; }
+a { color: var(--primaria); }
+.cabecalho { display: flex; align-items: center; gap: 1rem; justify-content: space-between; margin-bottom: 1rem; }
+.cabecalho h1 { margin: 0; }
+.cartao { background: var(--cartao); border: 1px solid var(--borda); border-radius: 8px; padding: 1.25rem; }
+.estreito { max-width: 30rem; margin: 2rem auto; display: flex; flex-direction: column; gap: 0.5rem; }
+label { font-weight: 600; margin-top: 0.5rem; }
+input, textarea { font: inherit; color: inherit; background: var(--fundo); border: 1px solid var(--borda); border-radius: 6px; padding: 0.5rem 0.625rem; width: 100%; }
+.botao { display: inline-block; font: inherit; color: var(--texto); background: var(--cartao); border: 1px solid var(--borda); border-radius: 6px; padding: 0.4rem 0.875rem; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.botao.primario { background: var(--primaria); border-color: var(--primaria); color: #fff; }
+.botao.perigo { color: var(--vermelho); border-color: var(--vermelho); }
+.estreito .botao { margin-top: 1rem; align-self: flex-start; }
+button.link { background: none; border: 0; color: var(--primaria); font: inherit; cursor: pointer; padding: 0; text-decoration: underline; }
+.acoes { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-top: 1rem; }
+.acoes form { margin: 0; }
+td.acoes { margin: 0; }
+table { width: 100%; border-collapse: collapse; background: var(--cartao); border: 1px solid var(--borda); border-radius: 8px; overflow: hidden; }
+th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--borda); vertical-align: middle; }
+th { font-size: 0.85rem; color: var(--suave); font-weight: 600; }
+tfoot td { color: var(--suave); border-bottom: 0; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.dado { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 0.85rem; }
+.selo { display: inline-block; font-size: 0.8rem; font-weight: 600; padding: 0.1rem 0.5rem; border-radius: 999px; }
+.selo.ok { background: var(--verde-claro); color: var(--verde); }
+.selo.inativo { background: var(--vermelho-claro); color: var(--vermelho); }
+.selo.atencao { background: var(--amarelo-claro); color: var(--amarelo); }
+.aviso { padding: 0.625rem 0.875rem; border-radius: 6px; border: 1px solid currentColor; margin: 0.5rem 0; }
+.aviso.erro { background: var(--vermelho-claro); color: var(--vermelho); }
+.aviso.atencao { background: var(--amarelo-claro); color: var(--amarelo); }
+.erro-campo { color: var(--vermelho); margin: 0.25rem 0 0; font-size: 0.9rem; }
+.ajuda { color: var(--suave); font-size: 0.9rem; }
+dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1.5rem; margin: 0; }
+dt { color: var(--suave); }
+dd { margin: 0; }
+@media (max-width: 40rem) {
+  main { padding: 1rem; }
+  table { display: block; overflow-x: auto; }
+}

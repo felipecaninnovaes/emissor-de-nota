@@ -1,0 +1,72 @@
+# Backup na nuvem do Emissor NFS-e: painel + Postgres + S3 (versitygw). Ver docs/nuvem.md.
+# 1. Copie .env.exemplo para .env e preencha.  2. docker compose up -d
+#    Sem proxy reverso com HTTPS na VPS: docker compose --profile https up -d (Caddy, certificado automático).
+# Os dados ficam em ./dados (Postgres e os arquivos dos backups): é essa pasta que o backup da VPS precisa levar.
+
+services:
+  painel:
+    image: ghcr.io/felipecaninnovaes/emissor-nuvem:${VERSAO_PAINEL:-latest}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://nuvem:${POSTGRES_SENHA:?defina POSTGRES_SENHA no .env}@banco:5432/nuvem
+      S3_ENDPOINT: http://s3:7070
+      S3_BUCKET: backups
+      S3_CHAVE: ${S3_CHAVE:?defina S3_CHAVE no .env}
+      S3_SEGREDO: ${S3_SEGREDO:?defina S3_SEGREDO no .env}
+      ADMIN_USUARIO: ${ADMIN_USUARIO:-admin}
+      ADMIN_SENHA: ${ADMIN_SENHA:?defina ADMIN_SENHA no .env}
+      URL_PUBLICA: ${URL_PUBLICA:-}
+      MANTER_BACKUPS: ${MANTER_BACKUPS:-30}
+      TAMANHO_MAXIMO_MB: ${TAMANHO_MAXIMO_MB:-500}
+      COOKIE_SEGURO: ${COOKIE_SEGURO:-true}
+    # Só na própria VPS: quem publica para fora é o proxy reverso (o Caddy abaixo ou o seu).
+    ports:
+      - "127.0.0.1:${PORTA_PAINEL:-8080}:8080"
+    depends_on:
+      banco:
+        condition: service_healthy
+      s3:
+        condition: service_started
+
+  banco:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nuvem
+      POSTGRES_PASSWORD: ${POSTGRES_SENHA:?defina POSTGRES_SENHA no .env}
+      POSTGRES_DB: nuvem
+    volumes:
+      - ./dados/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nuvem -d nuvem"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Grava cada backup como um arquivo comum em ./dados/s3/backups/clientes/<id>/. Sem porta publicada:
+  # só o painel fala com ele.
+  s3:
+    image: versity/versitygw:v1.10.0
+    restart: unless-stopped
+    environment:
+      ROOT_ACCESS_KEY: ${S3_CHAVE:?defina S3_CHAVE no .env}
+      ROOT_SECRET_KEY: ${S3_SEGREDO:?defina S3_SEGREDO no .env}
+    command: ["--port", ":7070", "posix", "/dados"]
+    volumes:
+      - ./dados/s3:/dados
+
+  # Opcional (profile https): HTTPS com certificado automático para o DOMINIO, que precisa apontar para a VPS.
+  caddy:
+    image: caddy:2
+    profiles: ["https"]
+    restart: unless-stopped
+    environment:
+      DOMINIO: ${DOMINIO:-}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./dados/caddy:/data
+    depends_on:
+      - painel

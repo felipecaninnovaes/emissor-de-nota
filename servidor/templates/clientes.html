@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="cabecalho">
+  <h1>Clientes</h1>
+  <a class="botao primario" href="/clientes/novo">Novo cliente</a>
+</div>
+{% if clientes.is_empty() %}
+<p>Nenhum cliente ainda. Cadastre o primeiro e envie o token para ele colar em Configurações → Backup na nuvem.</p>
+{% else %}
+<table>
+  <thead>
+    <tr><th>Cliente</th><th>CNPJ/CPF</th><th>Situação</th><th class="num">Backups</th><th class="num">Espaço</th><th>Último envio</th></tr>
+  </thead>
+  <tbody>
+    {% for c in clientes %}
+    <tr>
+      <td><a href="/clientes/{{ c.id }}">{{ c.nome }}</a></td>
+      <td>{{ c.documento }}</td>
+      <td>
+        {% if c.ativo %}<span class="selo ok">Ativo</span>{% else %}<span class="selo inativo">Inativo</span>{% endif %}
+        {% if !c.tem_token %}<span class="selo atencao">Sem token</span>{% endif %}
+      </td>
+      <td class="num">{{ c.backups }}</td>
+      <td class="num">{{ c.espaco }}</td>
+      <td>{{ c.ultimo }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot><tr><td colspan="4">{{ clientes.len() }} cliente(s)</td><td class="num">{{ total_espaco }}</td><td></td></tr></tfoot>
+</table>
+{% endif %}
+{% endblock %}

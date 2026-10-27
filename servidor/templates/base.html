@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ titulo }} · Backup na nuvem</title>
+  <link rel="stylesheet" href="/estilo.css">
+</head>
+<body>
+  <header class="topo">
+    <strong>Backup na nuvem</strong>
+    {% if logado %}
+    <nav>
+      <a href="/">Clientes</a>
+      <a href="/clientes/novo">Novo cliente</a>
+      <form method="post" action="/sair"><button class="link">Sair</button></form>
+    </nav>
+    {% endif %}
+  </header>
+  <main>
+    {% block conteudo %}{% endblock %}
+  </main>
+</body>
+</html>

@@ -1,0 +1,4 @@
+# Usado pelo serviço caddy do compose (profile https). DOMINIO vem do .env.
+{$DOMINIO} {
+	reverse_proxy painel:8080
+}

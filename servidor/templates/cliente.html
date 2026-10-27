@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="cabecalho">
+  <h1>{{ cliente.nome }}</h1>
+  {% if cliente.ativo %}<span class="selo ok">Ativo</span>{% else %}<span class="selo inativo">Inativo</span>{% endif %}
+</div>
+<div class="cartao">
+  <dl>
+    <dt>CNPJ/CPF</dt><dd>{{ cliente.documento }}</dd>
+    <dt>E-mail</dt><dd>{{ cliente.email }}</dd>
+    <dt>Cadastro</dt><dd>{{ criado_em }}</dd>
+    <dt>Observação</dt><dd>{{ cliente.observacao }}</dd>
+  </dl>
+  <div class="acoes">
+    <a class="botao" href="/clientes/{{ cliente.id }}/editar">Editar</a>
+    <form method="post" action="/clientes/{{ cliente.id }}/ativo">
+      {% if cliente.ativo %}
+      <input type="hidden" name="ativo" value="false">
+      <button class="botao">Desativar (bloqueia novos backups)</button>
+      {% else %}
+      <input type="hidden" name="ativo" value="true">
+      <button class="botao primario">Ativar</button>
+      {% endif %}
+    </form>
+    <form method="post" action="/clientes/{{ cliente.id }}/token">
+      <button class="botao">Gerar novo token</button>
+    </form>
+    <a class="botao perigo" href="/clientes/{{ cliente.id }}/excluir">Excluir cliente e backups…</a>
+  </div>
+  {% if !cliente.ativo %}
+  <p class="ajuda">Inativo: o aplicativo não consegue enviar backups novos, mas continua listando e baixando os anteriores para restaurar.</p>
+  {% endif %}
+  <p class="ajuda">Gerar novo token invalida o anterior na hora: o cliente precisa colar o novo no aplicativo.</p>
+</div>
+<h2>Backups ({{ backups.len() }}, {{ espaco }})</h2>
+<p class="ajuda">Ficam os {{ mantidos }} mais recentes; os mais antigos são apagados a cada envio. O conteúdo é cifrado com a senha mestra do cliente: o servidor não consegue abrir.</p>
+{% if backups.is_empty() %}
+<p>Nenhum backup enviado ainda.</p>
+{% else %}
+<table>
+  <thead><tr><th>Enviado em</th><th>Arquivo</th><th class="num">Tamanho</th><th>SHA-256</th><th></th></tr></thead>
+  <tbody>
+    {% for b in backups %}
+    <tr>
+      <td>{{ b.criado_em }}</td>
+      <td>{{ b.nome }}</td>
+      <td class="num">{{ b.tamanho }}</td>
+      <td class="dado">{{ b.sha256 }}…</td>
+      <td class="acoes">
+        <a class="botao" href="/clientes/{{ cliente.id }}/backups/{{ b.id }}">Baixar</a>
+        <form method="post" action="/clientes/{{ cliente.id }}/backups/{{ b.id }}/excluir"><button class="botao perigo">Excluir</button></form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

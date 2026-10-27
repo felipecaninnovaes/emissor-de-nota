@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<form method="post" action="/clientes/{{ cliente.id }}/excluir" class="cartao estreito">
+  <h1>Excluir {{ cliente.nome }}</h1>
+  <p class="aviso erro">Apaga o cliente e os {{ backups }} backup(s) guardados. Não tem volta.</p>
+  <label for="confirmacao">Digite o nome do cliente para confirmar</label>
+  <input id="confirmacao" name="confirmacao" autocomplete="off" required>
+  {% if let Some(e) = erro %}<p class="erro-campo">{{ e }}</p>{% endif %}
+  <div class="acoes">
+    <button class="botao perigo">Excluir definitivamente</button>
+    <a class="botao" href="/clientes/{{ cliente.id }}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}
