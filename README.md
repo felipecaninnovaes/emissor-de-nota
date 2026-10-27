@@ -46,6 +46,7 @@ Setup completo, testes, CLI de diagnóstico e problemas conhecidos: [docs/desenv
 | [docs/configuracao.md](docs/configuracao.md) | Variáveis, opções e arquivos |
 | [docs/fiscal.md](docs/fiscal.md) | Regras da Sefin Nacional |
 | [docs/deploy.md](docs/deploy.md) | Gerar o MSI e publicar versões |
+| [docs/nuvem.md](docs/nuvem.md) | Servidor do backup na nuvem (compose, painel, API) |
 | [docs/escopo.md](docs/escopo.md) | Escopo e roadmap |
 | [docs/decisoes/](docs/decisoes/) | Decisões de projeto |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Como contribuir e a cessão de direitos |
