@@ -40,3 +40,43 @@ jobs:
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check licenses
+
+  servidor:
+    name: Servidor do backup na nuvem (fmt, clippy, testes com Postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: nuvem
+          POSTGRES_PASSWORD: nuvem
+          POSTGRES_DB: nuvem
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U nuvem" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgres://nuvem:nuvem@localhost:5432/nuvem
+    defaults:
+      run:
+        working-directory: servidor
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: servidor
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo test --locked -- --include-ignored
+
+  licencas-servidor:
+    name: Licenças das dependências do servidor (cargo-deny)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: servidor/Cargo.toml
+          command: check --config deny.toml licenses
