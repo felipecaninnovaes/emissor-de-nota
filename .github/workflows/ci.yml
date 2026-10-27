@@ -76,7 +76,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: EmbarkStudios/cargo-deny-action@v2
+      # O deny.toml fica na raiz; o --config vai antes do `check`.
+      - uses: taiki-e/install-action@v2
         with:
-          manifest-path: servidor/Cargo.toml
-          command: check --config deny.toml licenses
+          tool: cargo-deny
+      - run: cargo deny --manifest-path servidor/Cargo.toml --config deny.toml check licenses
