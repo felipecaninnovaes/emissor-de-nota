@@ -91,24 +91,22 @@ async fn executar(estado: &Estado) -> R<String> {
 /// Falha não impede o uso do sistema; fica na auditoria.
 pub(crate) async fn automatico(estado: &Estado) {
     let Ok(banco) = estado.banco() else { return };
-    let Ok(Some(pasta)) = banco.configuracao(CHAVE_PASTA_BACKUP).await else {
-        return;
-    };
-    if pasta.trim().is_empty() {
-        return;
-    }
-    let ultimo = banco
-        .configuracao(CHAVE_ULTIMO_BACKUP)
-        .await
-        .ok()
-        .flatten()
-        .and_then(|u| chrono::DateTime::parse_from_rfc3339(&u).ok());
-    if ultimo.is_some_and(|u| chrono::Utc::now() - u.to_utc() < INTERVALO_AUTOMATICO) {
-        return;
-    }
-    if let Err(e) = executar(estado).await {
+    let pasta = banco.configuracao(CHAVE_PASTA_BACKUP).await.ok().flatten();
+    let ultimo = banco.configuracao(CHAVE_ULTIMO_BACKUP).await.ok().flatten();
+    if pasta.is_some_and(|p| !p.trim().is_empty())
+        && vencido(ultimo.as_deref())
+        && let Err(e) = executar(estado).await
+    {
         let _ = banco.auditar("backup_falhou", None, Some(&e)).await;
     }
+    super::nuvem::automatico(estado).await;
+}
+
+/// Sem último backup, ou o último tem mais que [`INTERVALO_AUTOMATICO`].
+pub(crate) fn vencido(ultimo: Option<&str>) -> bool {
+    !ultimo
+        .and_then(|u| chrono::DateTime::parse_from_rfc3339(u).ok())
+        .is_some_and(|u| chrono::Utc::now() - u.to_utc() < INTERVALO_AUTOMATICO)
 }
 
 /// Decifra um backup para um arquivo novo e confere a integridade (serve de teste de
@@ -136,6 +134,13 @@ pub async fn restaurar_e_reiniciar(
 ) -> R<()> {
     exigir_cofre(&estado).await?;
     let senha = zeroize::Zeroizing::new(senha);
+    preparar_restauracao(&estado, Path::new(arquivo.trim()), &senha).await?;
+    reiniciar(&app, &estado).await
+}
+
+/// Decifra e confere o backup em `restauracao-pendente.db` na pasta de dados; a troca acontece
+/// na próxima abertura. Usado pela restauração do arquivo local e pela da nuvem.
+pub(crate) async fn preparar_restauracao(estado: &Estado, arquivo: &Path, senha: &str) -> R<()> {
     let destino = estado.dados.join(RESTAURACAO_PENDENTE);
     // Sobra de uma tentativa interrompida: os dois arquivos são nossos e ainda não valem nada.
     for sobra in [destino.clone(), nfse_db::cofre::caminho_cabecalho(&destino)] {
@@ -143,10 +148,11 @@ pub async fn restaurar_e_reiniciar(
             std::fs::remove_file(&sobra).map_err(|e| format!("não foi possível preparar a restauração: {e}"))?;
         }
     }
-    backup::restaurar_backup(Path::new(arquivo.trim()), &senha, &destino)
-        .await
-        .map_err(texto)?;
-    // Como o "Bloquear": espera as operações em andamento e fecha o banco antes de reiniciar.
+    backup::restaurar_backup(arquivo, senha, &destino).await.map_err(texto)
+}
+
+/// Como o "Bloquear": espera as operações em andamento, fecha o banco e reinicia o aplicativo.
+pub(crate) async fn reiniciar(app: &tauri::AppHandle, estado: &Estado) -> R<()> {
     *estado.emissor.write().await = None;
     if let Some(banco) = estado.trocar_banco(None) {
         banco.fechar().await;

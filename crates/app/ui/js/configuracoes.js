@@ -1,4 +1,4 @@
-// Configurações: pasta de saída, backup, e-mail e DPS pendentes.
+// Configurações: pasta de saída, backup (local e na nuvem), e-mail e DPS pendentes.
 
 import { $, chamar, copiarTexto, esc, estado, invoke, mesPadrao, toast, vazio } from "./util.js";
 import { confirmar, lerForm, limparErro, limparErros, mostrarErros, preencherForm, validarCampos } from "./formularios.js";
@@ -10,6 +10,7 @@ export async function carregarConfiguracoes() {
   $("#cfg-mes-padrao").value = estado.mesPadrao;
   $("#pasta-saida").value = await invoke("obter_pasta");
   await carregarBackup();
+  await carregarNuvem();
   await carregarLeiautes();
   await carregarDiagnostico();
   await carregarEmail();
@@ -329,6 +330,150 @@ $("#restaurar-agora").addEventListener("click", async () => {
     toast(String(e), true);
     botao.disabled = false;
     botao.textContent = "Restaurar backup…";
+  }
+});
+
+// Backup na nuvem: endereço e token (cifrado no cofre), situação da assinatura e backups guardados no servidor.
+let nuvemUltimo = null;
+
+async function carregarNuvem() {
+  const n = await invoke("obter_nuvem");
+  $("#nuvem-endereco").value = n.endereco;
+  $("#nuvem-token").value = "";
+  $("[data-token-guardado]").hidden = !n.tem_token;
+  nuvemUltimo = n.ultimo;
+  mostrarSituacaoNuvem(null);
+  if (n.endereco && n.tem_token) {
+    // Sem esperar: o servidor pode estar lento ou fora do ar, e a tela não fica presa.
+    atualizarNuvem().catch((e) => mostrarSituacaoNuvem(null, String(e)));
+  } else {
+    $("#lista-nuvem").innerHTML = "";
+  }
+}
+
+function mostrarSituacaoNuvem(situacao, erro) {
+  $("#nuvem-inativa").hidden = !situacao || situacao.ativo;
+  const partes = [];
+  if (situacao) partes.push(`Cliente: ${situacao.cliente}. Assinatura ${situacao.ativo ? "ativa" : "inativa"}.`);
+  partes.push(nuvemUltimo ? `Último envio: ${new Date(nuvemUltimo).toLocaleString("pt-BR")}.` : "Nenhum backup enviado ainda.");
+  if (erro) partes.push(erro);
+  $("#nuvem-situacao").textContent = partes.join(" ");
+}
+
+async function atualizarNuvem() {
+  const situacao = await invoke("testar_nuvem");
+  mostrarSituacaoNuvem(situacao);
+  await listarNuvem();
+  return situacao;
+}
+
+function tamanhoLegivel(bytes) {
+  return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.ceil(bytes / 1024)} KB`;
+}
+
+async function listarNuvem() {
+  const lista = await invoke("listar_backups_nuvem");
+  $("#lista-nuvem").innerHTML = lista.length
+    ? lista
+        .map(
+          (b) => `<tr><td>${esc(new Date(b.criado_em).toLocaleString("pt-BR"))}</td><td><code>${esc(b.nome)}</code></td>
+            <td class="num">${tamanhoLegivel(b.tamanho)}</td>
+            <td><button class="botao pequeno perigo" data-restaurar-nuvem="${b.id}">Restaurar…</button></td></tr>`,
+        )
+        .join("")
+    : `<tr><td class="vazio">Nenhum backup no servidor.</td></tr>`;
+}
+
+/** Grava endereço e token (token vazio mantém o guardado); erro de validação fica junto do campo. */
+async function salvarNuvem() {
+  const endereco = $("#nuvem-endereco");
+  const token = $("#nuvem-token");
+  limparErro(endereco);
+  limparErro(token);
+  const erros = [];
+  if (!endereco.value.trim()) erros.push({ el: endereco, msg: "Informe o endereço do servidor." });
+  if (!token.value.trim() && $("[data-token-guardado]").hidden) erros.push({ el: token, msg: "Informe o token." });
+  if (erros.length) {
+    mostrarErros(erros);
+    return false;
+  }
+  try {
+    await chamar("salvar_nuvem", { endereco: endereco.value, token: token.value });
+  } catch (e) {
+    mostrarErros([{ el: endereco, msg: String(e) }]);
+    return false;
+  }
+  return true;
+}
+
+$("#salvar-nuvem").addEventListener("click", async () => {
+  if (!(await salvarNuvem())) return;
+  toast("Backup na nuvem salvo.");
+  await carregarNuvem();
+});
+
+$("#testar-nuvem").addEventListener("click", async () => {
+  if (!(await salvarNuvem())) return;
+  const botao = $("#testar-nuvem");
+  botao.disabled = true;
+  try {
+    await carregarNuvem();
+    const situacao = await atualizarNuvem();
+    toast(situacao.ativo ? "Conexão com o servidor de backup funcionando." : "Conectado, mas a assinatura está inativa.");
+  } catch (e) {
+    mostrarSituacaoNuvem(null, String(e));
+    toast(String(e), true);
+  } finally {
+    botao.disabled = false;
+  }
+});
+
+$("#enviar-nuvem").addEventListener("click", async () => {
+  const botao = $("#enviar-nuvem");
+  botao.disabled = true;
+  botao.textContent = "Enviando...";
+  try {
+    const nome = await chamar("enviar_backup_nuvem");
+    toast(`Backup enviado à nuvem: ${nome}`);
+    await carregarNuvem();
+  } catch (e) {
+    toast(String(e), true);
+  } finally {
+    botao.disabled = false;
+    botao.textContent = "Enviar agora";
+  }
+});
+
+$("#listar-nuvem").addEventListener("click", async () => {
+  try {
+    await atualizarNuvem();
+  } catch (e) {
+    mostrarSituacaoNuvem(null, String(e));
+    toast(String(e), true);
+  }
+});
+
+// Restaurar da nuvem: baixa, confere e troca o banco como "Restaurar backup…" (o sistema reinicia).
+$("#lista-nuvem").addEventListener("click", async (ev) => {
+  const botao = ev.target.closest("[data-restaurar-nuvem]");
+  if (!botao) return;
+  const senha = $("#nuvem-senha");
+  limparErro(senha);
+  if (!senha.value) return mostrarErros([{ el: senha, msg: "Informe a senha mestra do backup." }]);
+  const pergunta =
+    "Restaurar este backup da nuvem no lugar dos dados atuais?\n\n" +
+    "O sistema baixa o backup, reinicia e passa a usar o banco dele: notas e cadastros feitos depois dele não estarão no sistema. " +
+    "O banco atual fica guardado na pasta de dados do aplicativo.\n\n" +
+    "Ao abrir de novo, use a senha mestra do backup e confira a numeração de cada empresa na Sefin antes de emitir.";
+  if (!(await confirmar(pergunta, { ok: "Restaurar e reiniciar" }))) return;
+  botao.disabled = true;
+  botao.textContent = "Restaurando...";
+  try {
+    await chamar("restaurar_da_nuvem", { id: Number(botao.dataset.restaurarNuvem), senha: senha.value });
+  } catch (e) {
+    toast(String(e), true);
+    botao.disabled = false;
+    botao.textContent = "Restaurar…";
   }
 });
 

@@ -4,6 +4,8 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 
 ## Não publicado
 
+- Backup na nuvem (serviço contratado à parte): em Configurações → Backup do banco, informe o endereço do servidor e o token; o sistema envia um backup cifrado ao abrir (no máximo uma vez por dia) ou em "Enviar agora", lista os backups guardados no servidor e restaura qualquer um deles com a senha mestra. Com a assinatura inativa, os envios param, mas a restauração continua.
+
 ## 1.11.1
 
 Mesmo conteúdo da 1.11.0, cujos instaladores não chegaram a ser publicados (falha no build do macOS). Sem nova migração nem mudança no esquema do banco.

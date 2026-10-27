@@ -11,6 +11,7 @@ pub mod dps;
 pub mod emails;
 pub mod empresas;
 pub mod importacoes;
+pub mod nuvem;
 pub mod recorrencias;
 pub mod servicos;
 pub mod tomadores;

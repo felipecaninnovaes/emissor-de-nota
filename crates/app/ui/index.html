@@ -461,6 +461,31 @@
             <button class="botao" id="restaurar-backup">Testar restauração</button>
             <button class="botao perigo" id="restaurar-agora">Restaurar backup…</button>
           </div>
+          <h3>Backup na nuvem</h3>
+          <p class="ajuda">Serviço contratado à parte: o backup vai cifrado com a senha mestra para o servidor informado pelo
+            suporte, que não consegue abri-lo. Com o token salvo, o sistema também envia um backup ao abrir, no máximo uma vez
+            por dia.</p>
+          <div class="grade linha-campo" id="form-nuvem">
+            <div class="c6"><label for="nuvem-endereco">Endereço do servidor</label>
+              <input id="nuvem-endereco" placeholder="https://backup.exemplo.com.br" autocomplete="off"></div>
+            <div class="c6"><label for="nuvem-token">Token</label>
+              <input id="nuvem-token" type="password" autocomplete="new-password">
+              <p class="ajuda" data-token-guardado hidden>Token já configurado (cifrado). Deixe em branco para manter.</p></div>
+          </div>
+          <div class="com-botao linha-campo">
+            <button class="botao" id="salvar-nuvem">Salvar</button>
+            <button class="botao" id="testar-nuvem">Testar conexão</button>
+            <button class="botao" id="enviar-nuvem">Enviar agora</button>
+          </div>
+          <div class="aviso atencao" id="nuvem-inativa" role="status" hidden>Assinatura inativa: novos backups não são enviados;
+            os anteriores continuam disponíveis para restaurar.</div>
+          <p class="ajuda" id="nuvem-situacao"></p>
+          <div class="com-botao linha-campo">
+            <input id="nuvem-senha" type="password" aria-label="Senha mestra do backup da nuvem"
+              placeholder="Senha mestra (para restaurar)" autocomplete="off">
+            <button class="botao" id="listar-nuvem">Atualizar lista</button>
+          </div>
+          <table><tbody id="lista-nuvem"></tbody></table>
         </div>
         <div class="cartao">
           <h2>E-mail das notas</h2>

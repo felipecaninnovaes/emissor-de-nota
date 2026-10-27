@@ -13,7 +13,7 @@ nfse-db = { version = "0.1.0", path = "../nfse-db" }
 nfse-emissor = { version = "0.1.0", path = "../nfse-emissor" }
 nfse-pdf = { version = "0.1.0", path = "../nfse-pdf" }
 nfse-xml = { version = "0.1.0", path = "../nfse-xml" }
-reqwest = { version = "0.13.5", default-features = false, features = ["native-tls", "json"] }
+reqwest = { version = "0.13.5", default-features = false, features = ["native-tls", "json", "stream"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 tauri = { version = "2.11.6", features = [] }
@@ -21,7 +21,7 @@ tauri-plugin-updater = "2.12.0"
 # No Linux, o seletor pelo xdg-desktop-portal: abre o diálogo do ambiente (KDE, GNOME), não o do GTK.
 tauri-plugin-dialog = { version = "2", default-features = false, features = ["xdg-portal"] }
 tauri-plugin-window-state = "2.4.1"
-tokio = { version = "1.53.3", features = ["sync"] }
+tokio = { version = "1.53.3", features = ["sync", "fs", "io-util"] }
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "registry", "std", "ansi"] }

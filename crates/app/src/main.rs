@@ -6,6 +6,7 @@
 mod cep;
 mod cnpj;
 mod comandos;
+mod nuvem;
 mod pasta_dados;
 mod registro;
 
@@ -137,6 +138,12 @@ fn main() {
             comandos::backup::fazer_backup,
             comandos::backup::restaurar_backup,
             comandos::backup::restaurar_e_reiniciar,
+            comandos::nuvem::obter_nuvem,
+            comandos::nuvem::salvar_nuvem,
+            comandos::nuvem::testar_nuvem,
+            comandos::nuvem::enviar_backup_nuvem,
+            comandos::nuvem::listar_backups_nuvem,
+            comandos::nuvem::restaurar_da_nuvem,
             comandos::aparencia::obter_aparencia,
             comandos::aparencia::salvar_aparencia,
             comandos::empresas::listar_empresas,
