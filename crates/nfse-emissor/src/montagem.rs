@@ -184,8 +184,64 @@ pub(crate) fn mes_anterior(data: NaiveDate) -> NaiveDate {
         .expect("dia 1 existe")
 }
 
+/// Retenção de até R$ 10,00 é dispensada, em centavos: IRRF (Lei 9.430/1996, art. 67) e PIS, COFINS e
+/// CSLL somados (Lei 10.833/2003, art. 31, § 3º). É o que dá nota de até R$ 666,66 com IRRF de 1,5% e de
+/// até R$ 215,05 com 4,65% de PIS, COFINS e CSLL.
+const LIMITE_DISPENSA_RETENCAO: i64 = 1_000;
+
 /// Tributos federais da nota: os percentuais de retenção do serviço viram valores sobre o valor da nota.
+/// IRRF ou PIS/COFINS/CSLL retidos de até R$ 10,00 são dispensados: a nota sai como se o serviço não os
+/// retivesse (PIS e COFINS de apuração própria continuam).
 pub fn federais_da_nota(t: &nfse_db::servicos::Tributacao, valor: Valor) -> nfse_core::modelo::TributosFederais {
+    let (irrf, contribuicoes) = dispensas(t, valor);
+    if !irrf && !contribuicoes {
+        return calcular_federais(t, valor);
+    }
+    let mut t = t.clone();
+    if irrf {
+        t.retencoes.irrf = None;
+        t.federais.retencao_irrf = None;
+    }
+    if contribuicoes {
+        t.retencoes.csll = None;
+        t.retencoes.pis = None;
+        t.retencoes.cofins = None;
+        t.federais.retencao_csll = None;
+        if let Some(pc) = t.federais.pis_cofins.as_mut() {
+            pc.tipo_retencao = pc.tipo_retencao.map(|_| 0);
+        }
+    }
+    calcular_federais(&t, valor)
+}
+
+/// Retenções da nota dispensadas por não passarem de R$ 10,00, para o aviso da revisão.
+pub fn retencoes_dispensadas(t: &nfse_db::servicos::Tributacao, valor: Valor) -> Vec<String> {
+    let f = calcular_federais(t, valor);
+    let (irrf, contribuicoes) = dispensas(t, valor);
+    let mut avisos = Vec::new();
+    if let Some(v) = f.retencao_irrf.filter(|_| irrf) {
+        avisos.push(format!(
+            "IRRF de R$ {} não retido: retenção de até R$ 10,00 é dispensada.",
+            valor_br(v)
+        ));
+    }
+    if let Some(v) = f.retencao_csll.filter(|_| contribuicoes) {
+        avisos.push(format!(
+            "PIS/COFINS/CSLL de R$ {} não retidos: retenção de até R$ 10,00 é dispensada.",
+            valor_br(v)
+        ));
+    }
+    avisos
+}
+
+/// Quais retenções (IRRF; PIS, COFINS e CSLL somados) não passam do limite e são dispensadas.
+fn dispensas(t: &nfse_db::servicos::Tributacao, valor: Valor) -> (bool, bool) {
+    let f = calcular_federais(t, valor);
+    let dispensada = |v: Option<Valor>| v.is_some_and(|v| (1..=LIMITE_DISPENSA_RETENCAO).contains(&v.centesimos()));
+    (dispensada(f.retencao_irrf), dispensada(f.retencao_csll))
+}
+
+fn calcular_federais(t: &nfse_db::servicos::Tributacao, valor: Valor) -> nfse_core::modelo::TributosFederais {
     let r = &t.retencoes;
     let mut f = t.federais.clone();
     let aplicar = |p: Option<nfse_core::Percentual>| p.map(|p| valor.aplicar(p));

@@ -4,6 +4,8 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 
 ## Não publicado
 
+- Retenção de até R$ 10,00 é dispensada: o IRRF (com 1,5%, nota de até R$ 666,66) e PIS, COFINS e CSLL somados (com 4,65%, nota de até R$ 215,05) deixam de ser retidos, e a revisão avisa o que foi dispensado.
+
 ## 1.13.0
 
 Substituição de nota autorizada. Sem nova migração nem mudança no esquema do banco.

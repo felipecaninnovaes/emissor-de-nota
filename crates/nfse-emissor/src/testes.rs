@@ -384,6 +384,80 @@ fn retencoes_percentuais_viram_valores() {
     assert_eq!(pc.tipo_retencao, Some(3));
 }
 
+/// Retenção de até R$ 10,00 é dispensada: IRRF de 1,5% até 666,66 e PIS/COFINS/CSLL de 4,65% até 215,05.
+#[test]
+fn retencao_de_ate_dez_reais_e_dispensada() {
+    let p = |v: &str| Some(Percentual::parse(v).unwrap());
+    let t = Tributacao {
+        retencoes: nfse_db::servicos::RetencoesPercentuais {
+            irrf: p("1.5"),
+            csll: p("1"),
+            pis: p("0.65"),
+            cofins: p("3"),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let nota = |v: &str| federais_da_nota(&t, Valor::parse(v).unwrap());
+    let texto = |v: Option<Valor>| v.map(|v| v.to_string());
+
+    // 215,00: IRRF 3,23 e contribuições 10,00 (CSLL 2,15 + PIS 1,40 + COFINS 6,45), tudo dispensado
+    let f = nota("215");
+    assert_eq!((f.retencao_irrf, f.retencao_csll), (None, None));
+    assert_eq!(f.pis_cofins, None);
+    assert_eq!(
+        retencoes_dispensadas(&t, Valor::parse("215").unwrap()),
+        [
+            "IRRF de R$ 3,23 não retido: retenção de até R$ 10,00 é dispensada.",
+            "PIS/COFINS/CSLL de R$ 10,00 não retidos: retenção de até R$ 10,00 é dispensada."
+        ]
+    );
+    // 216,00: as contribuições passam de 10,00 (2,16 + 1,40 + 6,48) e são retidas; o IRRF não
+    let f = nota("216");
+    assert_eq!(
+        (texto(f.retencao_irrf), texto(f.retencao_csll)),
+        (None, Some("10.04".into()))
+    );
+    assert_eq!(f.pis_cofins.unwrap().tipo_retencao, Some(3));
+    // 666,00: IRRF 9,99 dispensado; 667,00: IRRF 10,01 retido
+    assert_eq!(texto(nota("666").retencao_irrf), None);
+    assert_eq!(texto(nota("667").retencao_irrf), Some("10.01".into()));
+    assert!(retencoes_dispensadas(&t, Valor::parse("667").unwrap()).is_empty());
+}
+
+/// Dispensada a retenção, o PIS e a COFINS de apuração própria continuam na DPS, sem tipo de retenção.
+#[test]
+fn retencao_dispensada_mantem_pis_cofins_proprios() {
+    let p = |v: &str| Some(Percentual::parse(v).unwrap());
+    let mut t = Tributacao::default();
+    t.retencoes.pis = p("0.65");
+    t.retencoes.cofins = p("3");
+    t.retencoes.csll = p("1");
+    t.federais.pis_cofins = Some(nfse_core::modelo::PisCofins {
+        cst: "01".into(),
+        base_calculo: None,
+        aliquota_pis: p("0.65"),
+        aliquota_cofins: p("3"),
+        valor_pis: None,
+        valor_cofins: None,
+        tipo_retencao: Some(3),
+    });
+    let f = federais_da_nota(&t, Valor::parse("200").unwrap());
+    assert_eq!(f.retencao_csll, None);
+    let pc = f.pis_cofins.unwrap();
+    assert_eq!(pc.tipo_retencao, Some(0));
+    assert_eq!(
+        (pc.valor_pis.unwrap().to_string(), pc.valor_cofins.unwrap().to_string()),
+        ("1.30".into(), "6.00".into())
+    );
+
+    // Pelo tipo do cadastro (sem percentual): a soma de 7,30 também é dispensada.
+    t.retencoes = Default::default();
+    let f = federais_da_nota(&t, Valor::parse("200").unwrap());
+    assert_eq!(f.retencao_csll, None);
+    assert_eq!(f.pis_cofins.unwrap().tipo_retencao, Some(0));
+}
+
 /// Nota real do Emissor Web (19/10/2026, 650,00, Lucro Presumido): PIS 0,65% e COFINS 3,00% de apuração
 /// própria saem na DPS com base e valores truncados (4,225 vira 4,22).
 #[test]
@@ -420,12 +494,12 @@ fn pis_cofins_proprios_viram_base_e_valores() {
     // PIS retido: vPis igual ao retido (arredondado, como em vRetCSLL); COFINS própria segue truncada
     t.federais.pis_cofins.as_mut().unwrap().aliquota_pis = p("0.65");
     t.retencoes.pis = p("0.65");
-    let f = federais_da_nota(&t, valor);
-    assert_eq!(f.retencao_csll.unwrap().to_string(), "4.23");
+    let f = federais_da_nota(&t, Valor::parse("1650").unwrap());
+    assert_eq!(f.retencao_csll.unwrap().to_string(), "10.73");
     let pc = f.pis_cofins.unwrap();
     assert_eq!(
         (pc.valor_pis.unwrap().to_string(), pc.valor_cofins.unwrap().to_string()),
-        ("4.23".into(), "19.50".into())
+        ("10.73".into(), "49.50".into())
     );
 }
 
@@ -524,7 +598,7 @@ fn tipo_de_retencao_segue_os_percentuais() {
     t.retencoes.pis = p("0.65");
     t.retencoes.cofins = p("3");
     let tipo = |t: &Tributacao| {
-        federais_da_nota(t, Valor::parse("1000").unwrap())
+        federais_da_nota(t, Valor::parse("10000").unwrap())
             .pis_cofins
             .unwrap()
             .tipo_retencao

@@ -430,6 +430,9 @@ mod testes {
             retencao_irrf: valor(2_250),
             retencao_csll: valor(6_975),
         };
+        // IRRF de até R$ 10,00 dispensado e PIS/COFINS/CSLL retidos: tribFed sem vRetIRRF.
+        let mut irrf_dispensado = retencoes_federais.clone();
+        irrf_dispensado.valores.federais.retencao_irrf = None;
         let pis_cofins_proprios = |dps: &mut Dps| {
             dps.valores.federais.pis_cofins = Some(PisCofins {
                 cst: "01".into(),
@@ -489,6 +492,7 @@ mod testes {
             substituta,
             substituta_sem_descricao,
             retencoes_federais,
+            irrf_dispensado,
             pis_cofins_no_simples,
             iss_retido,
             tomador_cpf,

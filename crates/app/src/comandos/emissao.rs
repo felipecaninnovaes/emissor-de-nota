@@ -118,11 +118,8 @@ pub struct IbsCbsPreviaDto {
     base_estimada: String,
 }
 
-/// Dispensa de retenção de PIS/COFINS/CSLL para pagamentos até este valor (Lei 10.833/2003, art. 31), em centavos.
-const LIMITE_RETENCAO_CSLL: i64 = 21_505;
-
 /// Avisos de retenção federal que parece indevida; o operador decide, nada é bloqueado.
-fn avisos_retencao(simples: SituacaoSimples, f: &nfse_core::modelo::TributosFederais, valor_nota: i64) -> Vec<String> {
+fn avisos_retencao(simples: SituacaoSimples, f: &nfse_core::modelo::TributosFederais) -> Vec<String> {
     let mut avisos = Vec::new();
     let retem_csll = f.retencao_csll.is_some_and(|v| v.centesimos() > 0);
     let retem_federal = retem_csll
@@ -135,9 +132,6 @@ fn avisos_retencao(simples: SituacaoSimples, f: &nfse_core::modelo::TributosFede
             "A empresa é optante pelo Simples Nacional: em regra não sofre retenção federal. Confira antes de emitir."
                 .into(),
         );
-    }
-    if retem_csll && valor_nota <= LIMITE_RETENCAO_CSLL {
-        avisos.push("PIS/COFINS/CSLL costumam ser dispensados de retenção em pagamentos até R$ 215,05.".into());
     }
     avisos
 }
@@ -231,7 +225,11 @@ pub async fn previa_dps(estado: State<'_, Estado>, pedido: PedidoDto) -> R<Previ
     let xml = nfse_xml::gerar_dps(&dps).ok().map(|(xml, _)| xml);
     let formatado = |v: Option<Valor>| v.filter(|v| v.centesimos() > 0).map(|v| v.to_string());
     let (reter_federais, reter_iss) = pedido.reter.efetiva(tomador.as_ref());
-    let avisos = avisos_retencao(empresa.regime.simples, f, dps.valores.servico.centesimos());
+    let mut avisos = avisos_retencao(empresa.regime.simples, f);
+    avisos.extend(nfse_emissor::retencoes_dispensadas(
+        &nfse_emissor::tributacao_da_nota(&servico, tomador.as_ref(), pedido.reter),
+        valor_nota,
+    ));
     Ok(PreviaDto {
         ambiente: dps.ambiente,
         serie: dps.serie,
@@ -406,12 +404,11 @@ mod testes {
     }
 
     #[test]
-    fn avisa_retencao_no_simples_e_abaixo_do_limite() {
+    fn avisa_retencao_no_simples() {
         let f = csll(1_000);
-        assert!(avisos_retencao(SituacaoSimples::NaoOptante, &f, 100_000).is_empty());
-        assert_eq!(avisos_retencao(SituacaoSimples::MeEpp, &f, 100_000).len(), 1);
-        assert_eq!(avisos_retencao(SituacaoSimples::NaoOptante, &f, 21_505).len(), 1);
-        assert_eq!(avisos_retencao(SituacaoSimples::Mei, &f, 10_000).len(), 2);
-        assert!(avisos_retencao(SituacaoSimples::Mei, &TributosFederais::default(), 10_000).is_empty());
+        assert!(avisos_retencao(SituacaoSimples::NaoOptante, &f).is_empty());
+        assert_eq!(avisos_retencao(SituacaoSimples::MeEpp, &f).len(), 1);
+        assert_eq!(avisos_retencao(SituacaoSimples::Mei, &f).len(), 1);
+        assert!(avisos_retencao(SituacaoSimples::Mei, &TributosFederais::default()).is_empty());
     }
 }
