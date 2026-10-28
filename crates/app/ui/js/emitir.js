@@ -184,6 +184,7 @@ function descreverObra(obra) {
 }
 
 export function limparEmissao() {
+  encerrarSubstituicao();
   escolherTomador(null);
   $("#valor").value = "";
   $("#info-compl").value = "";
@@ -220,6 +221,32 @@ $("#novo-tomador-emitir").addEventListener("click", (ev) => {
   editarTomador(null, (salvo) => escolherTomador(salvo));
 });
 
+/**
+ * Nota autorizada que a emissão em curso substitui (`{ nfse_id, rotulo }`), ou `null`. O motivo e
+ * a descrição ficam no bloco "Substituição de nota", no topo do formulário.
+ */
+let substituicao = null;
+
+export function iniciarSubstituicao(nfseId, rotulo) {
+  substituicao = { nfse_id: nfseId, rotulo };
+  $("#subst-titulo").textContent = `Substituição da ${rotulo}`;
+  $("#subst-motivo").value = "99";
+  $("#subst-descricao").value = "";
+  $("#bloco-substituicao").hidden = false;
+}
+
+function encerrarSubstituicao() {
+  substituicao = null;
+  $("#bloco-substituicao").hidden = true;
+  $("#subst-descricao").value = "";
+}
+
+$("#desistir-substituicao").addEventListener("click", () => {
+  encerrarSubstituicao();
+  descartarRevisao();
+  $("#resultado").hidden = true;
+});
+
 function montarPedido() {
   if (!estado.empresa) throw "Escolha a empresa.";
   const servicoId = Number($("#servico").value);
@@ -237,6 +264,11 @@ function montarPedido() {
     informacoes_complementares: vazio($("#info-compl").value),
     reter_federais: estado.reter?.federais ?? null,
     reter_iss: estado.reter?.iss ?? null,
+    substituir: substituicao && {
+      nfse_id: substituicao.nfse_id,
+      motivo: $("#subst-motivo").value,
+      descricao_motivo: vazio($("#subst-descricao").value),
+    },
   };
 }
 
@@ -313,13 +345,15 @@ async function revisar() {
   for (const texto of previa.avisos) partes.push(`<div class="aviso atencao">${esc(texto)}</div>`);
   aviso.innerHTML = partes.join("");
   $("#revisao-resumo").innerHTML = resumoValores(previa);
-  const linhas = [
+  const linhas = [];
+  if (pedido.substituir) linhas.push(["Substitui", substituicao?.rotulo ?? ""]);
+  linhas.push(
     ["Prestador", previa.prestador],
     ["Tomador", previa.tomador ?? "Não identificado"],
     ["Valor", "R$ " + moeda(previa.valor)],
     ["Competência", previa.competencia],
     ["Descrição", previa.descricao],
-  ];
+  );
   const tecnicos = [["Série da DPS", previa.serie]];
   if (pedido.obra) linhas.push(["Obra", descreverObra(pedido.obra)]);
   if (pedido.informacoes_complementares) linhas.push(["Inf. complementares", pedido.informacoes_complementares]);
@@ -461,6 +495,7 @@ $("#confirmar-emissao").addEventListener("click", async () => {
           obra: emitido.obra,
         });
       // Prepara a próxima nota (mesmo serviço e mês) sem permitir reenviar a anterior por engano.
+      encerrarSubstituicao();
       escolherTomador(null);
       $("#valor").value = "";
       $("#info-compl").value = "";

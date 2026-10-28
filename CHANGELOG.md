@@ -4,6 +4,8 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 
 ## Não publicado
 
+- Substituição de nota: em Notas emitidas, "Substituir nota" (no menu Mais de uma nota autorizada) leva os dados para a emissão com o motivo da substituição; a nova nota sai com o próximo número e, autorizada, a original passa a "Substituída", com o PDF marcado.
+
 ## 1.12.0
 
 Backup na nuvem, para quem contrata o serviço. Sem nova migração nem mudança no esquema do banco.

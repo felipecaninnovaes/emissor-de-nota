@@ -106,18 +106,22 @@ impl Conector for SefinSimulada {
 }
 
 fn nfse_autorizada() -> NfseAutorizada {
+    nfse_com_chave(CHAVE, 1)
+}
+
+fn nfse_com_chave(chave: &str, numero: u32) -> NfseAutorizada {
     let xml = format!(
         concat!(
             r#"<?xml version="1.0" encoding="utf-8"?><NFSe versao="1.01" xmlns="http://www.sped.fazenda.gov.br/nfse">"#,
-            r#"<infNFSe Id="NFS{}"><nNFSe>1</nNFSe><cStat>100</cStat><DPS versao="1.01"><infDPS Id="X">"#,
+            r#"<infNFSe Id="NFS{}"><nNFSe>{}</nNFSe><cStat>100</cStat><DPS versao="1.01"><infDPS Id="X">"#,
             "<dCompet>2026-10-16</dCompet><valores><vServPrest><vServ>850.00</vServ></vServPrest></valores>",
             "</infDPS></DPS></infNFSe></NFSe>"
         ),
-        CHAVE
+        chave, numero
     );
     NfseAutorizada {
         id_dps: None,
-        chave_acesso: CHAVE.into(),
+        chave_acesso: chave.into(),
         xml,
         alertas: vec![],
     }
@@ -232,6 +236,7 @@ async fn cenario(respostas: Vec<Resposta>) -> Cenario {
             informacoes_complementares: None,
             reter: Default::default(),
             origem: Origem::Manual,
+            substituir: None,
         },
     }
 }
@@ -1425,4 +1430,136 @@ fn estado_df_e_municipio_retem_so_irrf_e_inss() {
             "{tipo:?}"
         );
     }
+}
+
+/// Chave da NFS-e que substitui a de `CHAVE`.
+const CHAVE_SUBSTITUTA: &str = "35111022211222333000181000000000000226101234567891";
+
+fn substituir(nfse_id: i64) -> Option<SubstituirNota> {
+    Some(SubstituirNota {
+        nfse_id,
+        motivo: "99".into(),
+        descricao_motivo: Some("Valor do serviço informado errado".into()),
+    })
+}
+
+#[tokio::test]
+async fn substitui_nota_autorizada() {
+    let c = cenario(vec![
+        Resposta::Emitir(Ok(nfse_autorizada())),
+        Resposta::Emitir(Ok(nfse_com_chave(CHAVE_SUBSTITUTA, 2))),
+    ])
+    .await;
+    let ResultadoEmissao::Autorizada { nfse: original, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+        panic!()
+    };
+    let r = c.emissor.dados_para_substituir(original.dps_id).await.unwrap();
+    assert_eq!(r.valor, c.pedido.valor);
+
+    let pedido = PedidoEmissao {
+        substituir: substituir(original.id),
+        ..c.pedido.clone()
+    };
+    let ResultadoEmissao::Autorizada { nfse: nova, .. } = c.emissor.emitir(&pedido).await.unwrap() else {
+        panic!()
+    };
+    let enviado = &c.sefin.recebidos()[1];
+    nfse_xml::verificar(enviado).expect("DPS enviada assinada");
+    assert!(
+        enviado.contains(&format!(
+            "<subst><chSubstda>{CHAVE}</chSubstda><cMotivo>99</cMotivo><xMotivo>Valor do serviço informado errado</xMotivo></subst>"
+        )),
+        "{enviado}"
+    );
+    let banco = c.emissor.banco();
+    assert_eq!(
+        banco.dps(original.dps_id).await.unwrap().situacao,
+        SituacaoDps::Substituida
+    );
+    assert_eq!(banco.dps(nova.dps_id).await.unwrap().situacao, SituacaoDps::Autorizada);
+    let auditoria = banco.auditoria(10).await.unwrap();
+    assert!(auditoria.iter().any(|(_, acao, _, _)| acao == "nfse_substituida"));
+
+    // A substituída não volta a ser substituída nem cancelada; nada vai à Sefin.
+    let erro = c.emissor.emitir(&pedido).await.unwrap_err();
+    assert!(erro.to_string().contains("substituida"), "{erro}");
+    assert!(matches!(
+        c.emissor.dados_para_substituir(original.dps_id).await,
+        Err(ErroEmissao::Regra(_))
+    ));
+    assert_eq!(c.sefin.recebidos().len(), 2);
+}
+
+#[tokio::test]
+async fn substituta_incerta_bloqueia_outra_substituicao() {
+    let c = cenario(vec![
+        Resposta::Emitir(Ok(nfse_autorizada())),
+        Resposta::Emitir(Err(ErroSefin::Incerto("timeout".into()))),
+        Resposta::ConsultarDps(Err(ErroSefin::Incerto("timeout".into()))),
+    ])
+    .await;
+    let ResultadoEmissao::Autorizada { nfse: original, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+        panic!()
+    };
+    let pedido = PedidoEmissao {
+        substituir: substituir(original.id),
+        ..c.pedido.clone()
+    };
+    let ResultadoEmissao::Incerta { .. } = c.emissor.emitir(&pedido).await.unwrap() else {
+        panic!("esperava incerta")
+    };
+    let erro = c.emissor.emitir(&pedido).await.unwrap_err();
+    assert!(erro.to_string().contains("aguardando a Sefin"), "{erro}");
+    assert_eq!(
+        c.emissor.banco().dps(original.dps_id).await.unwrap().situacao,
+        SituacaoDps::Autorizada,
+        "a original só muda quando a substituta é autorizada"
+    );
+    assert!(c.sefin.roteiro_vazio());
+}
+
+#[tokio::test]
+async fn substituicao_com_motivo_invalido_nao_gasta_numero() {
+    let c = cenario(vec![Resposta::Emitir(Ok(nfse_autorizada()))]).await;
+    let ResultadoEmissao::Autorizada { nfse: original, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+        panic!()
+    };
+    let pedido = PedidoEmissao {
+        substituir: Some(SubstituirNota {
+            nfse_id: original.id,
+            motivo: "06".into(),
+            descricao_motivo: Some("curto".into()),
+        }),
+        ..c.pedido.clone()
+    };
+    let erro = c.emissor.emitir(&pedido).await.unwrap_err();
+    assert!(erro.to_string().contains("substituicao.motivo"), "{erro}");
+    assert!(erro.to_string().contains("substituicao.descricao_motivo"), "{erro}");
+    assert_eq!(c.sefin.recebidos().len(), 1);
+}
+
+#[tokio::test]
+async fn substituta_achada_na_reconciliacao_marca_a_original() {
+    let c = cenario(vec![
+        Resposta::Emitir(Ok(nfse_autorizada())),
+        Resposta::Emitir(Err(ErroSefin::Incerto("timeout".into()))),
+        Resposta::ConsultarDps(Ok(Some(CHAVE_SUBSTITUTA.into()))),
+        Resposta::ConsultarNfse(Ok(nfse_com_chave(CHAVE_SUBSTITUTA, 2))),
+    ])
+    .await;
+    let ResultadoEmissao::Autorizada { nfse: original, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+        panic!()
+    };
+    let pedido = PedidoEmissao {
+        substituir: substituir(original.id),
+        ..c.pedido.clone()
+    };
+    let ResultadoEmissao::Autorizada { nfse: nova, .. } = c.emissor.emitir(&pedido).await.unwrap() else {
+        panic!("esperava autorizada pela consulta")
+    };
+    assert_eq!(nova.chave, CHAVE_SUBSTITUTA);
+    assert_eq!(
+        c.emissor.banco().dps(original.dps_id).await.unwrap().situacao,
+        SituacaoDps::Substituida
+    );
 }

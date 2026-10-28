@@ -1,4 +1,5 @@
-//! Dados de uma nota já enviada para preencher outra emissão: refazer a rejeitada ou copiar a autorizada.
+//! Dados de uma nota já enviada para preencher outra emissão: refazer a rejeitada, copiar ou
+//! substituir a autorizada.
 
 use nfse_core::Valor;
 use nfse_core::modelo::{Documento, Obra};
@@ -44,6 +45,18 @@ impl<C: Conector> Emissor<C> {
         if !matches!(registro.situacao, SituacaoDps::Autorizada | SituacaoDps::Cancelada) {
             return Err(ErroEmissao::Regra(format!(
                 "só nota autorizada ou cancelada pode ser copiada (esta está \"{}\")",
+                registro.situacao.texto()
+            )));
+        }
+        self.ler_dados_da_dps(dps_id).await
+    }
+
+    /// Lê uma nota autorizada para emitir a que a substitui. A descrição devolvida é a enviada.
+    pub async fn dados_para_substituir(&self, dps_id: i64) -> Result<Refazer, ErroEmissao> {
+        let registro = self.banco.dps(dps_id).await?;
+        if registro.situacao != SituacaoDps::Autorizada {
+            return Err(ErroEmissao::Regra(format!(
+                "só nota autorizada pode ser substituída (esta está \"{}\")",
                 registro.situacao.texto()
             )));
         }

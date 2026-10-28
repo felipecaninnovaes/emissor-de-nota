@@ -399,6 +399,15 @@ mod testes {
         });
         let mut sem_tomador = exemplo();
         sem_tomador.tomador = None;
+        let mut substituta = exemplo();
+        substituta.substituicao = Some(nfse_core::modelo::Substituicao {
+            chave_substituida: "35111022211222333000181000000000000126101234567890".into(),
+            motivo: "99".into(),
+            descricao_motivo: Some("Valor do serviço informado errado".into()),
+        });
+        let mut substituta_sem_descricao = substituta.clone();
+        substituta_sem_descricao.substituicao.as_mut().unwrap().motivo = "05".into();
+        substituta_sem_descricao.substituicao.as_mut().unwrap().descricao_motivo = None;
 
         use nfse_core::modelo::{PisCofins, RetencaoIssqn, TributosFederais};
         use nfse_core::{Percentual, Valor};
@@ -477,6 +486,8 @@ mod testes {
             obra_endereco,
             ente_publico,
             sem_tomador,
+            substituta,
+            substituta_sem_descricao,
             retencoes_federais,
             pis_cofins_no_simples,
             iss_retido,

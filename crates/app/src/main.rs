@@ -187,6 +187,7 @@ fn main() {
             comandos::notas::sincronizar_cancelamento,
             comandos::notas::dados_para_refazer,
             comandos::notas::dados_para_copiar,
+            comandos::notas::dados_para_substituir,
             comandos::notas::pendentes,
             comandos::notas::abrir_arquivo,
             comandos::notas::abrir_nota,

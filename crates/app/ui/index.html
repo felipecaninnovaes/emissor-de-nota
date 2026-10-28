@@ -76,6 +76,29 @@
         </div>
         <div class="cartao">
           <div class="grade">
+            <fieldset class="c12 bloco" id="bloco-substituicao" hidden>
+              <legend id="subst-titulo">Substituição de nota</legend>
+              <div class="grade">
+                <div class="c12">
+                  <label for="subst-motivo">Motivo da substituição</label>
+                  <select id="subst-motivo" required>
+                    <option value="99">Outros</option>
+                    <option value="01">Desenquadramento do Simples Nacional</option>
+                    <option value="02">Enquadramento no Simples Nacional</option>
+                    <option value="03">Inclusão retroativa de imunidade ou isenção</option>
+                    <option value="04">Exclusão retroativa de imunidade ou isenção</option>
+                    <option value="05">Rejeição da nota pelo tomador (ou intermediário responsável pelo recolhimento)</option>
+                  </select>
+                </div>
+                <div class="c12">
+                  <label for="subst-descricao">Descrição do motivo (opcional)</label>
+                  <textarea id="subst-descricao" rows="2" minlength="15" maxlength="255" data-contador></textarea>
+                  <p class="ajuda">De 15 a 255 caracteres, sem quebra de linha.</p>
+                </div>
+              </div>
+              <p class="ajuda">A nova nota sai com o próximo número. Quando a Sefin a autoriza, a nota substituída fica cancelada (o prazo para substituir depende do município).</p>
+              <div class="acoes inicio"><button type="button" class="botao pequeno" id="desistir-substituicao">Desistir da substituição</button></div>
+            </fieldset>
             <div class="c12">
               <label for="termo-tomador">Tomador</label>
               <div id="tomador-escolhido" class="escolhido" hidden>

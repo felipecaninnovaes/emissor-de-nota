@@ -436,20 +436,40 @@ impl Banco {
     }
 
     /// Grava a NFS-e, marca a DPS como autorizada e audita, na mesma transação: depois do commit
-    /// nada mais pode falhar (a nota já existe na Sefin).
+    /// nada mais pode falhar (a nota já existe na Sefin). Se a DPS substitui outra nota (`subst`),
+    /// a original passa a `substituida` na mesma transação: a Sefin a cancela ao autorizar esta.
     pub async fn registrar_autorizacao(&self, dps_id: i64, nfse: &NfseRecebida) -> Resultado<NfseGravada> {
         let mut tx = self.pool().begin().await?;
         let agora = agora();
-        let empresa_id: i64 = sqlx::query(
+        let linha = sqlx::query(
             "UPDATE dps SET situacao = 'autorizada', ultimo_erro = NULL, atualizado_em = ?
-             WHERE id = ? AND situacao IN ('enviando', 'incerta') RETURNING empresa_id",
+             WHERE id = ? AND situacao IN ('enviando', 'incerta') RETURNING empresa_id, modelo_json",
         )
         .bind(&agora)
         .bind(dps_id)
         .fetch_optional(&mut *tx)
         .await?
-        .ok_or_else(|| ErroBanco::Regra("a DPS não estava aguardando autorização".into()))?
-        .get(0);
+        .ok_or_else(|| ErroBanco::Regra("a DPS não estava aguardando autorização".into()))?;
+        let empresa_id: i64 = linha.get(0);
+        let substituida = linha
+            .get::<Option<String>, _>(1)
+            .and_then(|j| serde_json::from_str::<Dps>(&j).ok())
+            .and_then(|m| m.substituicao)
+            .map(|s| s.chave_substituida);
+        if let Some(chave) = &substituida {
+            let marcada = sqlx::query(
+                "UPDATE dps SET situacao = 'substituida', atualizado_em = ?
+                 WHERE situacao = 'autorizada' AND id = (SELECT dps_id FROM nfse WHERE chave = ?)",
+            )
+            .bind(&agora)
+            .bind(chave)
+            .execute(&mut *tx)
+            .await?
+            .rows_affected();
+            if marcada > 0 {
+                auditar_em(&mut tx, "nfse_substituida", empresa_id, chave).await?;
+            }
+        }
         let sha = sha256_hex(nfse.xml.as_bytes());
         let id: i64 = sqlx::query(
             "INSERT INTO nfse (dps_id, chave, numero, xml, xml_sha256, valor_servico, competencia, autorizada_em)
@@ -500,6 +520,30 @@ impl Banco {
             )));
         }
         Ok(gravada)
+    }
+
+    /// Id da NFS-e gravada com esta chave de acesso.
+    pub async fn nfse_id_por_chave(&self, chave: &str) -> Resultado<Option<i64>> {
+        Ok(sqlx::query("SELECT id FROM nfse WHERE chave = ?")
+            .bind(chave)
+            .fetch_optional(self.pool())
+            .await?
+            .map(|r| r.get(0)))
+    }
+
+    /// DPS ainda sem resposta definitiva (reservada, enviando ou incerta) que substitui a nota desta
+    /// chave: outra substituta só depois de resolver esta, senão as duas poderiam sair.
+    pub async fn substituta_em_andamento(&self, chave: &str) -> Resultado<Option<i64>> {
+        Ok(sqlx::query(
+            "SELECT id FROM dps
+             WHERE situacao IN ('reservada', 'enviando', 'incerta')
+               AND json_extract(modelo_json, '$.substituicao.chave_substituida') = ?
+             LIMIT 1",
+        )
+        .bind(chave)
+        .fetch_optional(self.pool())
+        .await?
+        .map(|r| r.get(0)))
     }
 
     /// Notas da empresa (DPS e, quando autorizada, a NFS-e), mais recentes primeiro.
@@ -796,6 +840,44 @@ mod testes {
 
         banco.registrar_cancelamento(nfse.id, "<evento/>").await.unwrap();
         assert_eq!(banco.dps(r.id).await.unwrap().situacao, SituacaoDps::Cancelada);
+        assert!(banco.registrar_cancelamento(nfse.id, "<evento/>").await.is_err());
+    }
+
+    #[tokio::test]
+    async fn substituta_autorizada_marca_a_original() {
+        let (banco, _, empresa) = banco_com_empresa().await;
+        let original = banco.reservar_dps(empresa.id).await.unwrap();
+        banco
+            .registrar_envio(original.id, &modelo_para(&original), "<DPS/>")
+            .await
+            .unwrap();
+        let nfse = banco
+            .registrar_autorizacao(original.id, &nfse_recebida())
+            .await
+            .unwrap();
+        assert_eq!(banco.nfse_id_por_chave(&nfse.chave).await.unwrap(), Some(nfse.id));
+
+        let nova = banco.reservar_dps(empresa.id).await.unwrap();
+        let mut modelo = modelo_para(&nova);
+        modelo.substituicao = Some(nfse_core::modelo::Substituicao {
+            chave_substituida: nfse.chave.clone(),
+            motivo: "99".into(),
+            descricao_motivo: Some("valor do serviço informado errado".into()),
+        });
+        banco.registrar_envio(nova.id, &modelo, "<DPS/>").await.unwrap();
+        assert_eq!(banco.substituta_em_andamento(&nfse.chave).await.unwrap(), Some(nova.id));
+        assert_eq!(banco.substituta_em_andamento("outra").await.unwrap(), None);
+
+        let substituta = NfseRecebida {
+            chave: "35111022211222333000181000000000000226101234567891".into(),
+            numero: Some("2".into()),
+            ..nfse_recebida()
+        };
+        banco.registrar_autorizacao(nova.id, &substituta).await.unwrap();
+        assert_eq!(banco.dps(original.id).await.unwrap().situacao, SituacaoDps::Substituida);
+        assert_eq!(banco.dps(nova.id).await.unwrap().situacao, SituacaoDps::Autorizada);
+        assert_eq!(banco.substituta_em_andamento(&nfse.chave).await.unwrap(), None);
+        // A substituída não pode mais ser cancelada aqui.
         assert!(banco.registrar_cancelamento(nfse.id, "<evento/>").await.is_err());
     }
 

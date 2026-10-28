@@ -160,6 +160,27 @@ pub async fn dados_para_copiar(estado: State<'_, Estado>, dps_id: i64) -> R<Refa
     })
 }
 
+/// Dados de uma nota autorizada para emitir a que a substitui.
+#[tauri::command]
+pub async fn dados_para_substituir(estado: State<'_, Estado>, dps_id: i64) -> R<RefazerDto> {
+    let guarda = emissor!(estado);
+    let r = guarda
+        .as_ref()
+        .expect("verificado")
+        .dados_para_substituir(dps_id)
+        .await
+        .map_err(texto)?;
+    Ok(RefazerDto {
+        empresa_id: r.empresa_id,
+        tomador: r.tomador.map(Into::into),
+        servico_id: r.servico_id,
+        valor: r.valor.to_string(),
+        descricao: r.descricao,
+        obra: r.obra,
+        informacoes_complementares: r.informacoes_complementares,
+    })
+}
+
 #[derive(Serialize)]
 pub struct PendenteDto {
     dps_id: i64,

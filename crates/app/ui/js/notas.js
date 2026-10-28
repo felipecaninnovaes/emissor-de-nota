@@ -1,10 +1,10 @@
-// Notas emitidas: lista, e-mail, cancelamento, refazer e copiar.
+// Notas emitidas: lista, e-mail, cancelamento, refazer, copiar e substituir.
 
 import { $, NOME_SITUACAO, chamar, copiarTexto, esc, estado, invoke, moeda, somarValores, toast, vazio } from "./util.js";
 import { acoesLinha, detalheLinha, linhaVazia } from "./tabela.js";
 import { ErroCampo, abrirDialogo } from "./formularios.js";
 import { irPara } from "./navegacao.js";
-import { abrirNota, aplicarServico, escolherTomador, limparEmissao, preencherObra } from "./emitir.js";
+import { abrirNota, aplicarServico, escolherTomador, iniciarSubstituicao, limparEmissao, preencherObra } from "./emitir.js";
 import { atualizando } from "./atualizacao.js";
 
 let notasCarregadas = [];
@@ -37,6 +37,7 @@ export async function carregarNotas() {
         }
         if (n.situacao === "autorizada") {
           acoes.push({ acao: "conferir", texto: "Conferir na Sefin" });
+          acoes.push({ acao: "substituir", texto: "Substituir nota" });
           acoes.push({ acao: "cancelar", texto: "Cancelar nota", perigo: true });
         }
       }
@@ -140,6 +141,8 @@ $("#lista-notas").addEventListener("click", async (ev) => {
       return refazerNota(n);
     case "copiar":
       return copiarNota(n);
+    case "substituir":
+      return substituirNota(n);
     case "diagnostico":
       try {
         await copiarTexto(await chamar("diagnostico_nota", { dpsId: n.dps_id }));
@@ -198,6 +201,7 @@ async function levarParaEmissao(comando, n, { manterDescricao, aviso, orientacao
   res.innerHTML = `<div class="aviso atencao">${avisos.map(esc).join("<br>")}
     <br>${orientacao} A nota sai com o próximo número da série.</div>`;
   res.hidden = false;
+  return true;
 }
 
 /** Leva os dados de uma nota rejeitada para a tela de emissão (sai com o próximo número). */
@@ -219,6 +223,20 @@ function copiarNota(n) {
     aviso: `Copiando a nota ${n.numero_nfse ?? `DPS ${n.serie}/${n.numero_dps}`}.`,
     orientacao: "Confira o mês de referência e o valor e clique em Revisar.",
   });
+}
+
+/**
+ * Leva os dados de uma nota autorizada para a tela de emissão, como substituta dela. A descrição é
+ * a enviada (o mês de referência é o da nota original); o motivo fica no topo do formulário.
+ */
+async function substituirNota(n) {
+  const rotulo = `nota ${n.numero_nfse ?? `DPS ${n.serie}/${n.numero_dps}`}`;
+  const levou = await levarParaEmissao("dados_para_substituir", n, {
+    manterDescricao: true,
+    aviso: `Substituindo a ${rotulo}.`,
+    orientacao: "Corrija o que precisa mudar, escolha o motivo e clique em Revisar.",
+  });
+  if (levou) iniciarSubstituicao(n.nfse_id, rotulo);
 }
 
 /** "2026-10-16T22:07:26Z" → "16/10/2026 19:07" (horário local). */

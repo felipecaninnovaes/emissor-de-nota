@@ -61,6 +61,7 @@ impl ItemImportado {
                 arquivo: arquivo.map(str::to_owned),
                 linha: Some(self.linha as i64),
             },
+            substituir: None,
         })
     }
 }

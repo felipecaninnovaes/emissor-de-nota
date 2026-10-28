@@ -20,6 +20,7 @@ mod diagnostico;
 mod envio_email;
 mod montagem;
 mod reconciliacao;
+mod substituicao;
 
 pub use copia::Refazer;
 pub use diagnostico::mascarar_xml;
@@ -28,6 +29,7 @@ pub use montagem::{
     tributacao_da_nota, variaveis_desconhecidas,
 };
 pub use reconciliacao::JANELA_RECONCILIACAO;
+pub use substituicao::substituicao_do_pedido;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -113,6 +115,17 @@ pub struct PedidoEmissao {
     /// Retenções desta nota; o que não for dito vem do cadastro do tomador.
     pub reter: ReterNota,
     pub origem: Origem,
+    /// Nota autorizada que esta substitui (grupo `subst`).
+    pub substituir: Option<SubstituirNota>,
+}
+
+/// Substituição pedida na emissão: a NFS-e gravada e o motivo (`cMotivo` 01 a 05 ou 99).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SubstituirNota {
+    pub nfse_id: i64,
+    pub motivo: String,
+    /// `xMotivo`, de 15 a 255 caracteres.
+    pub descricao_motivo: Option<String>,
 }
 
 /// Escolha de retenção feita na emissão. `None` = o que o cadastro do tomador diz.
@@ -340,6 +353,9 @@ impl<C: Conector> Emissor<C> {
 
         // Valida antes de reservar número: DPS inválida não gasta numeração.
         let mut modelo = montar_dps(&empresa, tomador.as_ref(), &servico, pedido, agora_brasilia());
+        if let Some(s) = &pedido.substituir {
+            modelo.substituicao = Some(substituicao_do_pedido(&self.banco, &empresa, s).await?);
+        }
         let desconhecidas = variaveis_desconhecidas(&modelo.servico.descricao);
         if !desconhecidas.is_empty() {
             return Err(ErroEmissao::Regra(texto_variaveis_desconhecidas(&desconhecidas)));
@@ -509,7 +525,10 @@ impl<C: Conector> Emissor<C> {
         if let Some(raiz) = &self.pasta {
             match self.banco.empresa(empresa_id).await {
                 Err(e) => avisos.push(format!("a nota foi autorizada, mas não foi arquivada na pasta: {e}")),
-                Ok(empresa) => avisos.extend(self.arquivar(raiz, &empresa, competencia, &gravada).await),
+                Ok(empresa) => {
+                    avisos.extend(self.arquivar(raiz, &empresa, competencia, &gravada).await);
+                    avisos.extend(self.atualizar_pdf_da_substituida(raiz, &empresa, dps_id).await);
+                }
             }
         }
         for aviso in &avisos {
@@ -574,6 +593,7 @@ impl<C: Conector> Emissor<C> {
             informacoes_complementares: r.informacoes_complementares,
             reter: Default::default(),
             origem: Origem::Recorrencia(recorrencia_id),
+            substituir: None,
         })
         .await
     }

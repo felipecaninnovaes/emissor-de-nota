@@ -7,7 +7,7 @@ use tauri::State;
 use nfse_core::Valor;
 use nfse_core::modelo::{Ambiente, SituacaoSimples};
 use nfse_db::servicos::AplicarRetencao;
-use nfse_emissor::{ConectorSefin, Emissor, Origem, PedidoEmissao, ResultadoEmissao};
+use nfse_emissor::{ConectorSefin, Emissor, Origem, PedidoEmissao, ResultadoEmissao, SubstituirNota};
 
 use super::comum::{R, emissor, exigir_cofre, texto, vazio_para_none};
 use crate::Estado;
@@ -29,6 +29,17 @@ pub struct PedidoDto {
     reter_federais: Option<bool>,
     #[serde(default)]
     reter_iss: Option<bool>,
+    /// Nota autorizada que esta substitui.
+    #[serde(default)]
+    substituir: Option<SubstituirDto>,
+}
+
+#[derive(Deserialize)]
+pub struct SubstituirDto {
+    nfse_id: i64,
+    /// `cMotivo`: 01 a 05 ou 99.
+    motivo: String,
+    descricao_motivo: Option<String>,
 }
 
 impl PedidoDto {
@@ -53,6 +64,11 @@ impl PedidoDto {
                 iss: self.reter_iss,
             },
             origem: Origem::Manual,
+            substituir: self.substituir.map(|s| SubstituirNota {
+                nfse_id: s.nfse_id,
+                motivo: s.motivo,
+                descricao_motivo: vazio_para_none(s.descricao_motivo),
+            }),
         })
     }
 }
@@ -145,7 +161,15 @@ pub(crate) async fn validar_pedido(
         nfse_emissor::agora_brasilia(),
     );
     dps.leiaute = b.leiaute_dps(empresa.ambiente).await.map_err(texto)?;
+    let mut erro_substituicao = None;
+    if let Some(s) = &pedido.substituir {
+        match nfse_emissor::substituicao_do_pedido(b, &empresa, s).await {
+            Ok(subst) => dps.substituicao = Some(subst),
+            Err(e) => erro_substituicao = Some(e.to_string()),
+        }
+    }
     let mut erros = dps.validar();
+    erros.extend(erro_substituicao);
     let desconhecidas = nfse_emissor::variaveis_desconhecidas(&dps.servico.descricao);
     if !desconhecidas.is_empty() {
         erros.push(nfse_emissor::texto_variaveis_desconhecidas(&desconhecidas));
