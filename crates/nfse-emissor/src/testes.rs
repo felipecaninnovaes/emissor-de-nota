@@ -233,6 +233,7 @@ async fn cenario(respostas: Vec<Resposta>) -> Cenario {
             descricao: None,
             mes_referencia: Some(NaiveDate::from_ymd_opt(2026, 9, 1).unwrap()),
             obra: None,
+            local_prestacao: None,
             informacoes_complementares: None,
             reter: Default::default(),
             origem: Origem::Manual,
@@ -809,6 +810,52 @@ async fn copiar_vale_para_autorizada_e_nao_para_rejeitada() {
         c.emissor.dados_para_copiar(rejeitada).await,
         Err(ErroEmissao::Regra(_))
     ));
+}
+
+/// Serviço prestado fora do município da empresa: `cLocPrestacao` leva o município escolhido, e
+/// copiar a nota o traz de volta (a nota no município da empresa não traz nada).
+#[tokio::test]
+async fn local_da_prestacao_fora_do_municipio() {
+    let c = cenario(vec![
+        Resposta::Emitir(Ok(nfse_autorizada())),
+        Resposta::Emitir(Ok(nfse_com_chave(CHAVE_SUBSTITUTA, 2))),
+    ])
+    .await;
+    let ResultadoEmissao::Autorizada { nfse: propria, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+        panic!()
+    };
+    assert!(c.sefin.recebidos()[0].contains("<cLocPrestacao>3511102</cLocPrestacao>"));
+    assert_eq!(
+        c.emissor
+            .dados_para_copiar(propria.dps_id)
+            .await
+            .unwrap()
+            .local_prestacao,
+        None
+    );
+
+    let mut fora = c.pedido.clone();
+    fora.local_prestacao = Some("3550308".into());
+    let ResultadoEmissao::Autorizada { nfse, .. } = c.emissor.emitir(&fora).await.unwrap() else {
+        panic!()
+    };
+    assert!(c.sefin.recebidos()[1].contains("<cLocPrestacao>3550308</cLocPrestacao>"));
+    assert_eq!(
+        c.emissor.dados_para_copiar(nfse.dps_id).await.unwrap().local_prestacao,
+        Some("3550308".into())
+    );
+}
+
+#[tokio::test]
+async fn local_da_prestacao_invalido_nao_gasta_numero() {
+    let c = cenario(vec![]).await;
+    let mut invalido = c.pedido.clone();
+    invalido.local_prestacao = Some("355".into());
+    assert!(matches!(
+        c.emissor.emitir(&invalido).await,
+        Err(ErroEmissao::DpsInvalida(_))
+    ));
+    assert!(c.sefin.recebidos().is_empty());
 }
 
 #[tokio::test]

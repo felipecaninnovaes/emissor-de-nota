@@ -85,6 +85,7 @@ pub async fn listar_recorrencias(
                     descricao: r.descricao.clone(),
                     mes_referencia: Some(data),
                     obra: r.obra.clone(),
+                    local_prestacao: None,
                     informacoes_complementares: r.informacoes_complementares.clone(),
                     reter: Default::default(),
                     origem: r.id.map(Origem::Recorrencia).unwrap_or_default(),

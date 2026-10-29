@@ -115,6 +115,7 @@ pub struct RefazerDto {
     valor: String,
     descricao: String,
     obra: Option<nfse_core::modelo::Obra>,
+    local_prestacao: Option<String>,
     informacoes_complementares: Option<String>,
 }
 
@@ -135,6 +136,7 @@ pub async fn dados_para_refazer(estado: State<'_, Estado>, dps_id: i64) -> R<Ref
         valor: r.valor.to_string(),
         descricao: r.descricao,
         obra: r.obra,
+        local_prestacao: r.local_prestacao,
         informacoes_complementares: r.informacoes_complementares,
     })
 }
@@ -156,6 +158,7 @@ pub async fn dados_para_copiar(estado: State<'_, Estado>, dps_id: i64) -> R<Refa
         valor: r.valor.to_string(),
         descricao: r.descricao,
         obra: r.obra,
+        local_prestacao: r.local_prestacao,
         informacoes_complementares: r.informacoes_complementares,
     })
 }
@@ -177,6 +180,7 @@ pub async fn dados_para_substituir(estado: State<'_, Estado>, dps_id: i64) -> R<
         valor: r.valor.to_string(),
         descricao: r.descricao,
         obra: r.obra,
+        local_prestacao: r.local_prestacao,
         informacoes_complementares: r.informacoes_complementares,
     })
 }

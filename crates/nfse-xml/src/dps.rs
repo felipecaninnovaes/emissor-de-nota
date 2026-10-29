@@ -397,6 +397,8 @@ mod testes {
                 tipo_operacao: 1,
             }),
         });
+        let mut fora_do_municipio = exemplo();
+        fora_do_municipio.servico.municipio_prestacao = "3550308".into();
         let mut sem_tomador = exemplo();
         sem_tomador.tomador = None;
         let mut substituta = exemplo();
@@ -489,6 +491,7 @@ mod testes {
             obra_endereco,
             ente_publico,
             sem_tomador,
+            fora_do_municipio,
             substituta,
             substituta_sem_descricao,
             retencoes_federais,

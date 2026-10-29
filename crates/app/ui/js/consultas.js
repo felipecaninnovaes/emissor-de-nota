@@ -109,6 +109,19 @@ for (const p of ["obra", "rec-obra"]) {
   );
 }
 
+// Local da prestação (emissão): o CEP preenche o município.
+ligarConsultaCep(
+  $("#local-cep"),
+  (d) => {
+    if (d.municipio) $("#local-prestacao").value = d.municipio;
+  },
+  $("#local-cidade"),
+);
+
+$("#local-prestacao").addEventListener("input", () => {
+  $("#local-cidade").textContent = "";
+});
+
 ligarConsultaCep(
   $("#form-tomador").elements.cep,
   (d) => {

@@ -193,6 +193,7 @@ async function levarParaEmissao(comando, n, { manterDescricao, aviso, orientacao
   $("#valor").value = moeda(r.valor);
   if (manterDescricao || !servicoAchado) $("#descricao").value = r.descricao;
   $("#info-compl").value = r.informacoes_complementares ?? "";
+  $("#local-prestacao").value = r.local_prestacao ?? "";
   preencherObra(r.obra);
   const avisos = [aviso];
   if (!servicoAchado) avisos.push("Nenhum serviço do cadastro tem o mesmo código: escolha o serviço.");

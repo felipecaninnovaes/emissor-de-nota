@@ -22,6 +22,8 @@ pub struct Refazer {
     /// Descrição como foi enviada (com o mês de referência já aplicado).
     pub descricao: String,
     pub obra: Option<Obra>,
+    /// Município da prestação, só quando não é o da empresa.
+    pub local_prestacao: Option<String>,
     pub informacoes_complementares: Option<String>,
 }
 
@@ -97,6 +99,7 @@ impl<C: Conector> Emissor<C> {
             .or(candidatos.first())
             .and_then(|s| s.id);
 
+        let local_prestacao = Some(modelo.servico.municipio_prestacao).filter(|m| *m != modelo.municipio_emissor);
         Ok(Refazer {
             empresa_id,
             tomador,
@@ -104,6 +107,7 @@ impl<C: Conector> Emissor<C> {
             valor: modelo.valores.servico,
             descricao: modelo.servico.descricao,
             obra: modelo.servico.obra,
+            local_prestacao,
             informacoes_complementares: modelo.servico.informacoes_complementares,
         })
     }

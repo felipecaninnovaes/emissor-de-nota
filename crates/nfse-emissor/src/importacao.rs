@@ -54,6 +54,7 @@ impl ItemImportado {
             descricao: Some(self.descricao.clone()),
             mes_referencia: Some(self.mes),
             obra: None,
+            local_prestacao: None,
             informacoes_complementares: self.informacoes.clone(),
             reter: Default::default(),
             origem: Origem::Planilha {

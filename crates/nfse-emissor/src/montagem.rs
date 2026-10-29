@@ -372,7 +372,10 @@ pub fn montar_dps(
         },
         tomador: tomador.map(|t| t.tomador.clone()),
         servico: ServicoDps {
-            municipio_prestacao: empresa.municipio_emissor.clone(),
+            municipio_prestacao: pedido
+                .local_prestacao
+                .clone()
+                .unwrap_or_else(|| empresa.municipio_emissor.clone()),
             codigo_tributacao_nacional: servico.codigo_trib_nac.clone(),
             codigo_tributacao_municipal: servico.codigo_trib_mun.clone(),
             descricao,

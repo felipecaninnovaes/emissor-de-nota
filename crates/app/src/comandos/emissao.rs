@@ -23,6 +23,9 @@ pub struct PedidoDto {
     mes_referencia: Option<String>,
     #[serde(default)]
     obra: Option<nfse_core::modelo::Obra>,
+    /// Município (IBGE) da prestação; vazio = o da empresa.
+    #[serde(default)]
+    local_prestacao: Option<String>,
     informacoes_complementares: Option<String>,
     /// Marcados na revisão; ausente = o cadastro do tomador.
     #[serde(default)]
@@ -63,6 +66,7 @@ impl PedidoDto {
             descricao: vazio_para_none(self.descricao),
             mes_referencia,
             obra: self.obra,
+            local_prestacao: vazio_para_none(self.local_prestacao),
             informacoes_complementares: vazio_para_none(self.informacoes_complementares),
             reter: nfse_emissor::ReterNota {
                 federais: self.reter_federais,

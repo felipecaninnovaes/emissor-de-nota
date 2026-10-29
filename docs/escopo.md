@@ -56,7 +56,7 @@ Desde 1º/01/2026 todo município precisa operar no padrão nacional, mas pode e
 - **Pendente** — tabela nacional de códigos (Anexo B) e validação contra a parametrização do município.
 
 **Emissão**
-- **Feito** — fluxo empresa → tomador → serviço → valor → mês de referência → **Revisar** (DPS completa, destaque de Produção, erros) → emitir.
+- **Feito** — fluxo empresa → tomador → serviço → valor → mês de referência (e local da prestação, quando fora do município da empresa) → **Revisar** (DPS completa, destaque de Produção, erros) → emitir.
 - **Feito** — notas recorrentes e lote do mês, importação de planilha (XLSX, XLS, ODS, CSV) para convênios, "Corrigir e emitir" (rejeitada), "Copiar" (autorizada ou cancelada), envio por e-mail (PDF + XML) pelo SMTP do escritório, arquivamento em `<pasta>/<EMPRESA - CNPJ>/<AAAA-MM>/`.
 - **Fora do escopo** — responder automaticamente a e-mails de convênios (fica manual).
 - **Pendente** — agendamento automático do lote.

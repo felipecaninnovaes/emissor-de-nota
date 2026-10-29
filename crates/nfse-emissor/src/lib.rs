@@ -112,6 +112,8 @@ pub struct PedidoEmissao {
     pub mes_referencia: Option<NaiveDate>,
     /// Grupo de obra (construção civil, E0370); vai só nesta nota.
     pub obra: Option<Obra>,
+    /// Município (IBGE) onde o serviço foi prestado (`cLocPrestacao`); `None` = o da empresa.
+    pub local_prestacao: Option<String>,
     pub informacoes_complementares: Option<String>,
     /// Retenções desta nota; o que não for dito vem do cadastro do tomador.
     pub reter: ReterNota,
@@ -595,6 +597,7 @@ impl<C: Conector> Emissor<C> {
             descricao: r.descricao,
             mes_referencia: Some(mes.with_day(1).expect("dia 1 existe")),
             obra: r.obra,
+            local_prestacao: None,
             informacoes_complementares: r.informacoes_complementares,
             reter: Default::default(),
             origem: Origem::Recorrencia(recorrencia_id),

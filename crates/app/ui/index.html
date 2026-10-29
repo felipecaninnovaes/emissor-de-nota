@@ -160,6 +160,19 @@
               </div>
               <p class="ajuda">Este código de serviço (construção civil) exige a identificação da obra na nota (regra E0370 da Sefin).</p>
             </fieldset>
+            <div class="c3">
+              <label for="local-cep">Local da prestação: CEP</label>
+              <input id="local-cep" maxlength="9" data-formato="cep" inputmode="numeric" autocomplete="off">
+              <button type="button" class="botao pequeno" data-buscar-cep="local-cep">Não sei o CEP</button>
+            </div>
+            <div class="c3">
+              <label for="local-prestacao">Município da prestação (IBGE)</label>
+              <input id="local-prestacao" maxlength="7" data-formato="ibge" inputmode="numeric" autocomplete="off">
+              <p class="ajuda" id="local-cidade" aria-live="polite"></p>
+            </div>
+            <div class="c6">
+              <p class="ajuda">Só para serviço prestado fora do município da empresa: informe o CEP do local ou o código IBGE do município. Em branco, vale o município da empresa.</p>
+            </div>
             <div class="c12">
               <label for="info-compl">Informações complementares</label>
               <textarea id="info-compl" rows="2"></textarea>

@@ -183,11 +183,25 @@ function descreverObra(obra) {
   return obra.inscricao_imobiliaria ? `${id} (inscr. imob. ${obra.inscricao_imobiliaria})` : id;
 }
 
+/** Volta o local da prestação ao município da empresa (campos em branco). */
+function limparLocalPrestacao() {
+  $("#local-cep").value = "";
+  $("#local-prestacao").value = "";
+  $("#local-cidade").textContent = "";
+}
+
+/** Código IBGE digitado, ou `null` se vazio ou igual ao município da empresa. */
+function localPrestacao() {
+  const codigo = soDigitos($("#local-prestacao").value);
+  return codigo && codigo !== estado.empresa.municipio_emissor ? codigo : null;
+}
+
 export function limparEmissao() {
   encerrarSubstituicao();
   escolherTomador(null);
   $("#valor").value = "";
   $("#info-compl").value = "";
+  limparLocalPrestacao();
   limparObra();
   $("#mes-ref").value = mesPadrao();
   $("#revisao").hidden = true;
@@ -261,6 +275,7 @@ function montarPedido() {
     descricao: vazio($("#descricao").value),
     mes_referencia: vazio($("#mes-ref").value),
     obra: obraDigitada(),
+    local_prestacao: localPrestacao(),
     informacoes_complementares: vazio($("#info-compl").value),
     reter_federais: estado.reter?.federais ?? null,
     reter_iss: estado.reter?.iss ?? null,
@@ -358,6 +373,10 @@ async function revisar() {
   );
   const tecnicos = [["Série da DPS", previa.serie]];
   if (pedido.obra) linhas.push(["Obra", descreverObra(pedido.obra)]);
+  if (pedido.local_prestacao) {
+    const cidade = $("#local-cidade").textContent;
+    linhas.push(["Local da prestação", `${pedido.local_prestacao}${cidade ? ` (${cidade})` : ""}`]);
+  }
   if (pedido.informacoes_complementares) linhas.push(["Inf. complementares", pedido.informacoes_complementares]);
   const reais = (v) => "R$ " + moeda(v);
   if (previa.pis_proprio) linhas.push(["PIS (apuração própria)", reais(previa.pis_proprio)]);
@@ -514,6 +533,7 @@ $("#confirmar-emissao").addEventListener("click", async () => {
       escolherTomador(null);
       $("#valor").value = "";
       $("#info-compl").value = "";
+      limparLocalPrestacao();
       limparObra();
       aplicarServico();
       toast(`NFS-e ${r.numero ?? ""} autorizada.`);
