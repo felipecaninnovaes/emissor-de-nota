@@ -221,7 +221,19 @@ export function escolherTomador(t) {
     },
     t && `${t.tomador.nome} — ${formatarDocumento(t.tomador.documento)}`,
   );
+  $("#local-do-tomador").hidden = !t?.tomador.endereco;
 }
+
+/** Local da prestação = endereço do tomador: o município vem do cadastro e o CEP é consultado para o nome da cidade. */
+$("#local-do-tomador").addEventListener("click", () => {
+  const endereco = estado.tomador?.tomador.endereco;
+  if (!endereco) return;
+  $("#local-prestacao").value = endereco.municipio;
+  $("#local-cidade").textContent = "";
+  const cep = $("#local-cep");
+  cep.value = FORMATOS.cep.mascara(endereco.cep);
+  cep.dispatchEvent(new Event("change", { bubbles: true }));
+});
 
 $("#trocar-tomador").addEventListener("click", () => {
   escolherTomador(null);

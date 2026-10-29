@@ -4,6 +4,8 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 
 ## Não publicado
 
+- Local da prestação: botão "Usar o endereço do tomador" preenche o CEP e o município com o endereço cadastrado do tomador.
+
 ## 1.15.0
 
 Local da prestação na emissão, retenção de até R$ 10,00 por escolha e códigos do IBS/CBS no resumo da revisão. Sem nova migração nem mudança no esquema do banco.
