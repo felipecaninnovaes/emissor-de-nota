@@ -193,7 +193,20 @@ const LIMITE_DISPENSA_RETENCAO: i64 = 1_000;
 /// IRRF ou PIS/COFINS/CSLL retidos de até R$ 10,00 são dispensados: a nota sai como se o serviço não os
 /// retivesse (PIS e COFINS de apuração própria continuam).
 pub fn federais_da_nota(t: &nfse_db::servicos::Tributacao, valor: Valor) -> nfse_core::modelo::TributosFederais {
-    let (irrf, contribuicoes) = dispensas(t, valor);
+    federais_com_escolha(t, valor, ReterNota::default())
+}
+
+/// Como `federais_da_nota`, com a escolha da emissão: `ReterNota::irrf_ate_o_limite` e
+/// `ReterNota::contribuicoes_ate_o_limite` retêm mesmo sem passar de R$ 10,00 (outras notas do
+/// período, somadas, passam do limite).
+pub fn federais_com_escolha(
+    t: &nfse_db::servicos::Tributacao,
+    valor: Valor,
+    reter: ReterNota,
+) -> nfse_core::modelo::TributosFederais {
+    let dispensaveis = retencoes_dispensaveis(t, valor);
+    let irrf = dispensaveis.irrf.is_some() && !reter.irrf_ate_o_limite;
+    let contribuicoes = dispensaveis.contribuicoes.is_some() && !reter.contribuicoes_ate_o_limite;
     if !irrf && !contribuicoes {
         return calcular_federais(t, valor);
     }
@@ -214,31 +227,22 @@ pub fn federais_da_nota(t: &nfse_db::servicos::Tributacao, valor: Valor) -> nfse
     calcular_federais(&t, valor)
 }
 
-/// Retenções da nota dispensadas por não passarem de R$ 10,00, para o aviso da revisão.
-pub fn retencoes_dispensadas(t: &nfse_db::servicos::Tributacao, valor: Valor) -> Vec<String> {
-    let f = calcular_federais(t, valor);
-    let (irrf, contribuicoes) = dispensas(t, valor);
-    let mut avisos = Vec::new();
-    if let Some(v) = f.retencao_irrf.filter(|_| irrf) {
-        avisos.push(format!(
-            "IRRF de R$ {} não retido: retenção de até R$ 10,00 é dispensada.",
-            valor_br(v)
-        ));
-    }
-    if let Some(v) = f.retencao_csll.filter(|_| contribuicoes) {
-        avisos.push(format!(
-            "PIS/COFINS/CSLL de R$ {} não retidos: retenção de até R$ 10,00 é dispensada.",
-            valor_br(v)
-        ));
-    }
-    avisos
+/// Retenções da nota que não passam de R$ 10,00, com o valor que seria retido: são dispensadas, salvo
+/// escolha na emissão.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct RetencoesDispensaveis {
+    pub irrf: Option<Valor>,
+    /// PIS, COFINS e CSLL somados (`vRetCSLL`).
+    pub contribuicoes: Option<Valor>,
 }
 
-/// Quais retenções (IRRF; PIS, COFINS e CSLL somados) não passam do limite e são dispensadas.
-fn dispensas(t: &nfse_db::servicos::Tributacao, valor: Valor) -> (bool, bool) {
+pub fn retencoes_dispensaveis(t: &nfse_db::servicos::Tributacao, valor: Valor) -> RetencoesDispensaveis {
     let f = calcular_federais(t, valor);
-    let dispensada = |v: Option<Valor>| v.is_some_and(|v| (1..=LIMITE_DISPENSA_RETENCAO).contains(&v.centesimos()));
-    (dispensada(f.retencao_irrf), dispensada(f.retencao_csll))
+    let ate_o_limite = |v: Option<Valor>| v.filter(|v| (1..=LIMITE_DISPENSA_RETENCAO).contains(&v.centesimos()));
+    RetencoesDispensaveis {
+        irrf: ate_o_limite(f.retencao_irrf),
+        contribuicoes: ate_o_limite(f.retencao_csll),
+    }
 }
 
 fn calcular_federais(t: &nfse_db::servicos::Tributacao, valor: Valor) -> nfse_core::modelo::TributosFederais {
@@ -337,7 +341,7 @@ pub fn montar_dps(
         .mes_referencia
         .unwrap_or_else(|| mes_anterior(emissao.date_naive()));
     let t = &tributacao_da_nota(servico, tomador, pedido.reter);
-    let federais = federais_da_nota(t, pedido.valor);
+    let federais = federais_com_escolha(t, pedido.valor, pedido.reter);
     let mut descricao = aplicar_mes_ref(pedido.descricao.as_deref().unwrap_or(&servico.descricao), mes)
         .replace("{competencia}", &emissao.format("%m/%Y").to_string())
         .replace("{data_emissao}", &emissao.format("%d/%m/%Y").to_string())

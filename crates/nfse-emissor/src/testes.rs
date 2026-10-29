@@ -321,6 +321,7 @@ fn retencao_so_vale_para_tomador_que_retem() {
     let so_iss = ReterNota {
         federais: Some(false),
         iss: Some(true),
+        ..Default::default()
     };
     let t = tributacao_da_nota(&servico, Some(&tomador(true, false)), so_iss);
     assert_eq!(t.retencoes.irrf, None);
@@ -406,11 +407,11 @@ fn retencao_de_ate_dez_reais_e_dispensada() {
     assert_eq!((f.retencao_irrf, f.retencao_csll), (None, None));
     assert_eq!(f.pis_cofins, None);
     assert_eq!(
-        retencoes_dispensadas(&t, Valor::parse("215").unwrap()),
-        [
-            "IRRF de R$ 3,23 não retido: retenção de até R$ 10,00 é dispensada.",
-            "PIS/COFINS/CSLL de R$ 10,00 não retidos: retenção de até R$ 10,00 é dispensada."
-        ]
+        retencoes_dispensaveis(&t, Valor::parse("215").unwrap()),
+        RetencoesDispensaveis {
+            irrf: Some(Valor::parse("3.23").unwrap()),
+            contribuicoes: Some(Valor::parse("10").unwrap()),
+        }
     );
     // 216,00: as contribuições passam de 10,00 (2,16 + 1,40 + 6,48) e são retidas; o IRRF não
     let f = nota("216");
@@ -422,7 +423,45 @@ fn retencao_de_ate_dez_reais_e_dispensada() {
     // 666,00: IRRF 9,99 dispensado; 667,00: IRRF 10,01 retido
     assert_eq!(texto(nota("666").retencao_irrf), None);
     assert_eq!(texto(nota("667").retencao_irrf), Some("10.01".into()));
-    assert!(retencoes_dispensadas(&t, Valor::parse("667").unwrap()).is_empty());
+    assert_eq!(
+        retencoes_dispensaveis(&t, Valor::parse("667").unwrap()),
+        RetencoesDispensaveis::default()
+    );
+}
+
+/// Outras notas do período, somadas, passam do limite: a emissão pode reter mesmo abaixo de R$ 10,00,
+/// escolhendo IRRF e PIS/COFINS/CSLL em separado.
+#[test]
+fn escolha_retem_abaixo_do_limite() {
+    let p = |v: &str| Some(Percentual::parse(v).unwrap());
+    let t = Tributacao {
+        retencoes: nfse_db::servicos::RetencoesPercentuais {
+            irrf: p("1.5"),
+            csll: p("1"),
+            pis: p("0.65"),
+            cofins: p("3"),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let valor = Valor::parse("215").unwrap();
+    let texto = |v: Option<Valor>| v.map(|v| v.to_string());
+    let so_contribuicoes = ReterNota {
+        contribuicoes_ate_o_limite: true,
+        ..Default::default()
+    };
+    let f = federais_com_escolha(&t, valor, so_contribuicoes);
+    assert_eq!(
+        (texto(f.retencao_irrf), texto(f.retencao_csll)),
+        (None, Some("10.00".into()))
+    );
+    assert_eq!(f.pis_cofins.unwrap().tipo_retencao, Some(3));
+    let so_irrf = ReterNota {
+        irrf_ate_o_limite: true,
+        ..Default::default()
+    };
+    let f = federais_com_escolha(&t, valor, so_irrf);
+    assert_eq!((texto(f.retencao_irrf), f.retencao_csll), (Some("3.23".into()), None));
 }
 
 /// Dispensada a retenção, o PIS e a COFINS de apuração própria continuam na DPS, sem tipo de retenção.

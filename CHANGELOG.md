@@ -4,6 +4,8 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 
 ## Não publicado
 
+- Retenção de até R$ 10,00: a revisão tem caixas para reter mesmo assim o IRRF ou PIS/COFINS/CSLL nesta nota, quando outras notas do mesmo período, somadas, passam do limite.
+
 ## 1.14.0
 
 Dispensa de retenção federal de até R$ 10,00. Sem nova migração nem mudança no esquema do banco.

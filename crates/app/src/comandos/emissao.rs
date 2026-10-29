@@ -29,6 +29,11 @@ pub struct PedidoDto {
     reter_federais: Option<bool>,
     #[serde(default)]
     reter_iss: Option<bool>,
+    /// Reter mesmo sem passar de R$ 10,00 (outras notas do período, somadas, passam do limite).
+    #[serde(default)]
+    reter_irrf_ate_o_limite: bool,
+    #[serde(default)]
+    reter_contribuicoes_ate_o_limite: bool,
     /// Nota autorizada que esta substitui.
     #[serde(default)]
     substituir: Option<SubstituirDto>,
@@ -62,6 +67,8 @@ impl PedidoDto {
             reter: nfse_emissor::ReterNota {
                 federais: self.reter_federais,
                 iss: self.reter_iss,
+                irrf_ate_o_limite: self.reter_irrf_ate_o_limite,
+                contribuicoes_ate_o_limite: self.reter_contribuicoes_ate_o_limite,
             },
             origem: Origem::Manual,
             substituir: self.substituir.map(|s| SubstituirNota {
@@ -103,6 +110,12 @@ pub struct PreviaDto {
     retencao_condicional: bool,
     reter_federais: bool,
     reter_iss: bool,
+    /// IRRF de até R$ 10,00, dispensado salvo escolha: a revisão oferece reter mesmo assim.
+    irrf_dispensavel: Option<String>,
+    /// PIS, COFINS e CSLL somados, de até R$ 10,00.
+    contribuicoes_dispensaveis: Option<String>,
+    reter_irrf_ate_o_limite: bool,
+    reter_contribuicoes_ate_o_limite: bool,
     erros: Vec<String>,
     /// Alertas que não impedem a emissão (retenção possivelmente indevida).
     avisos: Vec<String>,
@@ -226,10 +239,26 @@ pub async fn previa_dps(estado: State<'_, Estado>, pedido: PedidoDto) -> R<Previ
     let formatado = |v: Option<Valor>| v.filter(|v| v.centesimos() > 0).map(|v| v.to_string());
     let (reter_federais, reter_iss) = pedido.reter.efetiva(tomador.as_ref());
     let mut avisos = avisos_retencao(empresa.regime.simples, f);
-    avisos.extend(nfse_emissor::retencoes_dispensadas(
+    let dispensaveis = nfse_emissor::retencoes_dispensaveis(
         &nfse_emissor::tributacao_da_nota(&servico, tomador.as_ref(), pedido.reter),
         valor_nota,
-    ));
+    );
+    let reais = |v: Valor| v.to_string().replace('.', ",");
+    if let Some(v) = dispensaveis.irrf.filter(|_| !pedido.reter.irrf_ate_o_limite) {
+        avisos.push(format!(
+            "IRRF de R$ {} não retido: retenção de até R$ 10,00 é dispensada.",
+            reais(v)
+        ));
+    }
+    if let Some(v) = dispensaveis
+        .contribuicoes
+        .filter(|_| !pedido.reter.contribuicoes_ate_o_limite)
+    {
+        avisos.push(format!(
+            "PIS/COFINS/CSLL de R$ {} não retidos: retenção de até R$ 10,00 é dispensada.",
+            reais(v)
+        ));
+    }
     Ok(PreviaDto {
         ambiente: dps.ambiente,
         serie: dps.serie,
@@ -255,6 +284,10 @@ pub async fn previa_dps(estado: State<'_, Estado>, pedido: PedidoDto) -> R<Previ
         retencao_condicional,
         reter_federais,
         reter_iss,
+        irrf_dispensavel: dispensaveis.irrf.map(|v| v.to_string()),
+        contribuicoes_dispensaveis: dispensaveis.contribuicoes.map(|v| v.to_string()),
+        reter_irrf_ate_o_limite: pedido.reter.irrf_ate_o_limite,
+        reter_contribuicoes_ate_o_limite: pedido.reter.contribuicoes_ate_o_limite,
         erros,
         avisos,
     })

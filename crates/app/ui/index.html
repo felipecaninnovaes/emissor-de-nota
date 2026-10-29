@@ -188,6 +188,12 @@
             <label class="linha-check"><input type="checkbox" id="reter-iss"> ISS</label>
             <p class="ajuda">Já marcado conforme o cadastro do tomador; vale só para esta nota.</p>
           </fieldset>
+          <fieldset class="reter-nota" id="revisao-limite" hidden>
+            <legend>Retenção de até R$ 10,00</legend>
+            <label class="linha-check" id="linha-irrf-limite"><input type="checkbox" id="reter-irrf-limite"> <span id="texto-irrf-limite"></span></label>
+            <label class="linha-check" id="linha-contribuicoes-limite"><input type="checkbox" id="reter-contribuicoes-limite"> <span id="texto-contribuicoes-limite"></span></label>
+            <p class="ajuda">Retenção que não passa de R$ 10,00 é dispensada. Marque para reter mesmo assim quando outras notas do mesmo período, somadas, passam do limite; vale só para esta nota.</p>
+          </fieldset>
           <div class="acoes">
             <button class="botao" id="voltar-edicao">Corrigir</button>
             <button class="botao primario" id="confirmar-emissao">Emitir nota</button>

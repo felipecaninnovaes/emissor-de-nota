@@ -264,6 +264,8 @@ function montarPedido() {
     informacoes_complementares: vazio($("#info-compl").value),
     reter_federais: estado.reter?.federais ?? null,
     reter_iss: estado.reter?.iss ?? null,
+    reter_irrf_ate_o_limite: estado.reter?.irrfAteOLimite ?? false,
+    reter_contribuicoes_ate_o_limite: estado.reter?.contribuicoesAteOLimite ?? false,
     substituir: substituicao && {
       nfse_id: substituicao.nfse_id,
       motivo: $("#subst-motivo").value,
@@ -387,6 +389,14 @@ async function revisar() {
   reter.hidden = !previa.retencao_condicional;
   $("#reter-federais").checked = previa.reter_federais;
   $("#reter-iss").checked = previa.reter_iss;
+  $("#revisao-limite").hidden = !previa.irrf_dispensavel && !previa.contribuicoes_dispensaveis;
+  $("#linha-irrf-limite").hidden = !previa.irrf_dispensavel;
+  $("#texto-irrf-limite").textContent = `Reter o IRRF de ${reais(previa.irrf_dispensavel ?? "0")}`;
+  $("#reter-irrf-limite").checked = previa.reter_irrf_ate_o_limite;
+  $("#linha-contribuicoes-limite").hidden = !previa.contribuicoes_dispensaveis;
+  $("#texto-contribuicoes-limite").textContent =
+    `Reter PIS/COFINS/CSLL de ${reais(previa.contribuicoes_dispensaveis ?? "0")}`;
+  $("#reter-contribuicoes-limite").checked = previa.reter_contribuicoes_ate_o_limite;
   $("#confirmar-emissao").disabled = previa.erros.length > 0;
   $("#revisao").hidden = false;
   $("#revisao").scrollIntoView({ behavior: "smooth" });
@@ -420,10 +430,15 @@ function resumoValores(previa) {
   return `<div class="resumo-valores">${caixas.join("")}</div>${texto}`;
 }
 
-/** "Reter nesta nota": refaz a prévia com a escolha, que vale mais que o cadastro do tomador. */
-for (const id of ["#reter-federais", "#reter-iss"]) {
+/** "Reter nesta nota" e "Retenção de até R$ 10,00": refaz a prévia com a escolha, que vale mais que o cadastro do tomador e a dispensa. */
+for (const id of ["#reter-federais", "#reter-iss", "#reter-irrf-limite", "#reter-contribuicoes-limite"]) {
   $(id).addEventListener("change", () => {
-    estado.reter = { federais: $("#reter-federais").checked, iss: $("#reter-iss").checked };
+    estado.reter = {
+      federais: $("#reter-federais").checked,
+      iss: $("#reter-iss").checked,
+      irrfAteOLimite: $("#reter-irrf-limite").checked,
+      contribuicoesAteOLimite: $("#reter-contribuicoes-limite").checked,
+    };
     revisar();
   });
 }
