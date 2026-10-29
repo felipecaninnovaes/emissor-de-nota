@@ -4,6 +4,7 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 
 ## Não publicado
 
+- Revisão da nota: CST, cClassTrib e cIndOp do IBS/CBS aparecem no resumo, sem precisar abrir os Detalhes técnicos.
 - Local da prestação: na emissão, serviço prestado fora do município da empresa pode informar o município do local (pelo CEP ou pelo código IBGE); ele vai na nota e volta ao refazer, copiar ou substituir.
 - Retenção de até R$ 10,00: a revisão tem caixas para reter mesmo assim o IRRF ou PIS/COFINS/CSLL nesta nota, quando outras notas do mesmo período, somadas, passam do limite.
 

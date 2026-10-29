@@ -393,7 +393,7 @@ async function revisar() {
   }
   if (previa.ibs_cbs) {
     const i = previa.ibs_cbs;
-    tecnicos.push(["IBS/CBS", `cIndOp ${i.indicador_operacao} · CST ${i.cst} · cClassTrib ${i.classificacao_tributaria}`]);
+    linhas.push(["IBS/CBS", `CST ${i.cst} · cClassTrib ${i.classificacao_tributaria} · cIndOp ${i.indicador_operacao}`]);
     tecnicos.push(["Base do IBS/CBS (estimada)", reais(i.base_estimada) + " (a Sefin calcula as alíquotas e os valores)"]);
   }
   const lista = (itens) => itens.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
