@@ -2,11 +2,31 @@
 
 Como preparar o ambiente, rodar, testar e alterar o código com segurança. Para quem vai mexer no projeto. A estrutura do código está em [arquitetura.md](arquitetura.md); variáveis e pastas, em [configuracao.md](configuracao.md); publicação de versões, em [deploy.md](deploy.md).
 
-## Pré-requisitos
+## Ambiente com Devbox (Linux e macOS)
 
-- Rust 1.88 ou mais novo (`rust-version` do workspace; edição 2024).
+O `devbox.json` fixa as versões do `rustup`, do compilador C, do `libclang`, do Perl, do `xmllint`, do `xmlsec1`, do `cargo-deny`, do `tauri-cli` e, no Linux, do WebKitGTK e do GTK; o `rust-toolchain.toml` fixa o Rust. Com Nix, Devbox e direnv instalados:
+
+```bash
+direnv allow
+devbox run setup
+```
+
+| Script | O que faz |
+| --- | --- |
+| `devbox run setup` | Instala a toolchain e baixa as dependências |
+| `devbox run run` | Abre o app |
+| `devbox run test` | Testes do workspace (sem `identidade_mtls_a_partir_do_pfx`, ver [problemas conhecidos](#problemas-conhecidos)) e os de XSD e assinatura de `nfse-xml` |
+| `devbox run lint` | `cargo fmt --check`, clippy e `cargo deny check licenses` |
+| `devbox run fmt` | `cargo fmt --all` |
+
+A toolchain fica em `.devbox/virtenv/rustup`. Variáveis locais vão em `.env` (ignorado pelo git; modelo em `.env.example`), que o direnv carrega. Os pacotes do Linux e do macOS **de distribuição** não são gerados no Devbox: o executável ficaria preso às bibliotecas do Nix, então o `instalador.yml` compila fora dele. Ao trocar a versão do Rust, atualize `rust-toolchain.toml` e `dtolnay/rust-toolchain@` nos workflows. Ao trocar a versão de um pacote, confira no `devbox.lock` se todos continuam no mesmo commit do nixpkgs: `gcc` e `libclang` de commits diferentes têm glibc diferentes, e o build do `libsqlite3-sys` falha com `undefined symbol: __pointer_chk_guard`.
+
+## Pré-requisitos sem Devbox
+
+- Rust na versão de `rust-toolchain.toml` (o rustup instala sozinho). A versão mínima suportada é a 1.88 (`rust-version` do workspace; edição 2024).
 - Windows: o WebView2 (o instalador baixa o bootstrapper). O alvo de distribuição é só Windows (MSI).
 - Linux e macOS: o app compila no Linux (testado), mas não há CI para eles ([problemas conhecidos](#problemas-conhecidos)). No Linux o Tauri precisa dos pacotes de desenvolvimento do WebKitGTK 4.1 e do GTK 3 (`pkg-config --modversion webkit2gtk-4.1 gtk+-3.0` deve responder).
+- `libclang` (o `bindgen` do `libsqlite3-sys` gera as ligações do SQLCipher).
 - Compilador C e Perl (o SQLCipher embutido compila o OpenSSL junto; no Windows o Strawberry Perl que já vem nos runners do GitHub basta). A primeira compilação demora alguns minutos a mais.
 - Para os testes marcados `#[ignore]`: `xmllint` (pacote `libxml2-utils`) e `xmlsec1`.
 - Para gerar o MSI: `cargo install tauri-cli --version "^2" --locked`.
@@ -26,7 +46,7 @@ cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-O CI (`.github/workflows/ci.yml`) roda esses três no Windows e, no Ubuntu, `cargo test -p nfse-xml -- --include-ignored` (validação contra o XSD oficial com `xmllint` e assinatura contra `xmlsec1`).
+O CI (`.github/workflows/ci.yml`) roda esses três no Windows e, no Ubuntu dentro do Devbox, `cargo test -p nfse-xml -- --include-ignored` (validação contra o XSD oficial com `xmllint` e assinatura contra `xmlsec1`).
 
 Antes de uma release, ou ao adicionar dependência, confira as licenças com `cargo deny check licenses` (precisa do `cargo install cargo-deny`). O `deny.toml` da raiz só permite licenças compatíveis com a AGPL-3.0 ([ADR 0016](decisoes/0016-licenca-agpl.md)); uma dependência com outra licença faz o comando falhar. O CI roda a mesma checagem no job `licencas`.
 

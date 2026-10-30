@@ -21,20 +21,20 @@ Baixe o instalador da plataforma em [Releases](https://github.com/felipecaninnov
 
 Na primeira abertura, crie a senha mestra (ela não pode ser recuperada). O uso está em [docs/usuario.md](docs/usuario.md).
 
-## Desenvolvimento
+## Ambiente de desenvolvimento
 
-Precisa de Rust 1.88 ou mais novo.
+No Linux e no macOS, o [Devbox](https://www.jetify.com/devbox) fornece a toolchain do Rust e as bibliotecas nativas. Pré-requisitos: [Nix](https://nixos.org/download), Devbox e [direnv](https://direnv.net). O projeto não tem serviços externos, então não precisa de Docker.
 
 ```bash
 git clone https://github.com/felipecaninnovaes/emissor-de-nota.git
-cargo run -p emissor-nfse
+cd emissor-de-nota
+direnv allow
+devbox run setup
+devbox run test
+devbox run run
 ```
 
-```bash
-cargo test --workspace
-```
-
-Setup completo, testes, CLI de diagnóstico e problemas conhecidos: [docs/desenvolvimento.md](docs/desenvolvimento.md).
+No Windows, instale o Rust com o rustup (a versão vem de `rust-toolchain.toml`). Setup completo, testes, CLI de diagnóstico e problemas conhecidos: [docs/desenvolvimento.md](docs/desenvolvimento.md).
 
 ## Documentação
 

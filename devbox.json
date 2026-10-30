@@ -1,0 +1,75 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.19.0/.schema/devbox.schema.json",
+  "packages": {
+    "rustup":      "1.29.2",
+    "gnumake":     "4.4.1",
+    "perl":        "5.42.3",
+    "pkg-config":  "0.29.2",
+    "libxml2":     "2.15.4",
+    "xmlsec":      "1.3.12",
+    "cargo-deny":  "0.20.2",
+    "cargo-tauri": "2.12.4",
+    "glib": {
+      "version":   "2.88.3",
+      "platforms": ["x86_64-linux", "aarch64-linux"],
+      "outputs":   ["out", "dev", "bin"]
+    },
+    "gtk3": {
+      "version":   "3.24.52",
+      "platforms": ["x86_64-linux", "aarch64-linux"],
+      "outputs":   ["out", "dev"]
+    },
+    "webkitgtk_4_1": {
+      "version":   "2.54.1+abi=4.1",
+      "platforms": ["x86_64-linux", "aarch64-linux"],
+      "outputs":   ["out", "dev"]
+    },
+    "libsoup_3": {
+      "version":   "3.8.0",
+      "platforms": ["x86_64-linux", "aarch64-linux"],
+      "outputs":   ["out", "dev"]
+    },
+    "librsvg": {
+      "version":   "2.62.3",
+      "platforms": ["x86_64-linux", "aarch64-linux"],
+      "outputs":   ["out", "dev"]
+    },
+    "libayatana-appindicator": {
+      "version":   "0.5.92",
+      "platforms": ["x86_64-linux", "aarch64-linux"],
+      "outputs":   ["out", "dev"]
+    },
+    "patchelf": {"version": "0.19.2", "platforms": ["x86_64-linux", "aarch64-linux"]},
+    "libclang": {
+      "version": "21.1.8",
+      "outputs": ["lib"]
+    },
+    "gcc": "16.2.0"
+  },
+  "env": {
+    "LIBCLANG_PATH": "$PWD/.devbox/nix/profile/default/lib"
+  },
+  "shell": {
+    "init_hook": [
+      "rustup which rustc >/dev/null 2>&1 || rustup toolchain install"
+    ],
+    "scripts": {
+      "setup": [
+        "rustup toolchain install",
+        "cargo fetch --locked"
+      ],
+      "run": "cargo run -p emissor-nfse",
+      "test": [
+        "# identidade_mtls_a_partir_do_pfx só passa no Windows: ver docs/desenvolvimento.md#problemas-conhecidos",
+        "cargo test --workspace --locked -- --skip identidade_mtls_a_partir_do_pfx",
+        "cargo test -p nfse-xml --locked -- --include-ignored"
+      ],
+      "lint": [
+        "cargo fmt --all --check",
+        "cargo clippy --workspace --all-targets --locked -- -D warnings",
+        "cargo deny check licenses"
+      ],
+      "fmt": "cargo fmt --all"
+    }
+  }
+}

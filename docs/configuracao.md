@@ -1,6 +1,6 @@
 # Configuração
 
-Variáveis de ambiente, opções guardadas pelo aplicativo e locais dos arquivos, com os valores padrão. Para quem desenvolve ou dá suporte. O sistema não usa arquivo `.env`.
+Variáveis de ambiente, opções guardadas pelo aplicativo e locais dos arquivos, com os valores padrão. Para quem desenvolve ou dá suporte. O aplicativo não lê arquivo `.env`; no desenvolvimento, o direnv carrega o `.env` local no shell.
 
 ## Variáveis de ambiente
 

@@ -2,6 +2,10 @@
 /target/
 **/*.rs.bk
 
+# Ambiente de desenvolvimento (Devbox e direnv)
+.devbox/
+.direnv/
+
 # Certificados e chaves — NUNCA versionar certificados reais de clientes.
 # Os únicos permitidos são os de teste autoassinados em tests/fixtures/.
 /certs/
@@ -28,11 +32,13 @@ backup/
 /notas/
 /*.xml
 /*.json
+!/devbox.json
 *.danfse.pdf
 
 # Segredos e configuração local
 .env
 .env.*
+!.env.example
 config.local.*
 *.secret
 
