@@ -4,7 +4,7 @@ Como preparar o ambiente, rodar, testar e alterar o código com segurança. Para
 
 ## Ambiente com Devbox (Linux e macOS)
 
-O `devbox.json` fixa as versões do `rustup`, do compilador C, do `libclang`, do Perl, do `xmllint`, do `xmlsec1`, do `cargo-deny`, do `tauri-cli` e, no Linux, do WebKitGTK e do GTK; o `rust-toolchain.toml` fixa o Rust. Com Nix, Devbox e direnv instalados:
+O `devbox.json` fixa as versões do `rustup`, do compilador C, do `libclang`, do Perl, do `xmllint`, do `xmlsec1`, do `cargo-deny`, do `tauri-cli` e, no Linux, do WebKitGTK e do GTK; o `rust-toolchain.toml` fixa o Rust. Com Nix, Devbox, direnv e Docker instalados:
 
 ```bash
 direnv allow
@@ -15,11 +15,12 @@ devbox run setup
 | --- | --- |
 | `devbox run setup` | Instala a toolchain e baixa as dependências |
 | `devbox run run` | Abre o app |
-| `devbox run test` | Testes do workspace (sem `identidade_mtls_a_partir_do_pfx`, ver [problemas conhecidos](#problemas-conhecidos)) e os de XSD e assinatura de `nfse-xml` |
-| `devbox run lint` | `cargo fmt --check`, clippy e `cargo deny check licenses` |
-| `devbox run fmt` | `cargo fmt --all` |
+| `devbox run up` / `down` | Sobe e derruba o Postgres de desenvolvimento (`compose.yaml`, porta local 55432) |
+| `devbox run test` | Testes do workspace (sem `identidade_mtls_a_partir_do_pfx`, ver [problemas conhecidos](#problemas-conhecidos)), os de XSD e assinatura de `nfse-xml` e os de `servidor/`, que precisam do `devbox run up` |
+| `devbox run lint` | `cargo fmt --check`, clippy e `cargo deny check licenses`, no workspace e em `servidor/` |
+| `devbox run fmt` | `cargo fmt` no workspace e em `servidor/` |
 
-A toolchain fica em `.devbox/virtenv/rustup`. Variáveis locais vão em `.env` (ignorado pelo git; modelo em `.env.example`), que o direnv carrega. Os pacotes do Linux e do macOS **de distribuição** não são gerados no Devbox: o executável ficaria preso às bibliotecas do Nix, então o `instalador.yml` compila fora dele. Ao trocar a versão do Rust, atualize `rust-toolchain.toml` e `dtolnay/rust-toolchain@` nos workflows. Ao trocar a versão de um pacote, confira no `devbox.lock` se todos continuam no mesmo commit do nixpkgs: `gcc` e `libclang` de commits diferentes têm glibc diferentes, e o build do `libsqlite3-sys` falha com `undefined symbol: __pointer_chk_guard`.
+A toolchain fica em `.devbox/virtenv/rustup`. O `compose.yaml` da raiz é só de desenvolvimento; o de produção é `servidor/compose.yaml` ([nuvem.md](nuvem.md)). Variáveis locais vão em `.env` (ignorado pelo git; modelo em `.env.example`), que o direnv carrega. Os pacotes do Linux e do macOS **de distribuição** não são gerados no Devbox: o executável ficaria preso às bibliotecas do Nix, então o `instalador.yml` compila fora dele. Ao trocar a versão do Rust, atualize `rust-toolchain.toml`, `dtolnay/rust-toolchain@` nos workflows e a imagem em `servidor/Dockerfile`. Ao trocar a versão de um pacote, confira no `devbox.lock` se todos continuam no mesmo commit do nixpkgs: `gcc` e `libclang` de commits diferentes têm glibc diferentes, e o build do `libsqlite3-sys` falha com `undefined symbol: __pointer_chk_guard`.
 
 ## Pré-requisitos sem Devbox
 

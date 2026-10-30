@@ -1,5 +1,6 @@
 # Versão usada no desenvolvimento, no CI e nas releases. A versão mínima suportada é a do
-# `rust-version` em Cargo.toml. Ao trocar aqui, troque também `dtolnay/rust-toolchain@` nos workflows.
+# `rust-version` em Cargo.toml. Ao trocar aqui, troque também `dtolnay/rust-toolchain@` nos workflows e a imagem em
+# servidor/Dockerfile.
 [toolchain]
 channel = "1.97.1"
 components = ["clippy", "rustfmt"]

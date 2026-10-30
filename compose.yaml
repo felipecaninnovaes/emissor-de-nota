@@ -1,0 +1,23 @@
+# Serviços de desenvolvimento: `devbox run up` e `devbox run down`. Só o Postgres dos testes de
+# servidor/, igual ao do CI. O compose de produção é servidor/compose.yaml (docs/nuvem.md).
+name: emissor-dev
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: nuvem
+      POSTGRES_PASSWORD: nuvem
+      POSTGRES_DB: nuvem
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - postgres-dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nuvem -d nuvem"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  postgres-dev:

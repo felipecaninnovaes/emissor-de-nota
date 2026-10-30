@@ -92,4 +92,6 @@ cargo test                                  # testes sem banco
 DATABASE_URL=postgres://... cargo test -- --include-ignored   # API e painel contra um Postgres
 ```
 
+Com o Devbox, `devbox run up` sobe esse Postgres (`compose.yaml` da raiz) e `devbox run test` já roda os testes do servidor contra ele ([desenvolvimento.md](desenvolvimento.md#ambiente-com-devbox-linux-e-macos)).
+
 O CI roda fmt, clippy e todos os testes com um Postgres de serviço (job `servidor`) e confere as licenças (job `licencas-servidor`). Para publicar uma versão fixa da imagem: suba `version` em `servidor/Cargo.toml`, faça commit e crie a tag `nuvem-vX.Y.Z`.

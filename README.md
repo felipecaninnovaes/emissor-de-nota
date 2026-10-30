@@ -23,13 +23,14 @@ Na primeira abertura, crie a senha mestra (ela não pode ser recuperada). O uso 
 
 ## Ambiente de desenvolvimento
 
-No Linux e no macOS, o [Devbox](https://www.jetify.com/devbox) fornece a toolchain do Rust e as bibliotecas nativas. Pré-requisitos: [Nix](https://nixos.org/download), Devbox e [direnv](https://direnv.net). O projeto não tem serviços externos, então não precisa de Docker.
+No Linux e no macOS, o [Devbox](https://www.jetify.com/devbox) fornece a toolchain do Rust e as bibliotecas nativas. Pré-requisitos: [Nix](https://nixos.org/download), Devbox, [direnv](https://direnv.net) e Docker (o Postgres dos testes do servidor do backup na nuvem).
 
 ```bash
 git clone https://github.com/felipecaninnovaes/emissor-de-nota.git
 cd emissor-de-nota
 direnv allow
 devbox run setup
+devbox run up
 devbox run test
 devbox run run
 ```
