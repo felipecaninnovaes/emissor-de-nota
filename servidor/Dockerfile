@@ -1,5 +1,6 @@
 # Imagem do painel do backup na nuvem (ADR 0017). Publicada em ghcr.io/felipecaninnovaes/emissor-nuvem.
-FROM rust:1-bookworm AS build
+# Mesma versão do rust-toolchain.toml da raiz (fora do contexto de build desta imagem).
+FROM rust:1.97.1-bookworm AS build
 WORKDIR /src
 COPY Cargo.toml Cargo.lock ./
 COPY src src
