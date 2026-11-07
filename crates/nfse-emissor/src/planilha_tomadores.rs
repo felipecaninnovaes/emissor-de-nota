@@ -4,16 +4,20 @@
 //! Uma linha por tomador; a primeira é o cabeçalho, comparado como nas outras planilhas (sem
 //! acento, maiúsculas, espaços ou pontuação). Só CNPJ/CPF e Nome são obrigatórios. Célula vazia
 //! mantém o que já está gravado (ver [`nfse_db::Banco::importar_tomadores`]).
+//!
+//! Uma lista só de CNPJs (ou de CNPJs e nomes) é aceita: a linha sem nome ou sem endereço fica
+//! marcada para [`LinhaTomador::completar`] com a consulta de CNPJ, que o app faz linha a linha.
 
 use std::collections::{BTreeMap, HashMap};
 
 use nfse_core::modelo::{Documento, EnderecoNacional, Tomador};
 use nfse_core::{Cnpj, Cpf};
 use nfse_db::tomadores::{TipoTomador, TomadorImportado};
+use serde::{Deserialize, Serialize};
 
 use crate::planilha::{ler_tabela, normalizar};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum ColunaTomador {
     Documento,
     Nome,
@@ -98,15 +102,112 @@ impl ColunaTomador {
 }
 
 /// Tomador lido de uma linha. Com `erros`, `item` fica vazio e a tela mostra o documento e o
-/// nome como vieram.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// nome como vieram. Vai à tela e volta dela para ser completada (por isso as células).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LinhaTomador {
     /// Número da linha na planilha (o cabeçalho é a 1).
+    #[serde(rename = "linha")]
     pub numero: usize,
     pub documento: String,
     pub nome: String,
     pub item: Option<TomadorImportado>,
     pub erros: Vec<String>,
+    /// Observações que não impedem a importação (de onde veio o dado, situação na Receita).
+    #[serde(default)]
+    pub avisos: Vec<String>,
+    /// CNPJ sem nome ou sem endereço, à espera da consulta de CNPJ.
+    #[serde(default)]
+    pub a_completar: bool,
+    /// Células preenchidas da linha, para validar de novo depois de completada.
+    #[serde(default)]
+    pub campos: BTreeMap<ColunaTomador, String>,
+    /// Linha anterior com o mesmo CNPJ/CPF.
+    #[serde(default)]
+    pub repetida_de: Option<usize>,
+}
+
+/// Dados de fora da planilha (consulta de CNPJ ou cadastro já gravado) para completar uma linha.
+/// Só entram nas células vazias; o endereço só entra inteiro e na linha que não tem nenhuma parte dele.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Complemento {
+    pub nome: Option<String>,
+    pub cep: Option<String>,
+    pub municipio: Option<String>,
+    pub logradouro: Option<String>,
+    pub numero: Option<String>,
+    pub complemento: Option<String>,
+    pub bairro: Option<String>,
+    pub telefone: Option<String>,
+    pub email: Option<String>,
+}
+
+const ENDERECO: [ColunaTomador; 6] = [
+    C::Cep,
+    C::Municipio,
+    C::Logradouro,
+    C::Numero,
+    C::Complemento,
+    C::Bairro,
+];
+
+impl LinhaTomador {
+    /// CNPJ da linha que pede a consulta: válido, não repetido e sem o nome ou sem o endereço.
+    pub fn cnpj_a_completar(&self) -> Option<Cnpj> {
+        if self.repetida_de.is_some() {
+            return None;
+        }
+        let Ok(Documento::Cnpj(cnpj)) = documento(self.campos.get(&C::Documento)?) else {
+            return None;
+        };
+        let falta_nome = !self.campos.contains_key(&C::Nome);
+        let falta_endereco = !ENDERECO.iter().any(|c| self.campos.contains_key(c));
+        (falta_nome || falta_endereco).then_some(cnpj)
+    }
+
+    /// A linha validada de novo com as células vazias preenchidas por `dados`.
+    pub fn completar(&self, dados: &Complemento) -> LinhaTomador {
+        let mut campos = self.campos.clone();
+        let valor = |v: &Option<String>| v.as_deref().map(str::trim).filter(|v| !v.is_empty()).map(str::to_owned);
+        let mut vazio_recebe = |c: ColunaTomador, v: &Option<String>| {
+            if let Some(v) = valor(v) {
+                campos.entry(c).or_insert(v);
+            }
+        };
+        vazio_recebe(C::Nome, &dados.nome);
+        vazio_recebe(C::Telefone, &dados.telefone);
+        vazio_recebe(C::Email, &dados.email);
+        let sem_endereco = !ENDERECO.iter().any(|c| self.campos.contains_key(c));
+        let completo = [&dados.cep, &dados.municipio, &dados.logradouro, &dados.bairro]
+            .into_iter()
+            .all(|v| valor(v).is_some());
+        if sem_endereco && completo {
+            for (c, v) in [
+                (C::Cep, &dados.cep),
+                (C::Municipio, &dados.municipio),
+                (C::Logradouro, &dados.logradouro),
+                (C::Numero, &dados.numero),
+                (C::Complemento, &dados.complemento),
+                (C::Bairro, &dados.bairro),
+            ] {
+                vazio_recebe(c, v);
+            }
+        }
+        let mut nova = linha(self.numero, &campos);
+        nova.avisos = self.avisos.clone();
+        if let Some(primeira) = self.repetida_de {
+            nova.marcar_repetida(primeira);
+        }
+        nova.a_completar = false;
+        nova
+    }
+
+    fn marcar_repetida(&mut self, primeira: usize) {
+        self.erros
+            .push(format!("CNPJ/CPF repetido (já está na linha {primeira})"));
+        self.item = None;
+        self.repetida_de = Some(primeira);
+        self.a_completar = false;
+    }
 }
 
 /// Lê a planilha de tomadores.
@@ -114,13 +215,12 @@ pub fn ler(nome_arquivo: &str, bytes: &[u8]) -> Result<Vec<LinhaTomador>, String
     let mut linhas = ler_tabela(nome_arquivo, bytes)?.into_iter().enumerate();
     let (_, cabecalho) = linhas.next().ok_or("a planilha está vazia")?;
     let colunas: Vec<Option<ColunaTomador>> = cabecalho.iter().map(|c| ColunaTomador::do_cabecalho(c)).collect();
-    for obrigatoria in [C::Documento, C::Nome] {
-        if !colunas.contains(&Some(obrigatoria)) {
-            return Err(format!(
-                "a primeira linha precisa ter a coluna \"{}\" (baixe o modelo para ver os nomes aceitos)",
-                obrigatoria.titulo()
-            ));
-        }
+    // Sem a coluna Nome vale como lista de CNPJs: o nome vem da consulta.
+    if !colunas.contains(&Some(C::Documento)) {
+        return Err(format!(
+            "a primeira linha precisa ter a coluna \"{}\" (baixe o modelo para ver os nomes aceitos)",
+            C::Documento.titulo()
+        ));
     }
     let mut lidas: Vec<LinhaTomador> = linhas
         .filter_map(|(i, celulas)| {
@@ -141,10 +241,7 @@ pub fn ler(nome_arquivo: &str, bytes: &[u8]) -> Result<Vec<LinhaTomador>, String
             Documento::Cpf(c) => c.as_str().to_owned(),
         };
         match vistos.get(&chave) {
-            Some(primeira) => {
-                l.erros.push(format!("CNPJ/CPF repetido (já está na linha {primeira})"));
-                l.item = None;
-            }
+            Some(primeira) => l.marcar_repetida(*primeira),
             None => {
                 vistos.insert(chave, l.numero);
             }
@@ -180,15 +277,7 @@ fn linha(numero: usize, campos: &BTreeMap<ColunaTomador, String>) -> LinhaTomado
     }
 
     // Endereço: opcional, mas começado precisa de CEP, município, logradouro e bairro.
-    let partes = [
-        C::Cep,
-        C::Municipio,
-        C::Logradouro,
-        C::Numero,
-        C::Complemento,
-        C::Bairro,
-    ];
-    let endereco = if partes.iter().any(|c| texto(*c).is_some()) {
+    let endereco = if ENDERECO.iter().any(|c| texto(*c).is_some()) {
         let faltando: Vec<&str> = [C::Cep, C::Municipio, C::Logradouro, C::Bairro]
             .into_iter()
             .filter(|c| texto(*c).is_none())
@@ -260,13 +349,19 @@ fn linha(numero: usize, campos: &BTreeMap<ColunaTomador, String>) -> LinhaTomado
             retem_iss,
             tipo,
         });
-    LinhaTomador {
+    let mut l = LinhaTomador {
         numero,
         documento: texto(C::Documento).unwrap_or_default().to_owned(),
         nome,
         item,
         erros,
-    }
+        avisos: Vec::new(),
+        a_completar: false,
+        campos: campos.clone(),
+        repetida_de: None,
+    };
+    l.a_completar = l.cnpj_a_completar().is_some();
+    l
 }
 
 /// CNPJ (também alfanumérico) ou CPF, com ou sem pontuação. Número salvo como número na planilha
@@ -406,5 +501,70 @@ mod testes {
     fn sem_coluna_obrigatoria() {
         let erro = ler("t.csv", b"Nome;CEP\r\nX;15800000\r\n").unwrap_err();
         assert!(erro.contains("CNPJ/CPF"), "{erro}");
+    }
+
+    fn da_receita() -> Complemento {
+        Complemento {
+            nome: Some("EMPRESA DA RECEITA LTDA".into()),
+            cep: Some("15800000".into()),
+            municipio: Some("3511102".into()),
+            logradouro: Some("RUA EXEMPLO".into()),
+            numero: Some("100".into()),
+            complemento: None,
+            bairro: Some("CENTRO".into()),
+            telefone: Some("1735220000".into()),
+            email: Some("contato@exemplo.com".into()),
+        }
+    }
+
+    #[test]
+    fn lista_so_de_cnpj_e_completada() {
+        let csv = "CNPJ\r\n11222333000181\r\n52998224725\r\n11.222.333/0001-81\r\n";
+        let linhas = ler("t.csv", csv.as_bytes()).unwrap();
+        let [cnpj, cpf, repetida] = &linhas[..] else {
+            panic!("{linhas:?}")
+        };
+        assert!(cnpj.a_completar && cnpj.item.is_none());
+        assert!(cnpj.erros.iter().any(|e| e.contains("nome vazio")), "{:?}", cnpj.erros);
+        assert!(!cpf.a_completar, "CPF não tem consulta");
+        assert!(!repetida.a_completar, "repetida não consulta de novo");
+
+        let completa = cnpj.completar(&da_receita());
+        assert!(completa.erros.is_empty(), "{:?}", completa.erros);
+        assert!(!completa.a_completar);
+        let t = &completa.item.as_ref().unwrap().tomador;
+        assert_eq!(t.nome, "EMPRESA DA RECEITA LTDA");
+        assert_eq!(t.endereco.as_ref().unwrap().municipio, "3511102");
+        assert_eq!(t.email.as_deref(), Some("contato@exemplo.com"));
+    }
+
+    #[test]
+    fn completar_nao_troca_o_que_veio_na_planilha() {
+        let csv = "CNPJ;Nome;Telefone\r\n11222333000181;MEU NOME;17999990000\r\n\
+                   11222333000262;OUTRA;\r\n";
+        let linhas = ler("t.csv", csv.as_bytes()).unwrap();
+        assert!(linhas[0].a_completar, "com nome, mas sem endereço");
+        assert!(linhas[0].item.is_some(), "importável mesmo sem consultar");
+        let c = linhas[0].completar(&da_receita());
+        let t = &c.item.as_ref().unwrap().tomador;
+        assert_eq!(
+            (t.nome.as_str(), t.telefone.as_deref()),
+            ("MEU NOME", Some("17999990000"))
+        );
+        assert!(t.endereco.is_some());
+
+        // Endereço incompleto na consulta não entra (a linha segue sem endereço).
+        let sem_bairro = Complemento {
+            bairro: None,
+            ..da_receita()
+        };
+        let c = linhas[1].completar(&sem_bairro);
+        assert!(c.erros.is_empty(), "{:?}", c.erros);
+        assert!(c.item.unwrap().tomador.endereco.is_none());
+
+        // Com parte do endereço na planilha, o da consulta não se mistura.
+        let parcial = ler("t.csv", "CNPJ;CEP\r\n11222333000181;15800000\r\n".as_bytes()).unwrap();
+        let c = parcial[0].completar(&da_receita());
+        assert!(c.erros.iter().any(|e| e.contains("incompleto")), "{:?}", c.erros);
     }
 }

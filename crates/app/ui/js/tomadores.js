@@ -1,6 +1,6 @@
 // Tomadores: cadastro, e-mails e retenções por empresa, e importação por planilha.
 
-import { $, chamar, esc, estado, formatarDocumento, invoke, soDigitos, toast, vazio } from "./util.js";
+import { $, $$, chamar, esc, estado, formatarDocumento, invoke, soDigitos, toast, vazio } from "./util.js";
 import { acoesLinha, linhaVazia, selecaoEmTabela } from "./tabela.js";
 import { ErroCampo, abrirDialogo, preencherForm } from "./formularios.js";
 import { FILTRO_PLANILHA, ligarEscolhaArquivo, vincularTomador } from "./componentes.js";
@@ -168,32 +168,110 @@ export function editarTomador(dto, depois, { empresaId = estado.empresa?.id, doc
 
 // ---------------------------------------------------------------- importar tomadores
 
-/** Linhas lidas da planilha: [{ linha, documento, nome, item, erros }]; `item` vazio quando há erro. */
+/**
+ * Linhas lidas da planilha: [{ linha, documento, nome, item, erros, avisos, a_completar, ... }];
+ * `item` vazio quando há erro. A linha volta inteira ao backend para ser completada.
+ */
 let tomadoresAImportar = [];
+
+/** Muda a cada leitura e ao fechar o diálogo: a consulta de CNPJ em andamento para. */
+let geracaoConsulta = 0;
+let consultandoCnpj = false;
+
+const completarPorCnpj = () => $("#importar-tomadores-consultar").checked;
+
+function linhaTomadorAImportar(it, i) {
+  const ok = !!it.item && !it.erros.length;
+  const aguarda = it.a_completar && completarPorCnpj();
+  const avisos = it.avisos?.length ? `<span class="ajuda"> ${esc(it.avisos.join("; "))}</span>` : "";
+  const situacao = aguarda
+    ? `<span class="selo pendente">Consultar CNPJ</span>`
+    : ok
+      ? `<span class="selo autorizada">Pronto</span>${avisos}`
+      : `<span class="selo rejeitada" title="${esc(it.erros.join("\n"))}">${esc(it.erros.join("; "))}</span>${avisos}`;
+  const documento = it.item ? formatarDocumento(it.item.tomador.documento) : it.documento;
+  const alvo = `linha ${it.linha}: ${it.nome || documento}`;
+  return `<tr>
+    <td><input type="checkbox" data-i="${i}" ${ok ? "checked" : "disabled"} aria-label="${esc(`Marcar ${alvo}`)}"></td>
+    <td class="dado">${esc(documento)}</td>
+    <td title="${esc(alvo)}">${esc(it.item?.tomador.nome || it.nome || "(sem nome)")}</td>
+    <td class="sec-1">${situacao}</td>
+  </tr>`;
+}
 
 function desenharTomadoresAImportar(vazioTexto) {
   const corpo = $("#lista-importar-tomadores");
   $("#importar-tomadores-todos").checked = false;
   corpo.innerHTML = tomadoresAImportar.length
-    ? tomadoresAImportar
-        .map((it, i) => {
-          const ok = !!it.item && !it.erros.length;
-          const situacao = ok
-            ? `<span class="selo autorizada">Pronto</span>`
-            : `<span class="selo rejeitada" title="${esc(it.erros.join("\n"))}">${esc(it.erros.join("; "))}</span>`;
-          const documento = it.item ? formatarDocumento(it.item.tomador.documento) : it.documento;
-          const alvo = `linha ${it.linha}: ${it.nome || documento}`;
-          return `<tr>
-            <td><input type="checkbox" data-i="${i}" ${ok ? "checked" : "disabled"} aria-label="${esc(`Marcar ${alvo}`)}"></td>
-            <td class="dado">${esc(documento)}</td>
-            <td title="${esc(alvo)}">${esc(it.nome || "(sem nome)")}</td>
-            <td class="sec-1">${situacao}</td>
-          </tr>`;
-        })
-        .join("")
+    ? tomadoresAImportar.map(linhaTomadorAImportar).join("")
     : `<tr><td colspan="4" class="vazio">${esc(vazioTexto)}</td></tr>`;
   selecaoImportarTomadores.atualizar();
 }
+
+/**
+ * Consulta o CNPJ das linhas sem nome ou sem endereço, uma por vez (a BrasilAPI limita as
+ * consultas), e troca cada linha pela completada sem mexer nas marcações das outras.
+ */
+async function consultarCnpjsDaPlanilha() {
+  const geracao = ++geracaoConsulta;
+  const pendentes = tomadoresAImportar.flatMap((it, i) => (it.a_completar ? [i] : []));
+  const andamento = $("#importar-tomadores-andamento");
+  if (!pendentes.length || !completarPorCnpj()) {
+    andamento.hidden = true;
+    return;
+  }
+  consultandoCnpj = true;
+  andamento.hidden = false;
+  try {
+    for (const [n, i] of pendentes.entries()) {
+      andamento.textContent = `Consultando CNPJ ${n + 1} de ${pendentes.length}...`;
+      const linha = await chamar("completar_tomador_importado", { linha: tomadoresAImportar[i] });
+      if (geracao !== geracaoConsulta) return;
+      tomadoresAImportar[i] = linha;
+      const tr = $("#lista-importar-tomadores").rows[i];
+      if (tr) tr.outerHTML = linhaTomadorAImportar(linha, i);
+      selecaoImportarTomadores.atualizar();
+    }
+    andamento.textContent = `Consulta de CNPJ concluída (${pendentes.length}). Confira os dados antes de importar.`;
+  } catch (e) {
+    if (geracao === geracaoConsulta) andamento.textContent = `Consulta de CNPJ interrompida: ${e}`;
+  } finally {
+    if (geracao === geracaoConsulta) {
+      consultandoCnpj = false;
+      // As que não chegaram a ser consultadas voltam a mostrar o erro ou "Pronto".
+      for (const it of tomadoresAImportar) it.a_completar = false;
+      desenharMantendoMarcas();
+    }
+  }
+}
+
+/** Redesenha a tabela sem perder o que o operador desmarcou. */
+function desenharMantendoMarcas() {
+  const desmarcadas = new Set(
+    $$("#lista-importar-tomadores input[type=checkbox]")
+      .filter((c) => !c.checked && !c.disabled)
+      .map((c) => c.dataset.i),
+  );
+  desenharTomadoresAImportar("");
+  for (const c of $$("#lista-importar-tomadores input[type=checkbox]")) if (desmarcadas.has(c.dataset.i)) c.checked = false;
+  selecaoImportarTomadores.atualizar();
+}
+
+$("#importar-tomadores-consultar").addEventListener("change", () => {
+  if (completarPorCnpj()) {
+    consultarCnpjsDaPlanilha();
+  } else {
+    geracaoConsulta++;
+    consultandoCnpj = false;
+    $("#importar-tomadores-andamento").hidden = true;
+    desenharMantendoMarcas();
+  }
+});
+
+$("#dlg-importar-tomadores").addEventListener("close", () => {
+  geracaoConsulta++;
+  consultandoCnpj = false;
+});
 
 const selecaoImportarTomadores = selecaoEmTabela({
   lista: "#lista-importar-tomadores",
@@ -206,6 +284,9 @@ const selecaoImportarTomadores = selecaoEmTabela({
 let planilhaTomadores = null; // { nome, bytes } da planilha escolhida
 
 async function lerPlanilhaTomadores() {
+  geracaoConsulta++;
+  consultandoCnpj = false;
+  $("#importar-tomadores-andamento").hidden = true;
   tomadoresAImportar = [];
   // O campo volta vazio no reset do diálogo; o conteúdo guardado só vale com o nome à mostra.
   const arquivo = $("#importar-tomadores-arquivo").value && planilhaTomadores;
@@ -216,6 +297,7 @@ async function lerPlanilhaTomadores() {
     return desenharTomadoresAImportar(String(e));
   }
   desenharTomadoresAImportar("Nenhuma linha com dados na planilha.");
+  consultarCnpjsDaPlanilha();
 }
 
 ligarEscolhaArquivo(
@@ -243,6 +325,7 @@ $("#importar-tomadores").addEventListener("click", () => {
   $("form", dlg).reset();
   lerPlanilhaTomadores();
   abrirDialogo(dlg, $("#erro-importar-tomadores"), async () => {
+    if (consultandoCnpj) throw "Aguarde a consulta de CNPJ terminar (ou desmarque a opção de completar).";
     const itens = selecaoImportarTomadores.marcados().map((it) => it.item);
     if (!itens.length) throw "Marque os tomadores a importar.";
     const r = await chamar("importar_tomadores", { empresaId, itens });

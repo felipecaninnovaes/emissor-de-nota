@@ -4,6 +4,8 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 
 ## Não publicado
 
+- Importar tomadores: planilha só com CNPJs (com ou sem os nomes) é completada pela consulta de CNPJ, com nome, endereço e contato da Receita, em lote e com o andamento na tela.
+
 ## 1.15.1
 
 Local da prestação tirado do endereço do tomador. Sem nova migração nem mudança no esquema do banco.

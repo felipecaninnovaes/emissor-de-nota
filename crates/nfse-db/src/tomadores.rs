@@ -539,6 +539,16 @@ impl Banco {
             .await?
             .map(|r| r.get(0)))
     }
+
+    /// Cadastro já gravado da pessoa (por qualquer empresa), sem os dados do vínculo.
+    pub async fn pessoa_cadastrada(&self, documento: &str) -> Resultado<Option<Tomador>> {
+        sqlx::query(&format!("{SELECT_PESSOA} WHERE p.documento = ?"))
+            .bind(documento)
+            .fetch_optional(self.pool())
+            .await?
+            .map(|r| tomador_de(&r).map(|t| t.tomador))
+            .transpose()
+    }
 }
 
 #[cfg(test)]

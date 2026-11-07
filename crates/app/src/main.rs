@@ -164,6 +164,7 @@ fn main() {
             comandos::tomadores::vincular_tomador,
             comandos::tomadores::salvar_tomador,
             comandos::tomadores::ler_planilha_tomadores,
+            comandos::tomadores::completar_tomador_importado,
             comandos::tomadores::importar_tomadores,
             comandos::tomadores::salvar_modelo_tomadores,
             comandos::servicos::listar_servicos,

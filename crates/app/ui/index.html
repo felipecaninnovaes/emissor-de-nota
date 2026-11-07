@@ -898,9 +898,12 @@
           <div class="com-botao"><input id="importar-tomadores-arquivo" readonly data-arquivo placeholder="Nenhuma planilha escolhida">
             <button type="button" class="botao" id="escolher-importar-tomadores">Escolher arquivo…</button></div></div>
         <div class="c3 celula-botoes"><button type="button" class="botao" id="modelo-tomadores">Baixar modelo</button></div>
-        <p class="c12 ajuda">Uma linha por tomador. Obrigatórias: <b>CNPJ/CPF</b> e <b>Nome</b>. As demais colunas (inscrição municipal,
+        <p class="c12 ajuda">Uma linha por tomador. Obrigatórias: <b>CNPJ/CPF</b> e <b>Nome</b> (num CNPJ, o nome pode vir da consulta). As demais colunas (inscrição municipal,
           endereço com o município pelo código IBGE, telefone, e-mails, tipo de tomador e retenções com Sim ou Não) seguem o modelo.
           Tomador já cadastrado é atualizado; célula vazia mantém o que já está gravado.</p>
+        <label class="c12 linha-check"><input type="checkbox" id="importar-tomadores-consultar" checked> Completar pela consulta de CNPJ
+          (Receita) o nome e o endereço que faltarem; serve para uma lista só de CNPJs, com ou sem os nomes</label>
+        <p class="c12 ajuda" id="importar-tomadores-andamento" aria-live="polite" hidden></p>
       </div>
       <div class="cartao tabela">
         <div class="rolagem">

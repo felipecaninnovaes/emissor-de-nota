@@ -8,6 +8,8 @@ use nfse_db::tomadores::{
     ResumoImportacaoTomadores, RetencaoDoVinculo, TipoTomador, TomadorImportado, TomadorVinculado,
 };
 
+use nfse_emissor::planilha_tomadores::{Complemento, LinhaTomador};
+
 use super::comum::{R, exigir_cofre, gravar_e_abrir_csv, texto, vazio_para_none};
 use crate::Estado;
 
@@ -134,29 +136,62 @@ pub async fn salvar_tomador(
         .map_err(texto)
 }
 
-#[derive(Serialize)]
-pub struct LinhaTomadorDto {
-    linha: usize,
-    documento: String,
-    nome: String,
-    /// Vazio quando a linha tem erro.
-    item: Option<TomadorImportado>,
-    erros: Vec<String>,
-}
-
 /// Lê a planilha de tomadores para a tela conferir antes de importar.
 #[tauri::command]
-pub async fn ler_planilha_tomadores(nome: String, bytes: Vec<u8>) -> R<Vec<LinhaTomadorDto>> {
-    Ok(nfse_emissor::planilha_tomadores::ler(&nome, &bytes)?
-        .into_iter()
-        .map(|l| LinhaTomadorDto {
-            linha: l.numero,
-            documento: l.documento,
-            nome: l.nome,
-            item: l.item,
-            erros: l.erros,
-        })
-        .collect())
+pub async fn ler_planilha_tomadores(nome: String, bytes: Vec<u8>) -> R<Vec<LinhaTomador>> {
+    nfse_emissor::planilha_tomadores::ler(&nome, &bytes)
+}
+
+/// Completa uma linha da planilha que só tem o CNPJ (ou o CNPJ e o nome): com o cadastro já
+/// gravado, se houver, senão com a consulta pública de CNPJ. A tela chama uma linha por vez, para
+/// mostrar o andamento e não passar do limite de consultas.
+#[tauri::command]
+pub async fn completar_tomador_importado(estado: State<'_, Estado>, linha: LinhaTomador) -> R<LinhaTomador> {
+    exigir_cofre(&estado).await?;
+    let Some(cnpj) = linha.cnpj_a_completar() else {
+        return Ok(LinhaTomador {
+            a_completar: false,
+            ..linha
+        });
+    };
+    if let Some(t) = estado.banco()?.pessoa_cadastrada(cnpj.as_str()).await.map_err(texto)? {
+        // Endereço, telefone e e-mail vazios mantêm o gravado na importação; falta só o nome.
+        let mut l = linha.completar(&Complemento {
+            nome: Some(t.nome),
+            ..Complemento::default()
+        });
+        l.avisos.push("já cadastrado: o que está vazio mantém o gravado".into());
+        return Ok(l);
+    }
+    match crate::cnpj::consultar_em_lote(cnpj.as_str()).await {
+        Ok(d) => {
+            let situacao = d.situacao.clone().filter(|s| !s.eq_ignore_ascii_case("ativa"));
+            let mut l = linha.completar(&Complemento {
+                nome: Some(d.razao_social),
+                cep: d.cep,
+                municipio: d.municipio,
+                logradouro: d.logradouro,
+                numero: d.numero,
+                complemento: d.complemento,
+                bairro: d.bairro,
+                telefone: d.telefone,
+                email: d.email,
+            });
+            l.avisos.push("completado pela consulta de CNPJ".into());
+            if let Some(s) = situacao {
+                l.avisos.push(format!("situação na Receita: {s}"));
+            }
+            Ok(l)
+        }
+        Err(e) => {
+            let mut l = LinhaTomador {
+                a_completar: false,
+                ..linha
+            };
+            l.avisos.push(format!("consulta de CNPJ: {e}"));
+            Ok(l)
+        }
+    }
 }
 
 /// Grava na empresa os tomadores marcados da planilha (tudo ou nada).

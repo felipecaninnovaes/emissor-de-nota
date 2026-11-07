@@ -32,31 +32,68 @@ pub struct DadosCnpj {
 }
 
 pub async fn consultar(cnpj: &str) -> Result<DadosCnpj, String> {
+    consultar_tentando(cnpj, 1).await
+}
+
+/// Para consultas em sequência (importação de tomadores): no limite de consultas da BrasilAPI
+/// (HTTP 429), espera e tenta de novo, algumas vezes, antes de desistir.
+pub async fn consultar_em_lote(cnpj: &str) -> Result<DadosCnpj, String> {
+    consultar_tentando(cnpj, 4).await
+}
+
+async fn consultar_tentando(cnpj: &str, tentativas: u64) -> Result<DadosCnpj, String> {
     let cliente = reqwest::Client::builder()
         .timeout(Duration::from_secs(15))
         .user_agent(concat!("emissor-nfse/", env!("CARGO_PKG_VERSION")))
         .build()
         .map_err(|e| e.to_string())?;
+    for tentativa in 1..tentativas {
+        match uma_consulta(&cliente, cnpj).await {
+            Err(Falha::Limite) => tokio::time::sleep(Duration::from_secs(5 * tentativa)).await,
+            r => return r.map_err(String::from),
+        }
+    }
+    uma_consulta(&cliente, cnpj).await.map_err(String::from)
+}
+
+enum Falha {
+    /// HTTP 429: limite de consultas da BrasilAPI.
+    Limite,
+    Outra(String),
+}
+
+impl From<Falha> for String {
+    fn from(f: Falha) -> Self {
+        match f {
+            Falha::Limite => "limite de consultas atingido; aguarde um pouco e tente de novo".into(),
+            Falha::Outra(e) => e,
+        }
+    }
+}
+
+async fn uma_consulta(cliente: &reqwest::Client, cnpj: &str) -> Result<DadosCnpj, Falha> {
     let resposta = cliente
         .get(format!("{URL}{cnpj}"))
         .send()
         .await
-        .map_err(|e| format!("sem conexão com a consulta de CNPJ: {e}"))?;
+        .map_err(|e| Falha::Outra(format!("sem conexão com a consulta de CNPJ: {e}")))?;
     let status = resposta.status();
+    if status.as_u16() == 429 {
+        return Err(Falha::Limite);
+    }
     let corpo: Value = resposta
         .json()
         .await
-        .map_err(|e| format!("resposta inválida da consulta de CNPJ: {e}"))?;
+        .map_err(|e| Falha::Outra(format!("resposta inválida da consulta de CNPJ: {e}")))?;
     if !status.is_success() {
         let detalhe = texto(&corpo, &["message"]);
-        return Err(match status.as_u16() {
+        return Err(Falha::Outra(match status.as_u16() {
             404 => "CNPJ não encontrado na base da Receita".into(),
-            429 => "limite de consultas atingido; aguarde um pouco e tente de novo".into(),
             _ => format!(
                 "consulta de CNPJ falhou (HTTP {status}){}",
                 detalhe.map(|d| format!(": {d}")).unwrap_or_default()
             ),
-        });
+        }));
     }
     Ok(interpretar(&corpo))
 }
