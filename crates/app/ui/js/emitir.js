@@ -15,7 +15,7 @@ import {
   valorDigitado,
   vazio,
 } from "./util.js";
-import { ErroCampo, FORMATOS, limparErros, mostrarErros, validarCampos } from "./formularios.js";
+import { ErroCampo, FORMATOS, atualizarContador, limparErros, mostrarErros, validarCampos } from "./formularios.js";
 import { anunciar, ligarBuscaTomador, mostrarTomadorEscolhido } from "./componentes.js";
 import { enviarEmailNota } from "./notas.js";
 import { editarRecorrencia } from "./recorrentes.js";
@@ -41,6 +41,7 @@ export function renderizarServicosEmitir() {
     sel.value = anterior;
     descartarRevisao(); // a revisão aberta mostra o cadastro antigo
     if ($("#descricao").value === descricaoAplicada) $("#descricao").value = descricaoAplicada = mesmo.descricao;
+    atualizarContador($("#descricao"));
     $("#bloco-obra").hidden = !CODIGOS_COM_OBRA.includes(mesmo.codigo_trib_nac);
   } else {
     aplicarServico();
@@ -52,6 +53,7 @@ export function aplicarServico() {
   const s = estado.servicos.find((x) => x.id === Number($("#servico").value));
   if (!s) return;
   $("#descricao").value = descricaoAplicada = s.descricao;
+  atualizarContador($("#descricao"));
   if (s.valor_sugerido) $("#valor").value = moeda(s.valor_sugerido);
   $("#bloco-obra").hidden = !CODIGOS_COM_OBRA.includes(s.codigo_trib_nac);
 }

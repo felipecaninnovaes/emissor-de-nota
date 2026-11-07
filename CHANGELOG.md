@@ -4,6 +4,7 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 
 ## Não publicado
 
+- Emissão: contador de caracteres embaixo da descrição do serviço (até 2.000), que também deixa de aceitar texto além do limite.
 - Importar tomadores: planilha só com CNPJs (com ou sem os nomes) é completada pela consulta de CNPJ, com nome, endereço e contato da Receita, em lote e com o andamento na tela.
 
 ## 1.15.1

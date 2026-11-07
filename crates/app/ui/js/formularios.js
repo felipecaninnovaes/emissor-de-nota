@@ -242,8 +242,9 @@ document.addEventListener("input", (ev) => {
   if (el.matches?.("[data-contador]")) atualizarContador(el);
 });
 
-/** Contador "n / máximo" embaixo de textos com limite (justificativa do cancelamento). */
-function atualizarContador(el) {
+/** Contador "n / máximo" embaixo de textos com limite (descrição do serviço, justificativa do
+ * cancelamento). Quem troca o valor por código chama de novo, porque isso não gera `input`. */
+export function atualizarContador(el) {
   const celula = el.closest(".grade > *") ?? el.parentElement;
   let c = $(".contador", celula);
   if (!c) {

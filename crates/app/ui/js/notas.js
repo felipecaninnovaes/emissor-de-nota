@@ -2,7 +2,7 @@
 
 import { $, NOME_SITUACAO, chamar, copiarTexto, esc, estado, invoke, moeda, somarValores, toast, vazio } from "./util.js";
 import { acoesLinha, detalheLinha, linhaVazia } from "./tabela.js";
-import { ErroCampo, abrirDialogo } from "./formularios.js";
+import { ErroCampo, abrirDialogo, atualizarContador } from "./formularios.js";
 import { irPara } from "./navegacao.js";
 import { abrirNota, aplicarServico, escolherTomador, iniciarSubstituicao, limparEmissao, preencherObra } from "./emitir.js";
 import { atualizando } from "./atualizacao.js";
@@ -192,6 +192,7 @@ async function levarParaEmissao(comando, n, { manterDescricao, aviso, orientacao
   aplicarServico(); // descrição do modelo do serviço e dados da obra
   $("#valor").value = moeda(r.valor);
   if (manterDescricao || !servicoAchado) $("#descricao").value = r.descricao;
+  atualizarContador($("#descricao"));
   $("#info-compl").value = r.informacoes_complementares ?? "";
   $("#local-prestacao").value = r.local_prestacao ?? "";
   preencherObra(r.obra);
