@@ -98,6 +98,20 @@ fn cancelada_homologacao_e_textos_longos() {
 }
 
 #[test]
+fn descricao_de_2000_caracteres_sai_inteira() {
+    let descricao: String = "Serviço prestado no veículo placa ABC1D23 R$ 100,00 - "
+        .chars()
+        .cycle()
+        .take(2000)
+        .collect();
+    let xml = NFSE.replace("SERVIÇOS CONTÁBEIS REFERENTE A 09/2026", &descricao);
+    let d = dados::ler(&xml).unwrap();
+    assert_eq!(d.descricao_servico, descricao, "sem corte antes do layout");
+    let pdf = gerar_danfse(&xml, &Opcoes::default(), &fontes()).unwrap();
+    assert!(pdf.starts_with(b"%PDF-"));
+}
+
+#[test]
 fn corta_e_quebra_pelo_tamanho_real() {
     let f = fontes();
     let cortado = caber(&f.conteudo, 7.0, &"X".repeat(200), 5.0);

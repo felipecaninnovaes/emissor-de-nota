@@ -814,10 +814,8 @@ pub fn ler(xml: &str) -> Result<Danfse, ErroDados> {
                 .or_else(|| txt(inf, &["xTribNac"]))
                 .map(|d| limitar(d, 170)),
         ),
-        descricao_servico: ou_traco(
-            serv.and_then(|s| txt(s, &["cServ", "xDescServ"]))
-                .map(|d| limitar(d, 1300)),
-        ),
+        // Inteira (até 2.000 caracteres, TSDesc2000): só `texto_livre` corta, se faltar espaço na página.
+        descricao_servico: ou_traco(serv.and_then(|s| txt(s, &["cServ", "xDescServ"])).map(str::to_owned)),
         issqn,
         federal,
         ibs_cbs,
