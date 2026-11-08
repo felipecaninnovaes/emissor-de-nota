@@ -20,7 +20,26 @@ fn pasta_padrao() -> PathBuf {
         .or_else(|| std::env::var_os("HOME"))
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."));
-    base.join("Documents").join("NFS-e")
+    let fixa = base.join("Documents").join("NFS-e");
+    #[cfg(target_os = "linux")]
+    {
+        escolher_pasta_linux(fixa, dirs::document_dir())
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        fixa
+    }
+}
+
+/// No Linux, o nome da pasta de documentos segue o idioma (`~/Documentos`) e vem do XDG
+/// (`xdg-user-dir DOCUMENTS`). Quem já tem notas em `~/Documents/NFS-e` continua nela: o
+/// caminho do XML e do PDF é montado a partir da pasta, e trocá-la esconderia as notas antigas.
+#[cfg(target_os = "linux")]
+fn escolher_pasta_linux(fixa: PathBuf, documentos: Option<PathBuf>) -> PathBuf {
+    if fixa.is_dir() {
+        return fixa;
+    }
+    documentos.map(|d| d.join("NFS-e")).unwrap_or(fixa)
 }
 
 pub(crate) async fn pasta_configurada(estado: &Estado) -> R<PathBuf> {
@@ -104,4 +123,42 @@ pub(crate) async fn gravar_e_abrir_csv(estado: &Estado, nome: &str, conteudo: &s
         .map_err(|e| format!("não foi possível gravar {nome}: {e}"))?;
     abrir_no_sistema(&caminho)?;
     Ok(caminho.display().to_string())
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod testes {
+    use super::*;
+
+    fn pasta_temporaria(nome: &str) -> PathBuf {
+        let pasta = std::env::temp_dir().join(format!("emissor-pasta-padrao-{}-{nome}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&pasta);
+        std::fs::create_dir_all(&pasta).unwrap();
+        pasta
+    }
+
+    #[test]
+    fn segue_a_pasta_de_documentos_do_xdg() {
+        let base = pasta_temporaria("xdg");
+        let fixa = base.join("Documents").join("NFS-e");
+        let documentos = base.join("Documentos");
+        assert_eq!(
+            escolher_pasta_linux(fixa, Some(documentos.clone())),
+            documentos.join("NFS-e")
+        );
+    }
+
+    #[test]
+    fn mantem_a_pasta_antiga_que_ja_tem_notas() {
+        let base = pasta_temporaria("antiga");
+        let fixa = base.join("Documents").join("NFS-e");
+        std::fs::create_dir_all(&fixa).unwrap();
+        assert_eq!(escolher_pasta_linux(fixa.clone(), Some(base.join("Documentos"))), fixa);
+    }
+
+    #[test]
+    fn sem_xdg_usa_documents() {
+        let base = pasta_temporaria("sem-xdg");
+        let fixa = base.join("Documents").join("NFS-e");
+        assert_eq!(escolher_pasta_linux(fixa.clone(), None), fixa);
+    }
 }

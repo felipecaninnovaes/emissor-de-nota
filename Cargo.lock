@@ -1438,6 +1438,7 @@ name = "emissor-nfse"
 version = "1.16.0"
 dependencies = [
  "chrono",
+ "dirs",
  "nfse-cert",
  "nfse-core",
  "nfse-db",
