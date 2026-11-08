@@ -30,7 +30,7 @@ pub use montagem::{
     variaveis_desconhecidas,
 };
 pub use reconciliacao::JANELA_RECONCILIACAO;
-pub use substituicao::substituicao_do_pedido;
+pub use substituicao::{aplicar_substituicao, campos_fixos_alterados};
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -361,7 +361,7 @@ impl<C: Conector> Emissor<C> {
         // Valida antes de reservar número: DPS inválida não gasta numeração.
         let mut modelo = montar_dps(&empresa, tomador.as_ref(), &servico, pedido, agora_brasilia());
         if let Some(s) = &pedido.substituir {
-            modelo.substituicao = Some(substituicao_do_pedido(&self.banco, &empresa, s).await?);
+            aplicar_substituicao(&self.banco, &empresa, s, &mut modelo).await?;
         }
         let desconhecidas = variaveis_desconhecidas(&modelo.servico.descricao);
         if !desconhecidas.is_empty() {

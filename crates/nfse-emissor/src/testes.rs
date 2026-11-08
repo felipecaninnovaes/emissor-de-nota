@@ -1698,6 +1698,65 @@ async fn substituicao_com_motivo_invalido_nao_gasta_numero() {
     assert_eq!(c.sefin.recebidos().len(), 1);
 }
 
+/// NFS-e de empresa ME/EPP (`opSimpNac` = 3) com o tomador do cenário, para a regra do E0063.
+fn nfse_me_epp() -> NfseAutorizada {
+    let mut n = nfse_autorizada();
+    n.xml = n.xml.replace(
+        "<dCompet>2026-10-16</dCompet>",
+        "<dCompet>2026-10-16</dCompet><prest><regTrib><opSimpNac>3</opSimpNac></regTrib></prest>\
+         <toma><CNPJ>12ABC34501DE35</CNPJ></toma>",
+    );
+    n
+}
+
+#[tokio::test]
+async fn substituta_de_me_epp_nao_muda_o_valor() {
+    let c = cenario(vec![Resposta::Emitir(Ok(nfse_me_epp()))]).await;
+    let ResultadoEmissao::Autorizada { nfse: original, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+        panic!()
+    };
+    let pedido = PedidoEmissao {
+        substituir: substituir(original.id),
+        valor: Valor::parse("1100").unwrap(),
+        ..c.pedido.clone()
+    };
+    let erro = c.emissor.emitir(&pedido).await.unwrap_err().to_string();
+    assert!(erro.contains("E0063") && erro.contains("valor do serviço"), "{erro}");
+    assert!(erro.contains("cancele a nota"), "{erro}");
+    assert_eq!(c.sefin.recebidos().len(), 1, "nada vai à Sefin");
+    assert_eq!(
+        c.emissor
+            .banco()
+            .proximo_numero(c.pedido.empresa_id, Ambiente::Producao, "1")
+            .await
+            .unwrap(),
+        2,
+        "a recusa não gasta número"
+    );
+}
+
+#[tokio::test]
+async fn substituta_fica_na_competencia_da_original() {
+    let c = cenario(vec![
+        Resposta::Emitir(Ok(nfse_me_epp())),
+        Resposta::Emitir(Ok(nfse_com_chave(CHAVE_SUBSTITUTA, 2))),
+    ])
+    .await;
+    let ResultadoEmissao::Autorizada { nfse: original, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+        panic!()
+    };
+    let pedido = PedidoEmissao {
+        substituir: substituir(original.id),
+        descricao: Some("Descrição corrigida".into()),
+        ..c.pedido.clone()
+    };
+    let ResultadoEmissao::Autorizada { .. } = c.emissor.emitir(&pedido).await.unwrap() else {
+        panic!()
+    };
+    let enviado = &c.sefin.recebidos()[1];
+    assert!(enviado.contains("<dCompet>2026-10-16</dCompet>"), "{enviado}");
+}
+
 #[tokio::test]
 async fn substituta_achada_na_reconciliacao_marca_a_original() {
     let c = cenario(vec![

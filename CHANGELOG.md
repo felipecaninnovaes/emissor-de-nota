@@ -4,6 +4,7 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 
 ## Não publicado
 
+- Substituição: a nota substituta fica na data de competência da original, e a substituição de nota de ME/EPP do Simples que muda o valor, o tomador ou a competência é recusada antes do envio, com a orientação de cancelar e emitir outra (rejeição E0063 da Sefin).
 - DANFSe: a descrição do serviço sai inteira no PDF (até 2.000 caracteres); antes era cortada em 1.300 com reticências, embora a nota no portal tivesse o texto completo.
 - Configurações: ao trocar a pasta das notas, o aplicativo pergunta se deve mover os arquivos da pasta atual, para as notas já emitidas continuarem abrindo.
 - Linux: a pasta padrão das notas segue a pasta de documentos do sistema (`~/Documentos/NFS-e` em português); quem já tem `~/Documents/NFS-e` continua nela.

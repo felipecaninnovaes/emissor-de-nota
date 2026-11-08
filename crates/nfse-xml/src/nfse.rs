@@ -16,6 +16,10 @@ pub struct DadosNfse {
     pub competencia: Option<String>,
     /// `vServ` da DPS
     pub valor_servico: Option<String>,
+    /// `regTrib/opSimpNac` do prestador na DPS (1 não optante, 2 MEI, 3 ME/EPP).
+    pub opcao_simples: Option<String>,
+    /// CNPJ, CPF ou NIF do tomador na DPS, quando identificado.
+    pub documento_tomador: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -48,6 +52,15 @@ pub fn ler_nfse(xml: &str) -> Result<DadosNfse, ErroLeituraNfse> {
         id_dps: elemento("infDPS").and_then(|n| n.attribute("Id")).map(str::to_owned),
         competencia: texto("dCompet"),
         valor_servico: texto("vServ"),
+        opcao_simples: texto("opSimpNac"),
+        documento_tomador: elemento("toma").and_then(|toma| {
+            toma.children()
+                .find(|n| {
+                    n.tag_name().namespace() == Some(NS_NFSE) && ["CNPJ", "CPF", "NIF"].contains(&n.tag_name().name())
+                })
+                .and_then(|n| n.text())
+                .map(str::to_owned)
+        }),
     })
 }
 
@@ -62,7 +75,8 @@ pub(crate) mod testes {
                 r#"<?xml version="1.0" encoding="utf-8"?><NFSe versao="1.01" xmlns="http://www.sped.fazenda.gov.br/nfse">"#,
                 r#"<infNFSe Id="NFS{chave}"><nNFSe>77</nNFSe><cStat>100</cStat>"#,
                 r#"<DPS versao="1.01" xmlns="http://www.sped.fazenda.gov.br/nfse"><infDPS Id="{id_dps}">"#,
-                "<dCompet>2026-10-16</dCompet><valores><vServPrest><vServ>1.00</vServ></vServPrest></valores>",
+                "<dCompet>2026-10-16</dCompet><prest><CNPJ>11222333000181</CNPJ><regTrib><opSimpNac>3</opSimpNac></regTrib></prest>",
+                "<toma><CNPJ>99888777000166</CNPJ><xNome>TOMADOR</xNome></toma><valores><vServPrest><vServ>1.00</vServ></vServPrest></valores>",
                 "</infDPS></DPS></infNFSe></NFSe>"
             ),
             chave = chave,
@@ -80,6 +94,8 @@ pub(crate) mod testes {
         assert_eq!(d.id_dps.as_deref(), Some("DPS1"));
         assert_eq!(d.competencia.as_deref(), Some("2026-10-16"));
         assert_eq!(d.valor_servico.as_deref(), Some("1.00"));
+        assert_eq!(d.opcao_simples.as_deref(), Some("3"));
+        assert_eq!(d.documento_tomador.as_deref(), Some("99888777000166"));
     }
 
     #[test]

@@ -21,6 +21,11 @@ pub fn orientacao(codigo: &str) -> Option<&'static str> {
              Confira o código do serviço (cTribNac) com a prefeitura; em Produção Restrita a parametrização \
              do município pode ser diferente da de Produção."
         }
+        "E0063" => {
+            "Empresa ME/EPP do Simples Nacional: a nota substituta não pode mudar a data de competência, \
+             o tomador nem o valor do serviço da original. Para corrigir um desses campos, cancele a nota \
+             original e emita outra; a substituição serve para os demais campos (descrição, por exemplo)."
+        }
         "E0116" => {
             "O município exige a inscrição municipal na DPS. Preencha a IM em Empresas → Editar e deixe \
              marcado \"informar IM na DPS\" para este ambiente em \"Numeração / IM\"."

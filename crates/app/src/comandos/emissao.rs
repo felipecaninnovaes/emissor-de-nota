@@ -173,11 +173,10 @@ pub(crate) async fn validar_pedido(
     );
     dps.leiaute = b.leiaute_dps(empresa.ambiente).await.map_err(texto)?;
     let mut erro_substituicao = None;
-    if let Some(s) = &pedido.substituir {
-        match nfse_emissor::substituicao_do_pedido(b, &empresa, s).await {
-            Ok(subst) => dps.substituicao = Some(subst),
-            Err(e) => erro_substituicao = Some(e.to_string()),
-        }
+    if let Some(s) = &pedido.substituir
+        && let Err(e) = nfse_emissor::aplicar_substituicao(b, &empresa, s, &mut dps).await
+    {
+        erro_substituicao = Some(e.to_string());
     }
     let mut erros = dps.validar();
     erros.extend(erro_substituicao);
