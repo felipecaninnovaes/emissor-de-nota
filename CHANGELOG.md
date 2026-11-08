@@ -4,6 +4,8 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 
 ## Não publicado
 
+- Linux: abrir a nota, o XML ou a pasta funciona sem o `xdg-open` instalado (usa o `gio open`), e o erro passa a dizer qual programa faltou em vez de parecer que o arquivo não existe.
+
 ## 1.16.0
 
 Tomadores completados pela consulta de CNPJ na importação e contador de caracteres na descrição do serviço. Sem nova migração nem mudança no esquema do banco.

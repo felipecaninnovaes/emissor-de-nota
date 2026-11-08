@@ -34,19 +34,36 @@ pub(crate) async fn pasta_configurada(estado: &Estado) -> R<PathBuf> {
 }
 
 /// Abre o arquivo ou pasta com o programa padrão do sistema.
+///
+/// No Linux, nem toda instalação traz o `xdg-open` (pacote xdg-utils); sem ele,
+/// tenta o `gio open`, que vem com o GLib.
 pub(crate) fn abrir_no_sistema(caminho: &std::path::Path) -> R<()> {
-    let programa = if cfg!(windows) {
-        "explorer"
+    let candidatos: &[(&str, &[&str])] = if cfg!(windows) {
+        &[("explorer", &[])]
     } else if cfg!(target_os = "macos") {
-        "open"
+        &[("open", &[])]
     } else {
-        "xdg-open"
+        &[("xdg-open", &[]), ("gio", &["open"])]
     };
-    std::process::Command::new(programa)
-        .arg(caminho)
-        .spawn()
-        .map(drop)
-        .map_err(|e| format!("não foi possível abrir {}: {e}", caminho.display()))
+    let mut ultimo_erro = None;
+    for (programa, argumentos) in candidatos {
+        match std::process::Command::new(programa)
+            .args(*argumentos)
+            .arg(caminho)
+            .spawn()
+        {
+            Ok(_) => return Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                ultimo_erro = Some(format!("programa {programa} não encontrado"));
+            }
+            Err(e) => ultimo_erro = Some(format!("{programa}: {e}")),
+        }
+    }
+    Err(format!(
+        "não foi possível abrir {}: {}",
+        caminho.display(),
+        ultimo_erro.unwrap_or_default()
+    ))
 }
 
 /// Os dados fiscais só são acessíveis com o cofre aberto pela senha mestra.
