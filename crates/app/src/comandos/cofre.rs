@@ -9,7 +9,7 @@ use nfse_core::modelo::{Ambiente, LeiauteDps};
 use nfse_db::Banco;
 use nfse_emissor::{ConectorSefin, Emissor};
 
-use super::comum::{CHAVE_PASTA, R, exigir_cofre, pasta_configurada, texto};
+use super::comum::{CHAVE_PASTA, R, exigir_cofre, fixar_pasta_padrao, pasta_configurada, texto};
 use crate::Estado;
 use crate::pasta_saida::{self, Relacao};
 
@@ -53,6 +53,7 @@ where
 
 async fn iniciar(estado: &Estado, banco: Banco, cofre: nfse_db::Cofre) -> R<Abertura> {
     estado.trocar_banco(Some(banco.clone()));
+    fixar_pasta_padrao(estado).await?;
     let pasta = pasta_configurada(estado).await?;
     let emissor = Emissor::novo(banco, cofre, ConectorSefin)
         .com_versao(concat!("emissor-nfse/", env!("CARGO_PKG_VERSION")))

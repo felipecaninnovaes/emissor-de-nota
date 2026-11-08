@@ -42,6 +42,27 @@ fn escolher_pasta_linux(fixa: PathBuf, documentos: Option<PathBuf>) -> PathBuf {
     documentos.map(|d| d.join("NFS-e")).unwrap_or(fixa)
 }
 
+/// No Linux, grava no banco a pasta padrão na primeira abertura sem pasta configurada. Ela depende
+/// de `~/Documents/NFS-e` existir ou não; recalculada a cada uso, mudaria sozinha quando essa pasta
+/// aparecesse depois (outro programa ou uma versão antiga do aplicativo a cria), e as notas já
+/// emitidas na outra deixariam de abrir. No Windows e no macOS o padrão é fixo e não é gravado,
+/// para um banco copiado de outra máquina continuar usando a pasta local.
+pub(crate) async fn fixar_pasta_padrao(estado: &Estado) -> R<()> {
+    if !cfg!(target_os = "linux") {
+        return Ok(());
+    }
+    let banco = estado.banco()?;
+    if banco.configuracao(CHAVE_PASTA).await.map_err(texto)?.is_none() {
+        let pasta = pasta_padrao();
+        banco
+            .definir_configuracao(CHAVE_PASTA, &pasta.display().to_string())
+            .await
+            .map_err(texto)?;
+        tracing::info!(pasta = %pasta.display(), "pasta padrão das notas gravada");
+    }
+    Ok(())
+}
+
 pub(crate) async fn pasta_configurada(estado: &Estado) -> R<PathBuf> {
     Ok(estado
         .banco()?
