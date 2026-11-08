@@ -4,6 +4,8 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 
 ## Não publicado
 
+- Windows: mover os arquivos ao trocar a pasta das notas funciona; na 1.17.0 a cópia falhava com acesso negado (sem apagar nada nem trocar a pasta).
+
 ## 1.17.0
 
 Substituição de nota de ME/EPP conferida antes do envio (E0063), descrição inteira no DANFSe e troca da pasta das notas levando os arquivos. Sem nova migração nem mudança no esquema do banco.

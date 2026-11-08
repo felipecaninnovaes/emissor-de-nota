@@ -82,8 +82,9 @@ fn copiar_em(origem: &Path, destino: &Path, copia: &mut Copia) -> io::Result<()>
             }
         } else {
             std::fs::copy(&de, &para)?;
-            // XML e PDF fiscais: a cópia vai ao disco antes de a original poder ser apagada.
-            std::fs::File::open(&para)?.sync_all()?;
+            // XML e PDF fiscais: a cópia vai ao disco antes de a original poder ser apagada. Aberto
+            // para escrita: no Windows, o FlushFileBuffers de um arquivo só de leitura dá acesso negado.
+            std::fs::OpenOptions::new().write(true).open(&para)?.sync_all()?;
             copia.copiados.push(de);
         }
     }
