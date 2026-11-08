@@ -1,8 +1,12 @@
 # Changelog
 
-Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0, a 1.2.0, a 1.3.0 e a 1.4.0, em 18/10/2026, a 1.5.0 e a 1.6.0, em 19/10/2026, a 1.7.0 e a 1.7.1, em 20/10/2026, a 1.8.0 e a 1.8.1, em 22/10/2026, a 1.9.0, em 22/10/2026, a 1.10.0, em 23/10/2026, a 1.11.0 e a 1.11.1, em 26/10/2026, a 1.12.0, em 27/10/2026, a 1.13.0 e a 1.14.0, em 28/10/2026, a 1.15.0 e a 1.15.1, em 29/10/2026, e a 1.16.0, em 07/11/2026; a versão vem de `crates/app/Cargo.toml`. A seção **Não publicado** junta o que já está na `main` e ainda não saiu em versão.
+Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0, a 1.2.0, a 1.3.0 e a 1.4.0, em 18/10/2026, a 1.5.0 e a 1.6.0, em 19/10/2026, a 1.7.0 e a 1.7.1, em 20/10/2026, a 1.8.0 e a 1.8.1, em 22/10/2026, a 1.9.0, em 22/10/2026, a 1.10.0, em 23/10/2026, a 1.11.0 e a 1.11.1, em 26/10/2026, a 1.12.0, em 27/10/2026, a 1.13.0 e a 1.14.0, em 28/10/2026, a 1.15.0 e a 1.15.1, em 29/10/2026, a 1.16.0, em 07/11/2026, e a 1.17.0, em 08/11/2026; a versão vem de `crates/app/Cargo.toml`. A seção **Não publicado** junta o que já está na `main` e ainda não saiu em versão.
 
 ## Não publicado
+
+## 1.17.0
+
+Substituição de nota de ME/EPP conferida antes do envio (E0063), descrição inteira no DANFSe e troca da pasta das notas levando os arquivos. Sem nova migração nem mudança no esquema do banco.
 
 - Substituição: a nota substituta fica na data de competência da original, e a substituição de nota de ME/EPP do Simples que muda o valor, o tomador ou a competência é recusada antes do envio, com a orientação de cancelar e emitir outra (rejeição E0063 da Sefin).
 - DANFSe: a descrição do serviço sai inteira no PDF (até 2.000 caracteres); antes era cortada em 1.300 com reticências, embora a nota no portal tivesse o texto completo.
