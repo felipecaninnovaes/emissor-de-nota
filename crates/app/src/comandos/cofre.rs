@@ -197,7 +197,12 @@ pub async fn definir_pasta(estado: State<'_, Estado>, pasta: String, migrar: boo
                     .into(),
             );
         }
-        let copia = pasta_saida::copiar(&antiga, &caminho)
+        // Cópia e fsync de muitos arquivos: fora do executor async, para não prender uma thread
+        // dele. A trava do emissor continua segura até a pasta ser gravada.
+        let (de, para) = (antiga.clone(), caminho.clone());
+        let copia = tokio::task::spawn_blocking(move || pasta_saida::copiar(&de, &para))
+            .await
+            .map_err(texto)?
             .map_err(|e| format!("não foi possível copiar os arquivos (nada foi apagado e a pasta não mudou): {e}"))?;
         Some(copia)
     } else {
@@ -223,14 +228,19 @@ pub async fn definir_pasta(estado: State<'_, Estado>, pasta: String, migrar: boo
         conflitos = copia.conflitos.len(),
         "pasta das notas migrada"
     );
-    pasta_saida::apagar_origens(&antiga, &copia).map_err(|e| {
-        format!(
-            "a pasta mudou e os arquivos foram copiados, mas não foi possível apagar todos da pasta antiga ({}): {e}",
-            antiga.display()
-        )
-    })?;
-    Ok(TrocaPasta {
-        movidos: copia.copiados.len(),
-        conflitos: copia.conflitos.iter().map(|c| c.display().to_string()).collect(),
-    })
+    let (movidos, conflitos) = (
+        copia.copiados.len(),
+        copia.conflitos.iter().map(|c| c.display().to_string()).collect(),
+    );
+    let de = antiga.clone();
+    tokio::task::spawn_blocking(move || pasta_saida::apagar_origens(&de, &copia))
+        .await
+        .map_err(texto)?
+        .map_err(|e| {
+            format!(
+                "a pasta mudou e os arquivos foram copiados, mas não foi possível apagar todos da pasta antiga ({}): {e}",
+                antiga.display()
+            )
+        })?;
+    Ok(TrocaPasta { movidos, conflitos })
 }
