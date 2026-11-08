@@ -19,7 +19,7 @@ Tabela `configuracao` (chave → valor), lida e gravada por `Banco::configuracao
 
 | Chave | Padrão | Conteúdo |
 | --- | --- | --- |
-| `pasta_saida` | `<USERPROFILE ou HOME>/Documents/NFS-e`; no Linux, a pasta de documentos do XDG (`~/Documentos/NFS-e` em português), a não ser que `~/Documents/NFS-e` já exista | Pasta onde XML e PDF são gravados; alterada em Configurações |
+| `pasta_saida` | `<USERPROFILE ou HOME>/Documents/NFS-e`; no Linux, a pasta de documentos do XDG (`~/Documentos/NFS-e` em português), a não ser que `~/Documents/NFS-e` já exista | Pasta onde XML e PDF são gravados; alterada em Configurações, que oferece mover os arquivos da pasta anterior (`crates/app/src/pasta_saida.rs`). É o único caminho de arquivo guardado no banco: o de cada nota é montado a partir dela |
 | `smtp` | — | JSON com servidor, porta, segurança, usuário, remetente, nome do remetente, assunto, corpo e envio automático depois da emissão |
 | `smtp_senha` | — | Senha do SMTP, cifrada com a chave do cofre (hexadecimal) |
 | `backup_pasta` | — | Pasta do backup cifrado; vazia desliga o backup automático |

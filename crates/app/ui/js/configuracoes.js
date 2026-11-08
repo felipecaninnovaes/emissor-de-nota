@@ -152,12 +152,48 @@ document.querySelectorAll("[data-escolher]").forEach((botao) => {
   });
 });
 
+// Trocar a pasta sem levar os arquivos faz as notas já emitidas deixarem de abrir pelo
+// aplicativo (o caminho de cada nota é montado a partir da pasta): por isso a pergunta.
 $("#salvar-pasta").addEventListener("click", async () => {
+  const botao = $("#salvar-pasta");
+  const pasta = $("#pasta-saida").value.trim();
   try {
-    await chamar("definir_pasta", { pasta: $("#pasta-saida").value });
-    toast("Pasta salva.");
+    const { atual, arquivos } = await chamar("conferir_pasta", { pasta });
+    let migrar = false;
+    if (arquivos > 0) {
+      migrar = await confirmar(
+        `A pasta atual (${atual}) tem ${arquivos} arquivo(s). Mover para a pasta nova? ` +
+          "Sem mover, as notas já emitidas deixam de abrir pelo aplicativo.",
+        { ok: "Mover os arquivos", cancelar: "Não mover" },
+      );
+      if (
+        !migrar &&
+        !(await confirmar("Trocar a pasta sem mover os arquivos? Eles continuam na pasta atual.", {
+          ok: "Trocar sem mover",
+          cancelar: "Cancelar",
+        }))
+      ) {
+        return;
+      }
+    }
+    botao.disabled = true;
+    botao.textContent = migrar ? "Movendo..." : "Salvando...";
+    const r = await chamar("definir_pasta", { pasta, migrar });
+    if (r.conflitos.length) {
+      toast(
+        `Pasta salva; ${r.movidos} arquivo(s) movido(s). ${r.conflitos.length} ficaram na pasta antiga porque a nova ` +
+          `já tem arquivo diferente com o mesmo nome: ${r.conflitos.join(", ")}`,
+        true,
+      );
+    } else {
+      toast(migrar ? `Pasta salva; ${r.movidos} arquivo(s) movido(s).` : "Pasta salva.");
+    }
+    $("#pasta-saida").value = await invoke("obter_pasta");
   } catch (e) {
     toast(String(e), true);
+  } finally {
+    botao.disabled = false;
+    botao.textContent = "Salvar";
   }
 });
 

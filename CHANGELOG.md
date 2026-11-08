@@ -4,6 +4,7 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 
 ## Não publicado
 
+- Configurações: ao trocar a pasta das notas, o aplicativo pergunta se deve mover os arquivos da pasta atual, para as notas já emitidas continuarem abrindo.
 - Linux: a pasta padrão das notas segue a pasta de documentos do sistema (`~/Documentos/NFS-e` em português); quem já tem `~/Documents/NFS-e` continua nela.
 - Linux: abrir a nota, o XML ou a pasta funciona sem o `xdg-open` instalado (usa o `gio open`), e o erro passa a dizer qual programa faltou em vez de parecer que o arquivo não existe.
 

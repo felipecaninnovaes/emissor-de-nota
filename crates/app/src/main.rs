@@ -8,6 +8,7 @@ mod cnpj;
 mod comandos;
 mod nuvem;
 mod pasta_dados;
+mod pasta_saida;
 mod registro;
 
 use std::path::PathBuf;
@@ -122,6 +123,7 @@ fn main() {
             comandos::cofre::abrir_cofre,
             comandos::cofre::bloquear_cofre,
             comandos::cofre::obter_pasta,
+            comandos::cofre::conferir_pasta,
             comandos::cofre::definir_pasta,
             comandos::cofre::obter_leiautes,
             comandos::cofre::definir_leiaute,

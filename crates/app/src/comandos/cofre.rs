@@ -11,6 +11,7 @@ use nfse_emissor::{ConectorSefin, Emissor};
 
 use super::comum::{CHAVE_PASTA, R, exigir_cofre, pasta_configurada, texto};
 use crate::Estado;
+use crate::pasta_saida::{self, Relacao};
 
 #[derive(Serialize)]
 pub struct SituacaoCofre {
@@ -142,18 +143,94 @@ pub async fn definir_leiaute(estado: State<'_, Estado>, ambiente: Ambiente, leia
         .map_err(texto)
 }
 
+#[derive(Serialize)]
+pub struct ConferenciaPasta {
+    /// Pasta em uso agora (a configurada ou a padrão).
+    atual: String,
+    /// Arquivos na pasta atual que a troca deixaria para trás; zero quando é a mesma pasta.
+    arquivos: u64,
+}
+
+/// Antes de trocar a pasta: quantos arquivos ficariam na atual, para a tela perguntar se move.
 #[tauri::command]
-pub async fn definir_pasta(estado: State<'_, Estado>, pasta: String) -> R<()> {
+pub async fn conferir_pasta(estado: State<'_, Estado>, pasta: String) -> R<ConferenciaPasta> {
+    exigir_cofre(&estado).await?;
+    let atual = pasta_configurada(&estado).await?;
+    let nova = PathBuf::from(pasta.trim());
+    let mesma = nova.is_dir() && pasta_saida::relacao(&atual, &nova).map_err(texto)? == Relacao::Mesma;
+    let arquivos = if mesma {
+        0
+    } else {
+        pasta_saida::contar_arquivos(&atual).map_err(texto)?
+    };
+    Ok(ConferenciaPasta {
+        atual: atual.display().to_string(),
+        arquivos,
+    })
+}
+
+#[derive(Serialize)]
+pub struct TrocaPasta {
+    movidos: usize,
+    /// Arquivos deixados na pasta antiga porque a nova já tem um diferente com o mesmo nome.
+    conflitos: Vec<String>,
+}
+
+/// Troca a pasta das notas. Com `migrar`, leva os arquivos da pasta atual: copia tudo, grava a
+/// configuração e só então apaga da antiga. Segura o emissor em escrita durante a troca, para
+/// nenhuma emissão gravar XML ou PDF no meio dela.
+#[tauri::command]
+pub async fn definir_pasta(estado: State<'_, Estado>, pasta: String, migrar: bool) -> R<TrocaPasta> {
     exigir_cofre(&estado).await?;
     let caminho = PathBuf::from(pasta.trim());
+    if caminho.as_os_str().is_empty() {
+        return Err("informe a pasta".into());
+    }
+    let mut guarda = estado.emissor.write().await;
+    let antiga = pasta_configurada(&estado).await?;
     std::fs::create_dir_all(&caminho).map_err(|e| format!("não foi possível usar a pasta: {e}"))?;
+    let relacao = pasta_saida::relacao(&antiga, &caminho).map_err(texto)?;
+    let copia = if migrar && relacao != Relacao::Mesma {
+        if relacao == Relacao::Aninhadas {
+            return Err(
+                "para mover os arquivos, a pasta nova não pode ficar dentro da atual (nem a atual dentro da nova)"
+                    .into(),
+            );
+        }
+        let copia = pasta_saida::copiar(&antiga, &caminho)
+            .map_err(|e| format!("não foi possível copiar os arquivos (nada foi apagado e a pasta não mudou): {e}"))?;
+        Some(copia)
+    } else {
+        None
+    };
     estado
         .banco()?
         .definir_configuracao(CHAVE_PASTA, &caminho.display().to_string())
         .await
         .map_err(texto)?;
-    if let Some(emissor) = estado.emissor.write().await.as_mut() {
-        emissor.definir_pasta(caminho);
+    if let Some(emissor) = guarda.as_mut() {
+        emissor.definir_pasta(caminho.clone());
     }
-    Ok(())
+    drop(guarda);
+    let Some(copia) = copia else {
+        return Ok(TrocaPasta {
+            movidos: 0,
+            conflitos: Vec::new(),
+        });
+    };
+    tracing::info!(
+        arquivos = copia.copiados.len(),
+        conflitos = copia.conflitos.len(),
+        "pasta das notas migrada"
+    );
+    pasta_saida::apagar_origens(&antiga, &copia).map_err(|e| {
+        format!(
+            "a pasta mudou e os arquivos foram copiados, mas não foi possível apagar todos da pasta antiga ({}): {e}",
+            antiga.display()
+        )
+    })?;
+    Ok(TrocaPasta {
+        movidos: copia.copiados.len(),
+        conflitos: copia.conflitos.iter().map(|c| c.display().to_string()).collect(),
+    })
 }
