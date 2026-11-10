@@ -182,6 +182,25 @@ async fn inativo_nao_envia_mas_restaura(pool: PgPool) {
 
 #[sqlx::test(migrations = "./migrations")]
 #[ignore = "requer Postgres (DATABASE_URL)"]
+async fn falha_ao_registrar_apaga_o_arquivo(pool: PgPool) {
+    let estado = estado(pool.clone(), 30, 1 << 20);
+    let app = aplicacao(estado.clone());
+    let (_, token) = cliente_com_token(&pool, "A").await;
+    sqlx::raw_sql(
+        "CREATE FUNCTION recusar() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'falha'; END $$;
+         CREATE TRIGGER recusar BEFORE INSERT ON backup FOR EACH ROW EXECUTE FUNCTION recusar();",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let conteudo: &[u8] = b"conteudo";
+    let (status, _, _) = chamar(&app, envio(&token, conteudo, &sha(conteudo))).await;
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(estado.armazenamento.quantos(), 0, "sem objeto órfão no S3");
+}
+
+#[sqlx::test(migrations = "./migrations")]
+#[ignore = "requer Postgres (DATABASE_URL)"]
 async fn cabecalhos_de_seguranca_em_toda_resposta(pool: PgPool) {
     let app = aplicacao(estado(pool, 30, 1 << 20));
     for caminho in ["/login", "/estilo.css", "/api/v1/situacao"] {

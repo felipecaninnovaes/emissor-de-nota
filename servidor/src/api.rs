@@ -194,7 +194,7 @@ async fn enviar(
     });
     if let Err(e) = estado.armazenamento.enviar(&chave, tamanho, Box::pin(fluxo)).await {
         tracing::warn!(cliente = c.id, "envio interrompido: {e}");
-        let _ = estado.armazenamento.apagar(&chave).await;
+        apagar_objeto(&estado, &chave).await;
         return Err(ErroApi(
             StatusCode::BAD_GATEWAY,
             "o backup não chegou inteiro ao servidor; envie de novo".into(),
@@ -205,18 +205,31 @@ async fn enviar(
         (hex::encode(c.0.clone().finalize()), c.1)
     };
     if recebidos != tamanho || hash != esperado {
-        let _ = estado.armazenamento.apagar(&chave).await;
+        apagar_objeto(&estado, &chave).await;
         return Err(ErroApi(
             StatusCode::UNPROCESSABLE_ENTITY,
             "o arquivo chegou diferente do enviado (SHA-256 não confere); envie de novo".into(),
         ));
     }
-    let novo = banco::inserir_backup(&estado.banco, c.id, &chave, &nome, tamanho as i64, &hash)
-        .await
-        .map_err(interno)?;
+    let novo = match banco::inserir_backup(&estado.banco, c.id, &chave, &nome, tamanho as i64, &hash).await {
+        Ok(novo) => novo,
+        // Sem a linha no banco, o arquivo no S3 não seria listado nem apagado pela retenção.
+        Err(e) => {
+            apagar_objeto(&estado, &chave).await;
+            return Err(interno(e));
+        }
+    };
     tracing::info!(cliente = c.id, backup = novo.id, tamanho, "backup recebido");
     podar(&estado, c.id).await;
     Ok((StatusCode::CREATED, Json(novo.into())))
+}
+
+/// Apaga do S3 o arquivo de um envio que não foi registrado. Se falhar, o objeto fica órfão: vai
+/// para o log com a chave, para a limpeza manual.
+async fn apagar_objeto(estado: &Compartilhado, chave: &str) {
+    if let Err(e) = estado.armazenamento.apagar(chave).await {
+        tracing::error!(chave, "objeto órfão no S3 (apague à mão): {e}");
+    }
 }
 
 /// Apaga os backups além dos `MANTER_BACKUPS` mais recentes. Falha no S3 mantém a linha para tentar de novo.
