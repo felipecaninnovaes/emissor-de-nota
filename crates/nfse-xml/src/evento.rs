@@ -2,9 +2,10 @@
 
 use chrono::{DateTime, FixedOffset};
 
-use nfse_core::modelo::{Ambiente, Documento, VERSAO_LEIAUTE};
+use nfse_core::modelo::{Ambiente, Documento};
 
 use crate::dps::NS_NFSE;
+use crate::escrita::Xml;
 
 /// `cMotivo` do cancelamento.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -48,10 +49,6 @@ pub enum PedidoInvalido {
     Caractere(String),
 }
 
-fn escapar(texto: &str) -> String {
-    texto.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
-}
-
 /// Gera o pedido de cancelamento sem assinatura. Devolve o XML e o Id de `infPedReg`.
 pub fn gerar_pedido_cancelamento(p: &PedidoCancelamento) -> Result<(String, String), PedidoInvalido> {
     if !nfse_core::dps::chave_de_acesso_valida(&p.chave) {
@@ -64,31 +61,23 @@ pub fn gerar_pedido_cancelamento(p: &PedidoCancelamento) -> Result<(String, Stri
     }
     nfse_core::modelo::conferir_tsstring(descricao).map_err(PedidoInvalido::Caractere)?;
     let id = format!("PRE{}101101", p.chave);
-    let autor = match &p.autor {
-        Documento::Cnpj(c) => format!("<CNPJAutor>{}</CNPJAutor>", c.as_str()),
-        Documento::Cpf(c) => format!("<CPFAutor>{}</CPFAutor>", c.as_str()),
-    };
-    let xml = format!(
-        concat!(
-            r#"<?xml version="1.0" encoding="UTF-8"?>"#,
-            r#"<pedRegEvento xmlns="{ns}" versao="{versao}"><infPedReg Id="{id}">"#,
-            "<tpAmb>{amb}</tpAmb><verAplic>{ver}</verAplic><dhEvento>{quando}</dhEvento>{autor}",
-            "<chNFSe>{chave}</chNFSe><e101101><xDesc>Cancelamento de NFS-e</xDesc>",
-            "<cMotivo>{motivo}</cMotivo><xMotivo>{descricao}</xMotivo></e101101>",
-            "</infPedReg></pedRegEvento>"
-        ),
-        ns = NS_NFSE,
-        versao = VERSAO_LEIAUTE,
-        id = id,
-        amb = p.ambiente.codigo(),
-        ver = escapar(&p.versao_aplicativo),
-        quando = p.quando.format("%Y-%m-%dT%H:%M:%S%:z"),
-        autor = autor,
-        chave = p.chave,
-        motivo = p.motivo.codigo(),
-        descricao = escapar(descricao),
-    );
-    Ok((xml, id))
+    let mut x = Xml::raiz("pedRegEvento", "infPedReg", &id, 768);
+    x.campo("tpAmb", p.ambiente.codigo());
+    x.campo("verAplic", &p.versao_aplicativo);
+    x.campo("dhEvento", p.quando.format("%Y-%m-%dT%H:%M:%S%:z").to_string());
+    match &p.autor {
+        Documento::Cnpj(c) => x.campo("CNPJAutor", c.as_str()),
+        Documento::Cpf(c) => x.campo("CPFAutor", c.as_str()),
+    }
+    x.campo("chNFSe", &p.chave);
+    x.abrir("e101101");
+    x.campo("xDesc", "Cancelamento de NFS-e");
+    x.campo("cMotivo", p.motivo.codigo());
+    x.campo("xMotivo", descricao);
+    x.fechar("e101101");
+    x.fechar("infPedReg");
+    x.fechar("pedRegEvento");
+    Ok((x.0, id))
 }
 
 /// Confere se o XML é o evento de cancelamento (e101101) registrado pela Sefin para a NFS-e
@@ -146,6 +135,25 @@ pub(crate) mod testes {
         assert_eq!(id.len(), 59);
         assert!(xml.contains("<CNPJAutor>11222333000181</CNPJAutor><chNFSe>"));
         assert!(xml.contains("<e101101><xDesc>Cancelamento de NFS-e</xDesc><cMotivo>1</cMotivo>"));
+        assert_eq!(
+            xml,
+            concat!(
+                r#"<?xml version="1.0" encoding="UTF-8"?><pedRegEvento xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.01">"#,
+                r#"<infPedReg Id="PRE35111022211222333000181000000000007726107413634280101101"><tpAmb>1</tpAmb>"#,
+                "<verAplic>emissor-nfse/0.1.0</verAplic><dhEvento>2026-10-16T16:30:00-03:00</dhEvento>",
+                "<CNPJAutor>11222333000181</CNPJAutor><chNFSe>35111022211222333000181000000000007726107413634280</chNFSe>",
+                "<e101101><xDesc>Cancelamento de NFS-e</xDesc><cMotivo>1</cMotivo>",
+                "<xMotivo>Nota emitida em teste de integração</xMotivo></e101101></infPedReg></pedRegEvento>"
+            )
+        );
+        // Texto livre escapado pelo mesmo escritor da DPS.
+        let mut p = pedido();
+        p.descricao = "Serviço A & B <cancelado>".into();
+        let (xml, _) = gerar_pedido_cancelamento(&p).unwrap();
+        assert!(
+            xml.contains("<xMotivo>Serviço A &amp; B &lt;cancelado&gt;</xMotivo>"),
+            "{xml}"
+        );
     }
 
     #[test]
