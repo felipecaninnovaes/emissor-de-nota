@@ -22,7 +22,12 @@
       "Read(**/*.pfx)",
       "Read(**/emissor.db)",
       "Read(**/*.cofre)",
-      "Read(./tmp-não-commitar/**)"
+      "Read(./tmp-não-commitar/**)",
+      "Read(./servidor/.env)",
+      "Read(./servidor/dados/**)",
+      "Read(**/*.nfbk)",
+      "Bash(*--confirmo-producao*)",
+      "PowerShell(*--confirmo-producao*)"
     ]
   },
   "hooks": {
