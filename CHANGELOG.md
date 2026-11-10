@@ -9,6 +9,7 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 - Substituição: aceita a nota de prestador com CNPJ alfanumérico, cuja chave de acesso tem letras; antes a substituição era recusada antes do envio.
 - DANFSe: quando as Informações Complementares não cabem no PDF, o corte é feito antes dos totais aproximados dos tributos (Lei 12.741), que continuam aparecendo.
 - Emitir: textos com os caracteres invisíveis U+FFFE ou U+FFFF são recusados antes do envio, sem gastar número; antes a nota falhava só na assinatura, depois de reservar o número.
+- Sefin: só o 404 da própria Sefin ("não há NFS-e para esta DPS", E2404) libera uma nota incerta; um 404 de gateway ou de manutenção a mantém incerta. Erro 5xx no envio deixa a nota incerta, com consulta à Sefin, em vez de dá-la como rejeitada.
 
 ## 1.18.0
 

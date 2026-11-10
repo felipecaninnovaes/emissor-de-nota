@@ -210,20 +210,7 @@ impl ClienteSefin {
             .await
             .map_err(classificar_consulta)?;
         let (status, texto) = ler(resposta).await?;
-        match status {
-            StatusCode::NOT_FOUND => Ok(None),
-            s if s.is_success() => {
-                let corpo: CorpoResposta =
-                    serde_json::from_str(&texto).map_err(|e| ErroSefin::Formato(e.to_string()))?;
-                // Só o 404 prova que a NFS-e não existe: sucesso sem chave é resposta inesperada.
-                corpo
-                    .chave_acesso
-                    .ok_or_else(|| ErroSefin::Formato("consulta da DPS sem chaveAcesso".into()))
-                    .and_then(chave_conferida)
-                    .map(Some)
-            }
-            s => Err(erro_http(s, texto)),
-        }
+        resultado_consulta_dps(status, texto)
     }
 
     pub async fn consultar_nfse(&self, chave_acesso: &str) -> Result<NfseAutorizada, ErroSefin> {
@@ -389,6 +376,45 @@ impl Sefin for ClienteSefin {
     }
 }
 
+/// Código da Sefin no 404 da consulta da DPS: "Não há NFS-e gerada para esta DPS".
+const SEM_NFSE_PARA_A_DPS: &str = "E2404";
+
+/// Resposta de `GET /dps/{id}`. O 404 libera a DPS para reenvio, então só vale o que traz o JSON da
+/// Sefin com o E2404: um 404 de gateway, de manutenção ou de rota errada não prova que a nota não
+/// existe e vira erro (a DPS continua `incerta`). Sucesso sem chave também é resposta inesperada.
+fn resultado_consulta_dps(status: StatusCode, texto: String) -> Result<Option<String>, ErroSefin> {
+    match status {
+        StatusCode::NOT_FOUND
+            if mensagens_da_sefin(&texto)
+                .iter()
+                .any(|m| m.codigo.as_deref() == Some(SEM_NFSE_PARA_A_DPS)) =>
+        {
+            Ok(None)
+        }
+        s if s.is_success() => {
+            let corpo: CorpoResposta = serde_json::from_str(&texto).map_err(|e| ErroSefin::Formato(e.to_string()))?;
+            corpo
+                .chave_acesso
+                .ok_or_else(|| ErroSefin::Formato("consulta da DPS sem chaveAcesso".into()))
+                .and_then(chave_conferida)
+                .map(Some)
+        }
+        s => Err(erro_http(s, texto)),
+    }
+}
+
+/// Mensagens (`erros` e `erro`) do corpo JSON da Sefin; vazio se o corpo não é o JSON da Sefin.
+fn mensagens_da_sefin(corpo: &str) -> Vec<MensagemSefin> {
+    match serde_json::from_str::<CorpoResposta>(corpo) {
+        Ok(c) => {
+            let mut erros = c.erros.unwrap_or_default();
+            erros.extend(c.erro);
+            erros
+        }
+        Err(_) => Vec::new(),
+    }
+}
+
 /// Erro no envio da emissão: só é seguro reenviar se a conexão nem chegou a ser estabelecida.
 fn classificar_envio(e: reqwest::Error) -> ErroSefin {
     if e.is_connect() && !e.is_timeout() {
@@ -443,24 +469,28 @@ fn nfse_da_resposta(texto: &str) -> Result<NfseAutorizada, ErroSefin> {
     })
 }
 
+/// Só um 4xx com as mensagens da Sefin é rejeição definitiva. Um 5xx, mesmo com `erros` no JSON,
+/// pode ter sido processado: vira [`ErroSefin::Http`], que a emissão trata como incerto.
 fn erro_http(status: StatusCode, corpo: String) -> ErroSefin {
     if status == StatusCode::TOO_MANY_REQUESTS {
         return ErroSefin::LimiteRequisicoes;
     }
-    match serde_json::from_str::<CorpoResposta>(&corpo) {
-        Ok(c) if c.erros.as_ref().is_some_and(|e| !e.is_empty()) || c.erro.is_some() => {
-            let mut erros = c.erros.unwrap_or_default();
-            erros.extend(c.erro);
-            ErroSefin::Rejeitada {
-                status: status.as_u16(),
-                erros,
-                corpo,
-            }
-        }
-        _ => ErroSefin::Http {
+    let erros = if status.is_client_error() {
+        mensagens_da_sefin(&corpo)
+    } else {
+        Vec::new()
+    };
+    if erros.is_empty() {
+        ErroSefin::Http {
             status: status.as_u16(),
             corpo,
-        },
+        }
+    } else {
+        ErroSefin::Rejeitada {
+            status: status.as_u16(),
+            erros,
+            corpo,
+        }
     }
 }
 
@@ -562,6 +592,41 @@ mod testes {
             erro_http(StatusCode::BAD_GATEWAY, "<html>".into()),
             ErroSefin::Http { status: 502, .. }
         ));
+    }
+
+    #[test]
+    fn erro_5xx_com_mensagens_nao_e_rejeicao() {
+        let corpo = r#"{"erros":[{"Codigo":"E9999","Descricao":"Erro interno"}]}"#;
+        assert!(matches!(
+            erro_http(StatusCode::INTERNAL_SERVER_ERROR, corpo.into()),
+            ErroSefin::Http { status: 500, .. }
+        ));
+    }
+
+    #[test]
+    fn so_o_404_da_sefin_prova_que_a_dps_nao_gerou_nota() {
+        let da_sefin = r#"{"erro":{"Codigo":"E2404","Descricao":"Não há NFS-e gerada para esta DPS."}}"#;
+        assert!(matches!(
+            resultado_consulta_dps(StatusCode::NOT_FOUND, da_sefin.into()),
+            Ok(None)
+        ));
+        let em_lista = r#"{"erros":[{"codigo":"E2404","descricao":"x"}]}"#;
+        assert!(matches!(
+            resultado_consulta_dps(StatusCode::NOT_FOUND, em_lista.into()),
+            Ok(None)
+        ));
+        // 404 de gateway, de manutenção ou com outro código: a DPS continua incerta.
+        for corpo in ["", "<html>Not Found</html>", r#"{"erros":[{"Codigo":"E0001"}]}"#] {
+            assert!(
+                resultado_consulta_dps(StatusCode::NOT_FOUND, corpo.into()).is_err(),
+                "{corpo:?}"
+            );
+        }
+        let chave = "35111022112223330001810000000000000042261012345678";
+        assert_eq!(
+            resultado_consulta_dps(StatusCode::OK, format!(r#"{{"chaveAcesso":"{chave}"}}"#)).unwrap(),
+            Some(chave.to_owned())
+        );
     }
 
     #[test]
