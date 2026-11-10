@@ -180,8 +180,9 @@ impl Pintor<'_, '_> {
         self.rotulo_bloco(COL[0], y, LARGURA, MENSAGEM, texto);
     }
 
-    /// Caixa de texto livre com quebra de linha; corta com reticências o que não couber.
-    fn texto_livre(&mut self, y: f32, h: f32, rotulo: Option<&str>, texto: &str) {
+    /// Caixa de texto livre com quebra de linha; corta com reticências o que não couber, menos o
+    /// `fim` (ver [`linhas_que_cabem`]).
+    fn texto_livre(&mut self, y: f32, h: f32, rotulo: Option<&str>, texto: &str, fim: Option<&str>) {
         self.retangulo(COL[0], y, LARGURA, h, None, Some(0.5));
         let mut base = y + 0.24;
         if let Some(r) = rotulo {
@@ -190,17 +191,41 @@ impl Pintor<'_, '_> {
             base += 0.28;
         }
         let f = self.f.conteudo.clone();
-        let linhas = quebrar(&f, 7.0, texto, LARGURA - 0.16);
         let cabem = (((y + h - 0.08) - base) / ENTRELINHA).floor().max(0.0) as usize + 1;
-        for (i, l) in linhas.iter().take(cabem).enumerate() {
-            let l = if i + 1 == cabem && linhas.len() > cabem {
-                caber(&f, 7.0, &format!("{l} ..."), LARGURA - 0.16)
-            } else {
-                l.clone()
-            };
-            self.texto(COL[0] + 0.08, base + i as f32 * ENTRELINHA, &f, 7.0, &l);
+        for (i, l) in linhas_que_cabem(&f, texto, fim, LARGURA - 0.16, cabem)
+            .iter()
+            .enumerate()
+        {
+            self.texto(COL[0] + 0.08, base + i as f32 * ENTRELINHA, &f, 7.0, l);
         }
     }
+}
+
+/// Linhas do `texto` (corpo 7) que cabem em `cabem` linhas; o que sobra é cortado com reticências.
+/// Se o texto termina com `fim`, ele fica inteiro nas últimas linhas e o corte é no que vem antes:
+/// os totais da Lei 12.741 vão no fim das Informações Complementares justamente para aparecerem.
+fn linhas_que_cabem(f: &Fonte, texto: &str, fim: Option<&str>, largura: f32, cabem: usize) -> Vec<String> {
+    let todas = quebrar(f, 7.0, texto, largura);
+    if todas.len() <= cabem {
+        return todas;
+    }
+    let reservado = fim
+        .filter(|fim| !fim.is_empty())
+        .and_then(|fim| Some((texto.strip_suffix(fim)?, quebrar(f, 7.0, fim, largura))))
+        .filter(|(_, linhas_fim)| linhas_fim.len() < cabem);
+    let (corpo, mut linhas_fim) = match reservado {
+        Some((corpo, linhas_fim)) => (corpo.trim_end().trim_end_matches('|').trim_end(), linhas_fim),
+        None => (texto, Vec::new()),
+    };
+    let espaco = cabem - linhas_fim.len();
+    let linhas_corpo = quebrar(f, 7.0, corpo, largura);
+    let cortado = linhas_corpo.len() > espaco;
+    let mut linhas: Vec<String> = linhas_corpo.into_iter().take(espaco).collect();
+    if cortado && let Some(ultima) = linhas.last_mut() {
+        *ultima = caber(f, 7.0, &format!("{ultima} ..."), largura);
+    }
+    linhas.append(&mut linhas_fim);
+    linhas
 }
 
 /// Corta o texto com reticências para caber em `largura` cm.
@@ -492,7 +517,7 @@ fn desenhar(
     y += LINHA;
     p.celula(COL[0], y, LARGURA, 0.38, "", &d.descricao_codigo, false, 6.0);
     y += 0.38;
-    p.texto_livre(y, altura_desc, Some("Descrição do Serviço"), &d.descricao_servico);
+    p.texto_livre(y, altura_desc, Some("Descrição do Serviço"), &d.descricao_servico, None);
     y += altura_desc;
 
     match &d.issqn {
@@ -659,7 +684,13 @@ fn desenhar(
 
     p.rotulo_bloco(COL[0], y, LARGURA, 0.39, "INFORMAÇÕES COMPLEMENTARES");
     y += 0.39;
-    p.texto_livre(y, altura_info, None, &d.informacoes_complementares);
+    p.texto_livre(
+        y,
+        altura_info,
+        None,
+        &d.informacoes_complementares,
+        Some(&d.totais_tributos),
+    );
 
     // Borda da página: 1 ponto.
     p.retangulo(COL[0], 0.30, LARGURA, RODAPE - 0.30, None, Some(1.0));

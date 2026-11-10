@@ -121,3 +121,20 @@ fn corta_e_quebra_pelo_tamanho_real() {
     assert!(linhas.len() > 3);
     assert!(linhas.iter().all(|l| f.conteudo.largura(l, 7.0) <= 10.0 * CM));
 }
+
+#[test]
+fn corte_das_informacoes_complementares_preserva_os_totais() {
+    let f = fontes().conteudo;
+    let largura = 19.0;
+    let fim = "Totais Aproximados dos Tributos cfe. Lei nº 12.741/2012: Simples Nacional: 11,48%";
+    let texto = format!("{} | {fim}", "OBSERVAÇÃO LONGA DO CONTRIBUINTE ".repeat(60));
+    let linhas = linhas_que_cabem(&f, &texto, Some(fim), largura, 4);
+    assert_eq!(linhas.len(), 4);
+    assert!(linhas[2].ends_with("..."), "{linhas:?}");
+    assert_eq!(linhas[3], fim);
+    // Sem `fim`, o corte é no fim do texto, como na Descrição do Serviço.
+    let linhas = linhas_que_cabem(&f, &texto, None, largura, 4);
+    assert!(linhas[3].ends_with("..."), "{linhas:?}");
+    // O que cabe não muda.
+    assert_eq!(linhas_que_cabem(&f, fim, Some(fim), largura, 4), vec![fim.to_owned()]);
+}

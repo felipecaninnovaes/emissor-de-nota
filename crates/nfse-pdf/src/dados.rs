@@ -134,7 +134,11 @@ pub struct Danfse {
     pub federal: Federal,
     pub ibs_cbs: IbsCbs,
     pub totais: Totais,
+    /// Texto inteiro das Informações Complementares, terminado em [`Danfse::totais_tributos`].
     pub informacoes_complementares: String,
+    /// Totais aproximados da Lei 12.741, no fim das Informações Complementares: se o texto não
+    /// couber na página, o corte é antes deles.
+    pub totais_tributos: String,
 }
 
 // ---------- navegação no XML ----------
@@ -761,7 +765,7 @@ pub fn ler(xml: &str) -> Result<Danfse, ErroDados> {
         1997usize.saturating_sub(totais_tributos.chars().count() + 3),
     );
     let informacoes_complementares = if resto.is_empty() {
-        totais_tributos
+        totais_tributos.clone()
     } else {
         format!("{resto} | {totais_tributos}")
     };
@@ -821,6 +825,7 @@ pub fn ler(xml: &str) -> Result<Danfse, ErroDados> {
         ibs_cbs,
         totais,
         informacoes_complementares,
+        totais_tributos,
     })
 }
 
