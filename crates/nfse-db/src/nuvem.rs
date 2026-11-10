@@ -101,8 +101,7 @@ impl Banco {
     }
 
     pub async fn marcar_envio_nuvem(&self) -> Resultado<()> {
-        self.definir_configuracao(CHAVE_ULTIMO, &chrono::Utc::now().to_rfc3339())
-            .await
+        self.definir_configuracao(CHAVE_ULTIMO, &crate::agora()).await
     }
 }
 
