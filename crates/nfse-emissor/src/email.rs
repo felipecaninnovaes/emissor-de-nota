@@ -92,20 +92,6 @@ pub fn link_consulta(chave: &str) -> String {
     format!("https://www.nfse.gov.br/ConsultaPublica/?tpc=1&chave={chave}")
 }
 
-fn valor_br(dados: &DadosEmailNfse) -> String {
-    let Some(v) = dados.valor else { return String::new() };
-    let texto = v.to_string(); // "1250.00"
-    let (inteiro, centavos) = texto.split_once('.').unwrap_or((&texto, "00"));
-    let mut com_pontos = String::new();
-    for (i, c) in inteiro.chars().enumerate() {
-        if i > 0 && (inteiro.len() - i) % 3 == 0 {
-            com_pontos.push('.');
-        }
-        com_pontos.push(c);
-    }
-    format!("{com_pontos},{centavos}")
-}
-
 /// Troca as variáveis do assunto e do corpo pelos dados da nota.
 pub fn preencher(modelo: &str, dados: &DadosEmailNfse) -> String {
     let competencia = dados
@@ -117,7 +103,10 @@ pub fn preencher(modelo: &str, dados: &DadosEmailNfse) -> String {
         .replace("{numero}", dados.numero.as_deref().unwrap_or(""))
         .replace("{empresa}", &dados.empresa)
         .replace("{tomador}", dados.tomador.as_deref().unwrap_or("cliente"))
-        .replace("{valor}", &valor_br(dados))
+        .replace(
+            "{valor}",
+            &dados.valor.map(crate::montagem::valor_br).unwrap_or_default(),
+        )
         .replace("{competencia}", &competencia)
         .replace("{chave}", &dados.chave)
         .replace("{link}", &link_consulta(&dados.chave))

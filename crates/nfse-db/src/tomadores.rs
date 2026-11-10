@@ -7,6 +7,7 @@ use sqlx::Row;
 use sqlx::sqlite::SqliteRow;
 
 use nfse_core::modelo::{Documento, EnderecoNacional, EnteGovernamental, Tomador};
+use nfse_core::texto::sem_acento_minusculo;
 use nfse_core::{Cnpj, Cpf};
 
 use crate::{Banco, ErroBanco, Resultado, agora};
@@ -149,30 +150,12 @@ pub(crate) fn tomador_de(r: &SqliteRow) -> Resultado<TomadorVinculado> {
     })
 }
 
-/// Minúsculas e sem acentos, para comparar nomes ("Café" casa com "cafe").
-fn sem_acentos(texto: &str) -> String {
-    texto
-        .chars()
-        .flat_map(char::to_lowercase)
-        .map(|c| match c {
-            'á' | 'à' | 'â' | 'ã' | 'ä' => 'a',
-            'é' | 'è' | 'ê' | 'ë' => 'e',
-            'í' | 'ì' | 'î' | 'ï' => 'i',
-            'ó' | 'ò' | 'ô' | 'õ' | 'ö' => 'o',
-            'ú' | 'ù' | 'û' | 'ü' => 'u',
-            'ç' => 'c',
-            'ñ' => 'n',
-            outro => outro,
-        })
-        .collect()
-}
-
 /// Tomadores cujo nome contém o termo ou cujo documento começa com ele (termo vazio: todos). O
 /// filtro é feito aqui porque o `LIKE ... COLLATE NOCASE` do SQLite só ignora maiúsculas ASCII, não
 /// acentos.
 fn casam_com_termo<'a>(linhas: &'a [SqliteRow], termo: &str) -> impl Iterator<Item = Resultado<TomadorVinculado>> + 'a {
     let termo = termo.trim();
-    let nome_buscado = sem_acentos(termo);
+    let nome_buscado = sem_acento_minusculo(termo);
     let so_documento: String = termo
         .chars()
         .filter(|c| c.is_ascii_alphanumeric())
@@ -182,7 +165,7 @@ fn casam_com_termo<'a>(linhas: &'a [SqliteRow], termo: &str) -> impl Iterator<It
         let Ok(t) = t else { return true }; // o erro segue adiante
         let (_, documento) = tipo_e_numero(&t.tomador.documento);
         let casa_documento = !so_documento.is_empty() && documento.starts_with(&so_documento);
-        casa_documento || sem_acentos(&t.tomador.nome).contains(&nome_buscado)
+        casa_documento || sem_acento_minusculo(&t.tomador.nome).contains(&nome_buscado)
     })
 }
 
