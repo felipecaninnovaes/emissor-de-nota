@@ -25,3 +25,27 @@ allow = [
     "Zlib",
 ]
 confidence-threshold = 0.9
+
+[advisories]
+version = 2
+# Crate sem manutenção só barra o CI quando é dependência direta; as transitivas (Tauri, GTK,
+# zbus) ficam a cargo de quem as puxa.
+unmaintained = "workspace"
+ignore = [
+    # Marvin (canal lateral de tempo na decifração RSA), sem correção publicada. O projeto só
+    # assina a DPS localmente e não decifra nada que venha de fora, então o ataque não se aplica.
+    { id = "RUSTSEC-2023-0071", reason = "só assinatura local; sem decifração remota a medir" },
+    # SQLite anterior à 3.54 com um `-wal` forjado. O sqlx 0.8 fixa o libsqlite3-sys 0.30, e mesmo o
+    # 0.39 traz o SQLCipher afetado. O banco fica na pasta de dados do usuário, cifrado: quem
+    # consegue plantar o `-wal` ali já tem acesso local à máquina.
+    { id = "RUSTSEC-2026-0459", reason = "local; sqlx 0.8 fixa o libsqlite3-sys e o SQLCipher corrigido não saiu" },
+    # zip 4 do tauri-plugin-updater: os alertas são em `extract()`, e o atualizador só abre o
+    # pacote depois de conferir a assinatura com a chave pública embutida no app.
+    { id = "RUSTSEC-2026-0367", reason = "zip do updater; pacote assinado antes de extrair" },
+    { id = "RUSTSEC-2026-0368", reason = "zip do updater; pacote assinado antes de extrair" },
+    { id = "RUSTSEC-2026-0369", reason = "zip do updater; pacote assinado antes de extrair" },
+    { id = "RUSTSEC-2026-0429", reason = "zip do updater; pacote assinado antes de extrair" },
+    # ttf-parser sem manutenção e sem substituto direto (o krilla ainda usa o mesmo crate). O
+    # nfse-pdf só lê as fontes do sistema operacional; a troca pelo skrifa fica para depois.
+    { id = "RUSTSEC-2026-0192", reason = "só lê fontes do sistema; troca pelo skrifa pendente" },
+]
