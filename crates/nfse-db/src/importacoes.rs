@@ -40,7 +40,7 @@ impl Banco {
         linha: Option<i64>,
         dps_id: i64,
     ) -> Resultado<()> {
-        let mut tx = self.pool().begin().await?;
+        let mut tx = self.transacao().await?;
         let ocupado: Option<String> = sqlx::query(
             "SELECT d.situacao FROM emissao_importada ei JOIN dps d ON d.id = ei.dps_id
              WHERE ei.chave = ? AND ei.dps_id <> ? AND d.situacao NOT IN ('rejeitada', 'cancelada') LIMIT 1",

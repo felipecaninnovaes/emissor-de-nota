@@ -199,7 +199,7 @@ impl Banco {
     /// Cria ou atualiza a pessoa pelo documento e garante o vínculo com a empresa.
     /// `fonte` registra de onde vieram os dados (ex.: "manual", "brasilapi").
     pub async fn salvar_tomador(&self, empresa_id: i64, t: &Tomador, fonte: &str) -> Resultado<i64> {
-        let mut tx = self.pool().begin().await?;
+        let mut tx = self.transacao().await?;
         let pessoa_id = gravar_tomador(&mut tx, empresa_id, t, fonte).await?;
         tx.commit().await?;
         Ok(pessoa_id)
@@ -214,7 +214,7 @@ impl Banco {
         emails: Option<&str>,
         retencao: RetencaoDoVinculo,
     ) -> Resultado<i64> {
-        let mut tx = self.pool().begin().await?;
+        let mut tx = self.transacao().await?;
         let pessoa_id = gravar_tomador(&mut tx, empresa_id, t, fonte).await?;
         sqlx::query(
             "UPDATE empresa_tomador SET emails = ?, observacao = NULL, retem_federais = ?, retem_iss = ?, tipo = ?
@@ -478,7 +478,7 @@ impl Banco {
         itens: &[TomadorImportado],
     ) -> Resultado<ResumoImportacaoTomadores> {
         let mut resumo = ResumoImportacaoTomadores::default();
-        let mut tx = self.pool().begin().await?;
+        let mut tx = self.transacao().await?;
         for it in itens {
             let (_, documento) = tipo_e_numero(&it.tomador.documento);
             let anterior = sqlx::query(&format!("{SELECT_PESSOA} WHERE p.documento = ?"))

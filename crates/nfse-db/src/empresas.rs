@@ -175,7 +175,7 @@ impl Banco {
     pub async fn cadastrar_empresa(&self, nova: &NovaEmpresa) -> Resultado<Empresa> {
         validar(nova)?;
 
-        let mut tx = self.pool().begin().await?;
+        let mut tx = self.transacao().await?;
         let agora = agora();
         let pessoa_id: i64 = sqlx::query(
             "INSERT INTO pessoa (tipo, documento, nome, telefone, email, atualizado_em) VALUES ('cnpj', ?, ?, ?, ?, ?)
@@ -272,7 +272,7 @@ impl Banco {
         }
         let muda_emissao = atual.ambiente != dados.ambiente || atual.serie != dados.serie;
         // A conferência vai na mesma transação da troca: uma emissão não começa entre as duas.
-        let mut tx = self.pool().begin().await?;
+        let mut tx = self.transacao().await?;
         if muda_emissao && envios_pendentes(&mut tx, id).await? > 0 {
             return Err(ErroBanco::Regra(
                 "há envio sem resposta da Sefin; verifique-o antes de trocar ambiente ou série".into(),
@@ -322,7 +322,7 @@ impl Banco {
     /// notas são documento fiscal e continuam no banco. Recusa se houver envio sem resposta.
     pub async fn excluir_empresa(&self, id: i64) -> Resultado<Exclusao> {
         let empresa = self.empresa(id).await?;
-        let mut tx = self.pool().begin().await?;
+        let mut tx = self.transacao().await?;
         if envios_pendentes(&mut tx, id).await? > 0 {
             return Err(ErroBanco::Regra(
                 "há envio sem resposta da Sefin para esta empresa; verifique-o antes de excluir".into(),
@@ -425,7 +425,7 @@ impl Banco {
             &contexto_certificado(empresa_id, &info.thumbprint, "senha"),
         )?;
 
-        let mut tx = self.pool().begin().await?;
+        let mut tx = self.transacao().await?;
         sqlx::query("UPDATE certificado SET ativo = 0 WHERE empresa_id = ?")
             .bind(empresa_id)
             .execute(&mut *tx)

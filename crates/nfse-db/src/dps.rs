@@ -149,7 +149,7 @@ impl Banco {
     /// Reserva o próximo número da série da empresa no ambiente configurado e cria a DPS.
     pub async fn reservar_dps(&self, empresa_id: i64) -> Resultado<RegistroDps> {
         // A empresa é lida na transação da reserva: uma troca de ambiente ou série não entra no meio.
-        let mut tx = self.pool().begin().await?;
+        let mut tx = self.transacao().await?;
         let empresa = empresa_em(&mut tx, empresa_id).await?;
         if empresa.conferir_numeracao {
             return Err(ErroBanco::Regra(
@@ -225,7 +225,7 @@ impl Banco {
             return Err(ErroBanco::Regra("número da DPS fora da faixa".into()));
         }
         // Conferência e ajuste na mesma transação: uma reserva não entra entre os dois.
-        let mut tx = self.pool().begin().await?;
+        let mut tx = self.transacao().await?;
         let maior: Option<i64> =
             sqlx::query("SELECT MAX(numero) FROM dps WHERE empresa_id = ? AND ambiente = ? AND serie = ?")
                 .bind(empresa_id)
@@ -262,7 +262,7 @@ impl Banco {
 
     /// A numeração da empresa foi conferida na Sefin: libera a reserva de número da empresa importada.
     pub async fn marcar_numeracao_conferida(&self, empresa_id: i64) -> Resultado<()> {
-        let mut tx = self.pool().begin().await?;
+        let mut tx = self.transacao().await?;
         let marcada = sqlx::query("UPDATE empresa SET conferir_numeracao = 0 WHERE id = ? AND conferir_numeracao = 1")
             .bind(empresa_id)
             .execute(&mut *tx)
@@ -278,7 +278,7 @@ impl Banco {
     /// Depois de restaurar um backup, a numeração gravada pode estar atrás da Sefin (notas emitidas
     /// depois do backup): todas as empresas passam a exigir a conferência antes da próxima reserva.
     pub async fn exigir_conferencia_de_numeracao(&self) -> Resultado<()> {
-        let mut tx = self.pool().begin().await?;
+        let mut tx = self.transacao().await?;
         sqlx::query("UPDATE empresa SET conferir_numeracao = 1")
             .execute(&mut *tx)
             .await?;
@@ -480,7 +480,7 @@ impl Banco {
     /// nada mais pode falhar (a nota já existe na Sefin). Se a DPS substitui outra nota (`subst`),
     /// a original passa a `substituida` na mesma transação: a Sefin a cancela ao autorizar esta.
     pub async fn registrar_autorizacao(&self, dps_id: i64, nfse: &NfseRecebida) -> Resultado<NfseGravada> {
-        let mut tx = self.pool().begin().await?;
+        let mut tx = self.transacao().await?;
         let agora = agora();
         let linha = sqlx::query(
             "UPDATE dps SET situacao = 'autorizada', ultimo_erro = NULL, atualizado_em = ?
@@ -636,7 +636,7 @@ impl Banco {
     /// Registra o evento de cancelamento homologado e marca a DPS como cancelada, na mesma transação.
     pub async fn registrar_cancelamento(&self, nfse_id: i64, xml_evento: &str) -> Resultado<()> {
         let nfse = self.nfse(nfse_id).await?;
-        let mut tx = self.pool().begin().await?;
+        let mut tx = self.transacao().await?;
         let agora = agora();
         let Some(linha) = sqlx::query(
             "UPDATE dps SET situacao = 'cancelada', atualizado_em = ?

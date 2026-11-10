@@ -201,7 +201,7 @@ impl Banco {
             .filter_map(|s| Some((chave_nome(&s.nome), s.id?)))
             .collect();
         let mut resumo = ResumoImportacaoServicos::default();
-        let mut tx = self.pool().begin().await?;
+        let mut tx = self.transacao().await?;
         for s in servicos {
             let chave = chave_nome(&s.nome);
             let id = existentes.get(&chave).copied();

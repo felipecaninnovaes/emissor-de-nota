@@ -223,7 +223,7 @@ impl Banco {
     /// ou em andamento (a verificação e a gravação são atômicas).
     pub async fn registrar_emissao_recorrente(&self, recorrencia_id: i64, mes: &str, dps_id: i64) -> Resultado<()> {
         mes_valido(mes)?;
-        let mut tx = self.pool().begin().await?;
+        let mut tx = self.transacao().await?;
         let ocupado: Option<String> = sqlx::query(
             "SELECT d.situacao FROM emissao_recorrente er JOIN dps d ON d.id = er.dps_id
              WHERE er.recorrencia_id = ? AND er.mes_referencia = ? AND er.dps_id <> ?

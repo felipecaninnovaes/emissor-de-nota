@@ -98,6 +98,13 @@ impl Banco {
         &self.pool
     }
 
+    /// Transação que já começa com a trava de escrita (`BEGIN IMMEDIATE`). Com `DEFERRED`, a que lê
+    /// e depois grava falha com `SQLITE_BUSY` se outra conexão gravar no meio, sem esperar o
+    /// `busy_timeout`.
+    pub(crate) async fn transacao(&self) -> Resultado<sqlx::Transaction<'static, sqlx::Sqlite>> {
+        Ok(self.pool.begin_with("BEGIN IMMEDIATE").await?)
+    }
+
     /// Preferência gravada no banco (ex.: pasta de saída).
     pub async fn configuracao(&self, chave: &str) -> Resultado<Option<String>> {
         Ok(sqlx::query("SELECT valor FROM configuracao WHERE chave = ?")
@@ -285,6 +292,40 @@ mod testes {
             .expect("não pode abrir");
         assert!(erro.to_string().contains("emissor.db"), "{erro}");
         assert!(!caminho.exists(), "não cria banco vazio");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn transacao_imediata_espera_a_outra_gravar() {
+        let dir = pasta_temp("imediata");
+        let (banco, _) = Banco::criar_protegido_rapido(dir.join("emissor.db"), "senha-mestra")
+            .await
+            .unwrap();
+        // Duas transações que leem e depois gravam: com DEFERRED, a segunda falharia com SQLITE_BUSY.
+        let tarefas: Vec<_> = (0..4)
+            .map(|i| {
+                let banco = banco.clone();
+                tokio::spawn(async move {
+                    let mut tx = banco.transacao().await?;
+                    let n: i64 = sqlx::query("SELECT count(*) FROM configuracao")
+                        .fetch_one(&mut *tx)
+                        .await?
+                        .get(0);
+                    tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                    sqlx::query("INSERT INTO configuracao (chave, valor) VALUES (?, ?)")
+                        .bind(format!("t{i}"))
+                        .bind(n.to_string())
+                        .execute(&mut *tx)
+                        .await?;
+                    tx.commit().await?;
+                    Ok::<_, ErroBanco>(())
+                })
+            })
+            .collect();
+        for t in tarefas {
+            t.await.unwrap().unwrap();
+        }
+        banco.fechar().await;
         let _ = std::fs::remove_dir_all(&dir);
     }
 

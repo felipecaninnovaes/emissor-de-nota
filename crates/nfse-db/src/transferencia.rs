@@ -324,7 +324,7 @@ impl Banco {
             validadas.push((*e, nova, servicos));
         }
 
-        let mut tx = self.pool().begin().await?;
+        let mut tx = self.transacao().await?;
         let mut resumos = Vec::new();
         for (e, nova, servicos) in validadas {
             let mut resumo = ResumoImportacaoEmpresa {
