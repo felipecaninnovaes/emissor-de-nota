@@ -39,6 +39,22 @@ No Linux e no macOS, o ambiente vem do Devbox (`devbox run setup`, `up`, `test`,
 - **Número da versão** (semver): só correção, sem comportamento novo → patch (`1.8.1` → `1.8.2`); funcionalidade nova ou mudança de leiaute ou de regra fiscal → minor (`1.8.1` → `1.9.0`); migração de banco → no mínimo minor. Major só por decisão do usuário.
 - **Versão e release:** a tag `vX.Y.Z` precisa bater com `version` em `crates/app/Cargo.toml` (e o `Cargo.lock`); ver [docs/deploy.md](docs/deploy.md). Só faça o bump e a tag quando pedido, e então: (1) suba a `version` e atualize o `Cargo.lock`; (2) no [CHANGELOG.md](CHANGELOG.md), renomeie `## Não publicado` para `## X.Y.Z`, confira com `git log vANTERIOR..HEAD` se falta alguma alteração, escreva a frase de resumo da versão (com a menção à mudança de esquema do banco), acrescente a data na frase de abertura e deixe uma seção `## Não publicado` vazia no topo; (3) commit `Versão X.Y.Z`; (4) tag anotada com a descrição das alterações (`git tag -a vX.Y.Z -F <arquivo>`, título `Versão X.Y.Z` e, abaixo, o texto da seção do changelog). Envie a tag só com confirmação.
 
+## Convenções de código
+
+O padrão de cada assunto, para não criar variações novas. Código antigo que ainda não segue um item é corrigido quando alguém mexer nele.
+
+- **Validação do pedido de emissão:** só em `Emissor::validar` (`nfse-emissor`). A emissão e as prévias do app (Emitir, planilha, lote) usam essa função; não copie a conferência para o app.
+- **Regras fiscais:** ficam no backend (`nfse-core`, `nfse-emissor`). A interface recebe o resultado e só exibe; listas de códigos e cálculos não são repetidos em JS.
+- **Tipos entre crates:** os do `nfse-core` (`Ambiente`, `DpsId`, `Valor`, datas `NaiveDate`) em todas as fronteiras, não `&str` nem um enum paralelo.
+- **XML:** um gerador e um escape só, em `nfse-xml`; nada de XML montado com `format!`.
+- **Utilitários:** no crate mais baixo que precisa deles, importados pelos outros (`nfse_core::texto` para texto, por exemplo); não copie a função.
+- **Erros:** `thiserror` nos crates do núcleo e `String` só na fronteira do IPC e no servidor. Erro de arquivo não vai em `ErroBanco::Regra`. Erro descartado (`let _ =`, `.ok()`) só com comentário dizendo por quê.
+- **Enums em texto:** `como_texto()` e `FromStr`.
+- **Datas gravadas no banco:** sempre `agora()` (RFC 3339 em UTC com `Z`), para a comparação como texto valer.
+- **Comando que usa o cofre:** `emissor!` quando precisa do emissor; `exigir_cofre` + `estado.banco()` quando só lê ou grava o banco. Todo comando que toca dados usa um dos dois.
+- **Chamadas da interface:** sempre `chamar` (com o tratamento de erro dele); `invoke` direto só onde o erro é ignorado de propósito, com comentário.
+- **Funções longas:** acima de ~140 linhas (contagem do clippy), divida por etapa ao mexer.
+
 ## Armadilhas
 
 - `crates/graft/` é cache de ferramenta, sem `Cargo.toml`; está excluída do workspace.
