@@ -39,6 +39,7 @@ fn estado(pool: PgPool, manter_backups: i64, tamanho_maximo: u64) -> Compartilha
             tamanho_maximo,
             url_publica: Some(ORIGEM.into()),
             cookie_seguro: true,
+            proxies_confiaveis: Vec::new(),
         },
         tentativas: Mutex::default(),
     })

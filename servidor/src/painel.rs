@@ -1,6 +1,7 @@
 //! Painel do administrador: login, clientes, tokens e backups. HTML gerado no servidor, sem JavaScript.
 
-use std::net::SocketAddr;
+use std::collections::HashMap;
+use std::net::{IpAddr, SocketAddr};
 use std::time::{Duration, Instant};
 
 use askama::Template;
@@ -22,7 +23,44 @@ const COOKIE: &str = "sessao";
 const DURACAO_SESSAO: chrono::Duration = chrono::Duration::hours(12);
 /// Tentativas de login erradas aceitas por origem dentro de [`JANELA_TENTATIVAS`].
 const MAXIMO_TENTATIVAS: u32 = 5;
+/// Tentativas erradas aceitas de todas as origens juntas na janela: contra quem troca de IP a cada
+/// tentativa (e para o mapa de origens não crescer sem limite).
+const MAXIMO_TENTATIVAS_GLOBAL: u32 = 50;
 const JANELA_TENTATIVAS: Duration = Duration::from_secs(15 * 60);
+
+/// Contagem das tentativas de login. A tentativa é contada **antes** de conferir a senha, na mesma
+/// seção crítica que confere o limite: pedidos em paralelo não passam todos pela conferência antes
+/// de algum ser contado. O login certo devolve a tentativa.
+#[derive(Default)]
+pub struct Tentativas {
+    por_origem: HashMap<String, (u32, Instant)>,
+    global: Option<(u32, Instant)>,
+}
+
+impl Tentativas {
+    /// Conta uma tentativa de `origem`; `false` se a origem ou o total já chegaram ao limite.
+    pub fn reservar(&mut self, origem: &str, agora: Instant) -> bool {
+        let vale = |inicio: &Instant| agora.duration_since(*inicio) < JANELA_TENTATIVAS;
+        self.por_origem.retain(|_, (_, inicio)| vale(inicio));
+        self.global = self.global.filter(|(_, inicio)| vale(inicio));
+        let da_origem = self.por_origem.get(origem).map_or(0, |(n, _)| *n);
+        let total = self.global.map_or(0, |(n, _)| n);
+        if da_origem >= MAXIMO_TENTATIVAS || total >= MAXIMO_TENTATIVAS_GLOBAL {
+            return false;
+        }
+        self.por_origem.entry(origem.to_owned()).or_insert((0, agora)).0 += 1;
+        self.global.get_or_insert((0, agora)).0 += 1;
+        true
+    }
+
+    /// Login certo: zera a origem e devolve ao total a tentativa reservada.
+    pub fn sucesso(&mut self, origem: &str) {
+        self.por_origem.remove(origem);
+        if let Some((n, _)) = &mut self.global {
+            *n = n.saturating_sub(1);
+        }
+    }
+}
 
 pub fn rotas(estado: Compartilhado) -> Router<Compartilhado> {
     Router::new()
@@ -152,25 +190,47 @@ impl FromRequestParts<Compartilhado> for Admin {
     }
 }
 
-/// Quem está tentando entrar: o primeiro `X-Forwarded-For` (atrás do proxy) ou o endereço da conexão.
+/// Quem está tentando entrar (ver [`origem_do_login`]).
 struct Origem(String);
 
-impl<S: Send + Sync> FromRequestParts<S> for Origem {
+impl FromRequestParts<Compartilhado> for Origem {
     type Rejection = std::convert::Infallible;
 
-    async fn from_request_parts(parts: &mut Parts, _: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut Parts, estado: &Compartilhado) -> Result<Self, Self::Rejection> {
         let encaminhado = parts
             .headers
-            .get("x-forwarded-for")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.split(',').next())
-            .map(|v| v.trim().to_owned());
-        let conexao = parts
-            .extensions
-            .get::<ConnectInfo<SocketAddr>>()
-            .map(|c| c.0.ip().to_string());
-        Ok(Origem(encaminhado.or(conexao).unwrap_or_default()))
+            .get_all("x-forwarded-for")
+            .iter()
+            .filter_map(|v| v.to_str().ok())
+            .collect::<Vec<_>>()
+            .join(",");
+        let conexao = parts.extensions.get::<ConnectInfo<SocketAddr>>().map(|c| c.0.ip());
+        Ok(Origem(
+            origem_do_login(conexao, &encaminhado, &estado.config.proxies_confiaveis)
+                .map(|ip| ip.to_string())
+                .unwrap_or_default(),
+        ))
     }
+}
+
+/// O IP da conexão, a menos que ela venha de um proxy confiável: aí vale o `X-Forwarded-For`, lido
+/// da direita para a esquerda (cada proxy acrescenta no fim), e o primeiro endereço que não é de
+/// proxy confiável é o do cliente. O que vem à esquerda dele foi escrito pelo próprio cliente e não
+/// vale. Um item que não é IP encerra a leitura no último proxy confiável.
+pub fn origem_do_login(conexao: Option<IpAddr>, encaminhado: &str, confiaveis: &[ipnet::IpNet]) -> Option<IpAddr> {
+    let confiavel = |ip: &IpAddr| confiaveis.iter().any(|rede| rede.contains(ip));
+    let mut atual = conexao?;
+    if !confiavel(&atual) {
+        return Some(atual);
+    }
+    for item in encaminhado.rsplit(',').map(str::trim).filter(|i| !i.is_empty()) {
+        let Ok(ip) = item.parse::<IpAddr>() else { break };
+        atual = ip;
+        if !confiavel(&ip) {
+            break;
+        }
+    }
+    Some(atual)
 }
 
 // ---------- templates ----------
@@ -287,12 +347,12 @@ async fn entrar(
     Origem(origem): Origem,
     Form(dados): Form<DadosLogin>,
 ) -> Result<Response, ErroPainel> {
-    let bloqueado = {
-        let mut t = estado.tentativas.lock().expect("trava das tentativas");
-        t.retain(|_, (_, inicio)| inicio.elapsed() < JANELA_TENTATIVAS);
-        t.get(&origem).is_some_and(|(n, _)| *n >= MAXIMO_TENTATIVAS)
-    };
-    if bloqueado {
+    let liberado = estado
+        .tentativas
+        .lock()
+        .expect("trava das tentativas")
+        .reservar(&origem, Instant::now());
+    if !liberado {
         let html = pagina(Login {
             titulo: "Entrar",
             logado: false,
@@ -303,13 +363,6 @@ async fn entrar(
     // A senha é conferida mesmo com usuário errado, para o tempo de resposta não revelar o usuário.
     let senha_ok = senha_confere(&estado.config.admin_senha_hash, &dados.senha);
     if !(senha_ok && dados.usuario.trim() == estado.config.admin_usuario) {
-        estado
-            .tentativas
-            .lock()
-            .expect("trava das tentativas")
-            .entry(origem.clone())
-            .or_insert((0, Instant::now()))
-            .0 += 1;
         tracing::warn!(origem, "login recusado");
         let html = pagina(Login {
             titulo: "Entrar",
@@ -318,7 +371,7 @@ async fn entrar(
         })?;
         return Ok((StatusCode::UNAUTHORIZED, html).into_response());
     }
-    estado.tentativas.lock().expect("trava das tentativas").remove(&origem);
+    estado.tentativas.lock().expect("trava das tentativas").sucesso(&origem);
     let id = token::aleatorio();
     banco::criar_sessao(&estado.banco, &token::hash(&id), Utc::now() + DURACAO_SESSAO)
         .await
@@ -637,5 +690,84 @@ mod testes {
         h.insert(header::COOKIE, HeaderValue::from_static("a=1; sessao=abc; b=2"));
         assert_eq!(ler_cookie(&h, "sessao"), Some("abc"));
         assert_eq!(ler_cookie(&h, "c"), None);
+    }
+}
+
+#[cfg(test)]
+mod testes_origem {
+    use super::*;
+    use crate::config::{PROXIES_PADRAO, ler_proxies};
+
+    fn ip(s: &str) -> Option<IpAddr> {
+        Some(s.parse().unwrap())
+    }
+
+    #[test]
+    fn origem_vem_do_proxy_confiavel_e_nao_do_cliente() {
+        let confiaveis = ler_proxies(PROXIES_PADRAO).unwrap();
+        // Direto, sem proxy: o X-Forwarded-For é do cliente e não vale.
+        assert_eq!(
+            origem_do_login(ip("203.0.113.9"), "1.1.1.1", &confiaveis),
+            ip("203.0.113.9")
+        );
+        // Pelo Caddy do compose (rede do Docker): vale o que o proxy acrescentou no fim.
+        assert_eq!(
+            origem_do_login(ip("172.18.0.5"), "203.0.113.9", &confiaveis),
+            ip("203.0.113.9")
+        );
+        // O cliente forja um X-Forwarded-For; o proxy acrescenta o IP real no fim.
+        assert_eq!(
+            origem_do_login(ip("172.18.0.5"), "1.1.1.1, 203.0.113.9", &confiaveis),
+            ip("203.0.113.9")
+        );
+        // Dois proxies confiáveis em fila (Nginx da VPS, gateway do Docker).
+        assert_eq!(
+            origem_do_login(ip("172.17.0.1"), "203.0.113.9, 127.0.0.1", &confiaveis),
+            ip("203.0.113.9")
+        );
+        // Lixo no cabeçalho: para no último proxy confiável.
+        assert_eq!(
+            origem_do_login(ip("172.18.0.5"), "x, nao-e-ip", &confiaveis),
+            ip("172.18.0.5")
+        );
+        // Sem proxies confiáveis, só a conexão.
+        assert_eq!(origem_do_login(ip("172.18.0.5"), "203.0.113.9", &[]), ip("172.18.0.5"));
+        assert_eq!(origem_do_login(None, "203.0.113.9", &confiaveis), None);
+    }
+
+    #[test]
+    fn proxies_confiaveis_da_configuracao() {
+        assert_eq!(ler_proxies("nenhum").unwrap(), vec![]);
+        assert_eq!(ler_proxies("10.0.0.1, 192.168.0.0/16").unwrap().len(), 2);
+        assert!(ler_proxies("10.0.0.0/33").is_err());
+        assert!(ler_proxies("proxy.local").is_err());
+    }
+
+    #[test]
+    fn tentativas_contadas_antes_de_conferir() {
+        let agora = Instant::now();
+        let mut t = Tentativas::default();
+        for _ in 0..MAXIMO_TENTATIVAS {
+            assert!(t.reservar("a", agora));
+        }
+        assert!(!t.reservar("a", agora), "a sexta já é recusada, sem conferir a senha");
+        assert!(t.reservar("b", agora), "outra origem segue");
+        t.sucesso("b");
+        assert!(
+            !t.reservar("a", agora + JANELA_TENTATIVAS - Duration::from_secs(1)),
+            "dentro da janela"
+        );
+        assert!(t.reservar("a", agora + JANELA_TENTATIVAS), "a janela passou");
+    }
+
+    #[test]
+    fn limite_global_contra_quem_troca_de_ip() {
+        let agora = Instant::now();
+        let mut t = Tentativas::default();
+        for i in 0..MAXIMO_TENTATIVAS_GLOBAL {
+            assert!(t.reservar(&format!("origem-{i}"), agora));
+        }
+        assert!(!t.reservar("origem-nova", agora));
+        assert!(t.reservar("origem-nova", agora + JANELA_TENTATIVAS));
     }
 }

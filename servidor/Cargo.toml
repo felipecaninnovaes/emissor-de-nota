@@ -19,6 +19,7 @@ bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std", "serde"] }
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 hex = "0.4"
+ipnet = "2"
 rand = "0.9"
 reqwest = { version = "0.13", default-features = false, features = ["stream"] }
 rusty-s3 = "0.11"

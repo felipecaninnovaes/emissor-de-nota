@@ -11,10 +11,9 @@ mod token;
 #[cfg(test)]
 mod testes;
 
-use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use axum::Router;
 use axum::http::header;
@@ -29,8 +28,8 @@ pub struct Estado {
     pub banco: PgPool,
     pub armazenamento: Armazenamento,
     pub config: Config,
-    /// Tentativas de login erradas por origem: (quantas, início da janela).
-    pub tentativas: Mutex<HashMap<String, (u32, Instant)>>,
+    /// Tentativas de login erradas, por origem e no total.
+    pub tentativas: Mutex<painel::Tentativas>,
 }
 
 pub type Compartilhado = Arc<Estado>;

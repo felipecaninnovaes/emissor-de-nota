@@ -18,6 +18,30 @@ pub struct Config {
     pub url_publica: Option<String>,
     /// `false` só para testar em `http://` local: o navegador não manda cookie `Secure` sem HTTPS.
     pub cookie_seguro: bool,
+    /// Redes dos proxies reversos cujo `X-Forwarded-For` vale para saber quem tenta entrar no painel.
+    pub proxies_confiaveis: Vec<ipnet::IpNet>,
+}
+
+/// Padrão de `PROXIES_CONFIAVEIS`: loopback e redes privadas. O painel só escuta em 127.0.0.1 na
+/// VPS (compose), então toda conexão chega pelo proxy: o Caddy do compose (rede do Docker) ou um
+/// Nginx/Traefik da própria máquina (gateway do Docker).
+pub const PROXIES_PADRAO: &str = "127.0.0.0/8,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7";
+
+/// Lista de redes separadas por vírgula; `nenhum` não confia em proxy algum (só o IP da conexão).
+pub fn ler_proxies(texto: &str) -> Result<Vec<ipnet::IpNet>, String> {
+    if texto.trim().eq_ignore_ascii_case("nenhum") {
+        return Ok(Vec::new());
+    }
+    texto
+        .split(',')
+        .map(str::trim)
+        .filter(|r| !r.is_empty())
+        .map(|r| {
+            r.parse::<ipnet::IpNet>()
+                .or_else(|_| r.parse::<std::net::IpAddr>().map(ipnet::IpNet::from))
+                .map_err(|_| format!("PROXIES_CONFIAVEIS: \"{r}\" não é um IP nem uma rede (ex.: 172.16.0.0/12)"))
+        })
+        .collect()
 }
 
 pub struct ConfigS3 {
@@ -88,6 +112,7 @@ impl Config {
                 .map(|u| u.trim().trim_end_matches('/').to_owned())
                 .filter(|u| !u.is_empty()),
             cookie_seguro: opcional("COOKIE_SEGURO", "true") != "false",
+            proxies_confiaveis: ler_proxies(&opcional("PROXIES_CONFIAVEIS", PROXIES_PADRAO))?,
         })
     }
 }

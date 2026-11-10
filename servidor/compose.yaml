@@ -19,6 +19,7 @@ services:
       MANTER_BACKUPS: ${MANTER_BACKUPS:-30}
       TAMANHO_MAXIMO_MB: ${TAMANHO_MAXIMO_MB:-500}
       COOKIE_SEGURO: ${COOKIE_SEGURO:-true}
+      PROXIES_CONFIAVEIS: ${PROXIES_CONFIAVEIS:-}
     # Só na própria VPS: quem publica para fora é o proxy reverso (o Caddy abaixo ou o seu).
     ports:
       - "127.0.0.1:${PORTA_PAINEL:-8080}:8080"

@@ -477,6 +477,7 @@ dependencies = [
  "futures-util",
  "hex",
  "http-body-util",
+ "ipnet",
  "rand 0.9.5",
  "reqwest",
  "rusty-s3",
