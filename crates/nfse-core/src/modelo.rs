@@ -511,7 +511,13 @@ impl Dps {
         v.digitos("municipio_emissor", &self.municipio_emissor, 7, 7);
 
         if let Some(s) = &self.substituicao {
-            v.digitos("substituicao.chave_substituida", &s.chave_substituida, 50, 50);
+            // Como no cancelamento: a chave leva o CNPJ do emitente, que pode ter letras.
+            if !crate::dps::chave_de_acesso_valida(&s.chave_substituida) {
+                v.erro(
+                    "substituicao.chave_substituida",
+                    "deve ter 50 posições (números e letras maiúsculas)",
+                );
+            }
             if !["01", "02", "03", "04", "05", "99"].contains(&s.motivo.as_str()) {
                 v.erro("substituicao.motivo", "deve ser 01, 02, 03, 04, 05 ou 99");
             }

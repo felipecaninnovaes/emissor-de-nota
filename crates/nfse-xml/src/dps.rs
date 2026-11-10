@@ -407,6 +407,10 @@ mod testes {
             motivo: "99".into(),
             descricao_motivo: Some("Valor do serviço informado errado".into()),
         });
+        // Chave de NFS-e de emitente com CNPJ alfanumérico (posições 7 a 20).
+        let mut substituta_alfanumerica = substituta.clone();
+        substituta_alfanumerica.substituicao.as_mut().unwrap().chave_substituida =
+            "35111012ABC34501DE35000000000000126101234567890123".into();
         let mut substituta_sem_descricao = substituta.clone();
         substituta_sem_descricao.substituicao.as_mut().unwrap().motivo = "05".into();
         substituta_sem_descricao.substituicao.as_mut().unwrap().descricao_motivo = None;
@@ -493,6 +497,7 @@ mod testes {
             sem_tomador,
             fora_do_municipio,
             substituta,
+            substituta_alfanumerica,
             substituta_sem_descricao,
             retencoes_federais,
             irrf_dispensado,
