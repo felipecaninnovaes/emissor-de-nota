@@ -621,7 +621,10 @@ impl<C: Conector> Emissor<C> {
         if item.vincular_tomador
             && let Some(pessoa) = item.pessoa_id
         {
-            self.banco.vincular_tomador(pedido.empresa_id, pessoa).await?;
+            // Herda a retenção e o tipo do vínculo de outra empresa, como o vínculo feito na tela.
+            self.banco
+                .vincular_tomador_cadastrado(pedido.empresa_id, pessoa)
+                .await?;
         }
         self.emitir(&pedido).await
     }

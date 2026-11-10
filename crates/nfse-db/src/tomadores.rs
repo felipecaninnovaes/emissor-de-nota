@@ -447,13 +447,14 @@ impl Banco {
         filtrar_por_termo(&linhas, termo)
     }
 
-    /// Vincula a empresa a um tomador já cadastrado por outra. A retenção e o tipo vêm do vínculo
-    /// de outra empresa ([`retencao_de_outra_empresa`]), porque dependem do tomador; e-mails e
-    /// observação, não.
+    /// Vincula a empresa a um tomador já cadastrado por outra (pela tela ou pela planilha), se
+    /// ainda não estiver. A retenção e o tipo vêm do vínculo de outra empresa
+    /// ([`retencao_de_outra_empresa`]), porque dependem do tomador; e-mails e observação, não.
+    /// Pessoa sem vínculo em nenhuma outra empresa fica sem retenção, como tomador privado.
     pub async fn vincular_tomador_cadastrado(&self, empresa_id: i64, pessoa_id: i64) -> Resultado<TomadorVinculado> {
         let origem = retencao_de_outra_empresa(self.pool(), empresa_id, pessoa_id)
             .await?
-            .ok_or(ErroBanco::NaoEncontrado("tomador"))?;
+            .unwrap_or_default();
         sqlx::query(
             "INSERT INTO empresa_tomador (empresa_id, pessoa_id, retem_federais, retem_iss, tipo)
              VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING",

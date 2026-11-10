@@ -75,14 +75,4 @@ impl Banco {
             .await?
             .map(|r| r.get(0)))
     }
-
-    /// Vincula um tomador já cadastrado (por outra empresa) a esta empresa, se ainda não estiver.
-    pub async fn vincular_tomador(&self, empresa_id: i64, pessoa_id: i64) -> Resultado<()> {
-        sqlx::query("INSERT INTO empresa_tomador (empresa_id, pessoa_id) VALUES (?, ?) ON CONFLICT DO NOTHING")
-            .bind(empresa_id)
-            .bind(pessoa_id)
-            .execute(self.pool())
-            .await?;
-        Ok(())
-    }
 }

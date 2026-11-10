@@ -1193,6 +1193,74 @@ async fn planilha_emite_e_nao_repete_ao_reimportar() {
     assert_eq!(c.sefin.recebidos().len(), 2);
 }
 
+#[tokio::test]
+async fn planilha_vincula_tomador_herdando_retencao_e_tipo() {
+    let c = cenario(vec![Resposta::Emitir(Ok(nfse_autorizada()))]).await;
+    let banco = c.emissor.banco();
+    // Tomador cadastrado só pela empresa B, que marcou retenção e o tipo (município).
+    let outra = banco
+        .cadastrar_empresa(&NovaEmpresa {
+            cnpj: Cnpj::parse("33000167000101").unwrap(),
+            nome: "OUTRA EMPRESA LTDA".into(),
+            inscricao_municipal: None,
+            municipio_emissor: "3511102".into(),
+            regime: RegimeTributario {
+                simples: SituacaoSimples::MeEpp,
+                apuracao_simples: Some(ApuracaoSimples::TudoNoSimples),
+                regime_especial: 0,
+            },
+            ambiente: Ambiente::Producao,
+            serie: "1".into(),
+            telefone: None,
+            email: None,
+        })
+        .await
+        .unwrap();
+    let pessoa = banco
+        .salvar_tomador(
+            outra.id,
+            &Tomador {
+                documento: Documento::Cnpj(Cnpj::parse("11444777000161").unwrap()),
+                inscricao_municipal: None,
+                nome: "PREFEITURA EXEMPLO".into(),
+                endereco: None,
+                telefone: None,
+                email: None,
+            },
+            "manual",
+        )
+        .await
+        .unwrap();
+    let retencao = nfse_db::tomadores::RetencaoDoVinculo {
+        federais: true,
+        iss: true,
+        tipo: nfse_db::tomadores::TipoTomador::Municipal,
+    };
+    banco
+        .definir_retencao_tomador(outra.id, pessoa, retencao)
+        .await
+        .unwrap();
+
+    // A planilha da empresa A cita esse tomador: o vínculo novo herda a retenção e o tipo.
+    let csv = "Tomador;Valor;Descricao\r\n11.444.777/0001-61;150,00;CONSULTAS\r\n";
+    let linhas = crate::planilha::ler("convenio.csv", csv.as_bytes()).unwrap();
+    let setembro = NaiveDate::from_ymd_opt(2026, 9, 1).unwrap();
+    let itens = importacao::resolver(banco, &linhas, Some(c.pedido.empresa_id), setembro)
+        .await
+        .unwrap();
+    assert!(itens[0].emitivel(), "{:?}", itens[0].erros);
+    assert!(itens[0].vincular_tomador);
+    assert!(matches!(
+        c.emissor.emitir_importado(&itens[0], None).await.unwrap(),
+        ResultadoEmissao::Autorizada { .. }
+    ));
+    let v = banco.tomador(c.pedido.empresa_id, pessoa).await.unwrap();
+    assert_eq!(
+        (v.retem_federais, v.retem_iss, v.tipo),
+        (retencao.federais, retencao.iss, retencao.tipo)
+    );
+}
+
 /// Carteiro que guarda as mensagens em vez de enviar (ou falha, se pedido).
 #[derive(Default)]
 struct CarteiroTeste {
