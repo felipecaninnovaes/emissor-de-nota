@@ -182,6 +182,23 @@ async fn inativo_nao_envia_mas_restaura(pool: PgPool) {
 
 #[sqlx::test(migrations = "./migrations")]
 #[ignore = "requer Postgres (DATABASE_URL)"]
+async fn cabecalhos_de_seguranca_em_toda_resposta(pool: PgPool) {
+    let app = aplicacao(estado(pool, 30, 1 << 20));
+    for caminho in ["/login", "/estilo.css", "/api/v1/situacao"] {
+        let (_, cabecalhos, _) = chamar(&app, Request::get(caminho).body(Body::empty()).unwrap()).await;
+        assert_eq!(cabecalhos[header::X_CONTENT_TYPE_OPTIONS], "nosniff", "{caminho}");
+        assert_eq!(cabecalhos[header::CACHE_CONTROL], "no-store", "{caminho}");
+        assert!(
+            cabecalhos[header::CONTENT_SECURITY_POLICY]
+                .to_str()
+                .unwrap()
+                .contains("frame-ancestors 'none'")
+        );
+    }
+}
+
+#[sqlx::test(migrations = "./migrations")]
+#[ignore = "requer Postgres (DATABASE_URL)"]
 async fn retencao_apaga_os_mais_antigos(pool: PgPool) {
     let estado = estado(pool.clone(), 2, 1 << 20);
     let app = aplicacao(estado.clone());

@@ -16,7 +16,9 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use axum::Router;
-use axum::http::header;
+use axum::http::{HeaderValue, header};
+use axum::middleware;
+use axum::response::Response;
 use axum::routing::get;
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
@@ -45,7 +47,27 @@ pub fn aplicacao(estado: Compartilhado) -> Router {
         )
         .merge(api::rotas())
         .merge(painel::rotas(estado.clone()))
+        .layer(middleware::map_response(cabecalhos_de_seguranca))
         .with_state(estado)
+}
+
+/// Política da página: o painel não tem JavaScript, só a folha de estilo própria e formulários
+/// para o próprio servidor.
+const CSP: &str =
+    "default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+
+/// Cabeçalhos de segurança em toda resposta. `no-store`: a página do token recém-gerado e os
+/// downloads não podem ficar no cache do navegador nem de um proxy. O HSTS fica no proxy com
+/// HTTPS (o Caddyfile do compose já manda), porque o painel em si fala `http://`.
+async fn cabecalhos_de_seguranca(mut resposta: Response) -> Response {
+    let h = resposta.headers_mut();
+    h.insert(header::X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
+    h.insert(header::X_FRAME_OPTIONS, HeaderValue::from_static("DENY"));
+    h.insert(header::REFERRER_POLICY, HeaderValue::from_static("no-referrer"));
+    h.insert(header::CONTENT_SECURITY_POLICY, HeaderValue::from_static(CSP));
+    h.entry(header::CACHE_CONTROL)
+        .or_insert(HeaderValue::from_static("no-store"));
+    resposta
 }
 
 /// Tenta de novo enquanto o Postgres e o S3 do compose ainda estão subindo.

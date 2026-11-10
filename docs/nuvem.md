@@ -25,7 +25,7 @@ O aplicativo só fala com o painel. O backup chega já cifrado com a senha mestr
 
 Se o proxy não repassa o cabeçalho `Host` original, preencha `URL_PUBLICA`; sem ela, os formulários do painel são recusados como "de outra origem".
 
-Com proxy próprio, ele precisa acrescentar o IP do cliente no `X-Forwarded-For` (no Nginx, `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`). O limite de tentativas de login vale por IP do cliente: o painel só lê o `X-Forwarded-For` quando a conexão vem de `PROXIES_CONFIAVEIS` (por padrão, loopback e redes privadas, que é de onde o Caddy do compose e o proxy da própria VPS se conectam, já que o painel só escuta em `127.0.0.1`), e usa o último endereço que não é de proxy, não o primeiro, que o próprio cliente pode escrever. Além de 5 tentativas erradas por IP, há um teto de 50 no total a cada 15 minutos.
+Com proxy próprio, ele precisa acrescentar o IP do cliente no `X-Forwarded-For` (no Nginx, `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`) e mandar o HSTS (`Strict-Transport-Security`), que o Caddy do compose já manda. O limite de tentativas de login vale por IP do cliente: o painel só lê o `X-Forwarded-For` quando a conexão vem de `PROXIES_CONFIAVEIS` (por padrão, loopback e redes privadas, que é de onde o Caddy do compose e o proxy da própria VPS se conectam, já que o painel só escuta em `127.0.0.1`), e usa o último endereço que não é de proxy, não o primeiro, que o próprio cliente pode escrever. Além de 5 tentativas erradas por IP, há um teto de 50 no total a cada 15 minutos.
 
 ## Variáveis (`.env`)
 
