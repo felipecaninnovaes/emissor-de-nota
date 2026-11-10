@@ -320,17 +320,52 @@ impl<C: Conector> Emissor<C> {
         Ok((std::sync::Arc::new(cert), sefin))
     }
 
-    pub async fn emitir(&self, pedido: &PedidoEmissao) -> Result<ResultadoEmissao, ErroEmissao> {
+    /// Monta a DPS do pedido como ela sairia agora e lista o que impede a emissão, sem reservar
+    /// número nem falar com a Sefin. É a mesma conferência de [`Emissor::emitir`], usada também
+    /// pelas prévias do app (Emitir, planilha e lote): a prévia não passa e o envio falha. Fica de
+    /// fora a nota já emitida no mês (recorrência) ou na linha (planilha), que a emissão confere e
+    /// as telas mostram pela situação da tentativa anterior. `Err` só para falha do banco.
+    pub async fn validar(&self, pedido: &PedidoEmissao) -> Result<Validacao, ErroEmissao> {
         let empresa = self.banco.empresa(pedido.empresa_id).await?;
         let servico = self.banco.servico(pedido.servico_id).await?;
+        let mut regras = Vec::new();
         if servico.empresa_id != empresa.id {
-            return Err(ErroEmissao::Regra("o serviço escolhido é de outra empresa".into()));
+            regras.push("o serviço escolhido é de outra empresa".to_owned());
         }
         let tomador = match pedido.tomador {
             Some(id) => Some(self.banco.tomador(empresa.id, id).await?),
             None => None,
         };
+        let mut dps = montar_dps(&empresa, tomador.as_ref(), &servico, pedido, agora_brasilia());
+        if let Some(s) = &pedido.substituir {
+            match aplicar_substituicao(&self.banco, &empresa, s, &mut dps).await {
+                Ok(()) => {}
+                Err(ErroEmissao::Banco(e)) => return Err(e.into()),
+                Err(e) => regras.push(e.to_string()),
+            }
+        }
+        let desconhecidas = variaveis_desconhecidas(&dps.servico.descricao);
+        if !desconhecidas.is_empty() {
+            regras.push(texto_variaveis_desconhecidas(&desconhecidas));
+        }
+        if self.banco.certificado_resumo(empresa.id).await?.is_none() {
+            regras.push("a empresa não tem certificado digital importado".into());
+        }
+        dps.versao_aplicativo = self.versao_aplicativo.clone();
+        dps.leiaute = self.banco.leiaute_dps(empresa.ambiente).await?;
+        let dps_invalida = match nfse_xml::gerar_dps(&dps) {
+            Ok(_) => Vec::new(),
+            Err(nfse_xml::DpsInvalida(erros)) => erros,
+        };
+        Ok(Validacao {
+            dps,
+            empresa,
+            regras,
+            dps_invalida,
+        })
+    }
 
+    pub async fn emitir(&self, pedido: &PedidoEmissao) -> Result<ResultadoEmissao, ErroEmissao> {
         // Recorrência e planilha: não emite de novo o que já tem nota autorizada ou em andamento.
         let mes_recorrencia = match &pedido.origem {
             Origem::Recorrencia(_) => Some(
@@ -359,17 +394,15 @@ impl<C: Conector> Emissor<C> {
         }
 
         // Valida antes de reservar número: DPS inválida não gasta numeração.
-        let mut modelo = montar_dps(&empresa, tomador.as_ref(), &servico, pedido, agora_brasilia());
-        if let Some(s) = &pedido.substituir {
-            aplicar_substituicao(&self.banco, &empresa, s, &mut modelo).await?;
+        let validacao = self.validar(pedido).await?;
+        if let Some(erro) = validacao.impedimento() {
+            return Err(erro);
         }
-        let desconhecidas = variaveis_desconhecidas(&modelo.servico.descricao);
-        if !desconhecidas.is_empty() {
-            return Err(ErroEmissao::Regra(texto_variaveis_desconhecidas(&desconhecidas)));
-        }
-        modelo.versao_aplicativo = self.versao_aplicativo.clone();
-        modelo.leiaute = self.banco.leiaute_dps(empresa.ambiente).await?;
-        nfse_xml::gerar_dps(&modelo)?;
+        let Validacao {
+            dps: mut modelo,
+            empresa,
+            ..
+        } = validacao;
         tracing::info!(
             empresa = empresa.id,
             ambiente = ?empresa.ambiente,
@@ -680,6 +713,35 @@ impl<C: Conector> Emissor<C> {
                 .await?;
         }
         self.emitir(&pedido).await
+    }
+}
+
+/// Resultado de [`Emissor::validar`].
+#[derive(Debug)]
+pub struct Validacao {
+    /// A DPS como sairia agora (sem série e número, que vêm da reserva).
+    pub dps: nfse_core::Dps,
+    pub empresa: Empresa,
+    /// Impedimentos do emissor, na ordem em que a emissão os confere: serviço de outra empresa,
+    /// substituição, variáveis da descrição e certificado.
+    pub regras: Vec<String>,
+    /// Erros de preenchimento da DPS (`Dps::validar`, a mesma conferência de `gerar_dps`).
+    pub dps_invalida: Vec<String>,
+}
+
+impl Validacao {
+    /// Tudo o que impede a emissão, para a prévia.
+    pub fn erros(&self) -> Vec<String> {
+        self.dps_invalida.iter().chain(&self.regras).cloned().collect()
+    }
+
+    /// O erro que a emissão devolve: o primeiro impedimento do emissor, senão a DPS inválida.
+    fn impedimento(&self) -> Option<ErroEmissao> {
+        if let Some(regra) = self.regras.first() {
+            return Some(ErroEmissao::Regra(regra.clone()));
+        }
+        (!self.dps_invalida.is_empty())
+            .then(|| ErroEmissao::DpsInvalida(nfse_xml::DpsInvalida(self.dps_invalida.clone())))
     }
 }
 

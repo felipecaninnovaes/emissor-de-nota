@@ -62,7 +62,8 @@ pub async fn listar_recorrencias(
     empresa_id: Option<i64>,
     mes: String,
 ) -> R<Vec<RecorrenciaDto>> {
-    exigir_cofre(&estado).await?;
+    let guarda = emissor!(estado);
+    let emissor = guarda.as_ref().expect("verificado");
     let data = mes_de(&mes)?;
     let b = &estado.banco()?;
     let mut lista = Vec::new();
@@ -91,7 +92,7 @@ pub async fn listar_recorrencias(
                     origem: r.id.map(Origem::Recorrencia).unwrap_or_default(),
                     substituir: None,
                 };
-                match validar_pedido(b, &pedido).await {
+                match validar_pedido(emissor, &pedido).await {
                     Ok((_, _, e)) => erros.extend(e),
                     Err(e) => erros.push(e),
                 }
