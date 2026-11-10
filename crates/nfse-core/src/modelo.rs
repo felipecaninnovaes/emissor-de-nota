@@ -728,6 +728,11 @@ impl Validador {
         if s.chars().any(|c| c.is_control() && !matches!(c, '\n' | '\r' | '\t')) {
             self.erro(campo, "contém caractere de controle");
         }
+        // Fora da produção `Char` do XML 1.0: a DPS validaria e só quebraria na assinatura, depois
+        // de reservar o número.
+        if s.chars().any(|c| matches!(c, '\u{FFFE}' | '\u{FFFF}')) {
+            self.erro(campo, "contém caractere inválido (U+FFFE ou U+FFFF)");
+        }
     }
 
     fn opcional_texto(&mut self, campo: &str, s: &Option<String>, min: usize, max: usize) {
@@ -850,6 +855,16 @@ pub(crate) mod testes {
         assert!(!erro(&dps), "{:?}", dps.validar());
         dps.tomador.as_mut().unwrap().documento = Documento::Cpf(Cpf::parse("52998224725").unwrap());
         assert!(erro(&dps));
+    }
+
+    #[test]
+    fn nao_caracteres_do_xml_sao_recusados() {
+        for c in ['\u{FFFE}', '\u{FFFF}'] {
+            let mut dps = dps_exemplo();
+            dps.servico.descricao = format!("Consultoria{c}");
+            let erros = dps.validar();
+            assert!(erros.iter().any(|e| e.starts_with("servico.descricao:")), "{erros:?}");
+        }
     }
 
     #[test]

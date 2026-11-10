@@ -8,6 +8,7 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 - Importação por planilha: o tomador vinculado à empresa pela planilha herda a retenção e o tipo (órgão público etc.) que já tem em outra empresa, como no cadastro pela tela; antes entrava sem retenção.
 - Substituição: aceita a nota de prestador com CNPJ alfanumérico, cuja chave de acesso tem letras; antes a substituição era recusada antes do envio.
 - DANFSe: quando as Informações Complementares não cabem no PDF, o corte é feito antes dos totais aproximados dos tributos (Lei 12.741), que continuam aparecendo.
+- Emitir: textos com os caracteres invisíveis U+FFFE ou U+FFFF são recusados antes do envio, sem gastar número; antes a nota falhava só na assinatura, depois de reservar o número.
 
 ## 1.18.0
 
