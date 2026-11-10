@@ -14,7 +14,8 @@ use crate::{Conector, Emissor, ErroEmissao};
 pub const JANELA_RECONCILIACAO: chrono::Duration = chrono::Duration::minutes(5);
 
 impl<C: Conector> Emissor<C> {
-    /// Consulta a Sefin pelo Id da DPS: grava a NFS-e se existir, ou libera para reenvio se não.
+    /// Consulta a Sefin pelo Id da DPS: grava a NFS-e se existir, ou libera para reenvio se não. Se a
+    /// Sefin já devolveu a chave (autorizada e não gravada), busca a NFS-e por ela e nunca libera.
     pub async fn reconciliar(&self, dps_id: i64) -> Result<Option<NfseGravada>, ErroEmissao> {
         let dps = self.banco.dps(dps_id).await?;
         let empresa = self.banco.empresa(dps.empresa_id).await?;
@@ -35,6 +36,10 @@ impl<C: Conector> Emissor<C> {
             return Err(ErroEmissao::Regra(
                 "a DPS ainda está sendo enviada à Sefin; aguarde a resposta".into(),
             ));
+        }
+        if let Some(chave) = &dps.chave_recebida {
+            let nfse = sefin.consultar_nfse(chave).await.map_err(ErroEmissao::Sefin)?;
+            return Ok(Some(self.gravar(dps_id, &nfse.chave_acesso, &nfse.xml).await?.0));
         }
         match sefin.consultar_dps(&dps.id_dps).await.map_err(ErroEmissao::Sefin)? {
             Some(chave) => {

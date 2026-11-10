@@ -26,12 +26,16 @@ enum Resposta {
     ConsultarEvento(Result<Option<String>, ErroSefin>),
 }
 
-/// Sefin que responde na ordem de um roteiro e guarda o que recebeu.
+/// Sefin que responde na ordem de um roteiro e guarda o que recebeu. A NFS-e do roteiro com
+/// `<infDPS Id="X">` sai com o Id da última DPS enviada ou consultada, como a da Sefin.
 #[derive(Clone, Default)]
 struct SefinSimulada {
     roteiro: Arc<Mutex<VecDeque<Resposta>>>,
     recebidos: Arc<Mutex<Vec<String>>>,
     ambientes: Arc<Mutex<Vec<Ambiente>>>,
+    ultima_dps: Arc<Mutex<Option<String>>>,
+    /// Banco fechado no envio da DPS: simula a falha do banco logo depois de a Sefin responder.
+    fechar_no_envio: Arc<Mutex<Option<Banco>>>,
 }
 
 impl SefinSimulada {
@@ -57,17 +61,36 @@ impl SefinSimulada {
     fn roteiro_vazio(&self) -> bool {
         self.roteiro.lock().unwrap().is_empty()
     }
+
+    fn com_id_da_dps(&self, r: Result<NfseAutorizada, ErroSefin>) -> Result<NfseAutorizada, ErroSefin> {
+        r.map(|mut n| {
+            if let Some(id) = self.ultima_dps.lock().unwrap().as_deref() {
+                n.xml = n.xml.replace(r#"<infDPS Id="X">"#, &format!(r#"<infDPS Id="{id}">"#));
+            }
+            n
+        })
+    }
 }
 
 impl Sefin for SefinSimulada {
     async fn emitir(&self, dps: &str) -> Result<NfseAutorizada, ErroSefin> {
+        let id = dps
+            .split_once(r#"<infDPS Id=""#)
+            .and_then(|(_, resto)| resto.split_once('"'))
+            .map(|(id, _)| id.to_owned());
+        *self.ultima_dps.lock().unwrap() = id;
+        let fechar = self.fechar_no_envio.lock().unwrap().take();
+        if let Some(banco) = fechar {
+            banco.fechar().await;
+        }
         match self.proxima(dps) {
-            Resposta::Emitir(r) => r,
+            Resposta::Emitir(r) => self.com_id_da_dps(r),
             _ => panic!("esperava emitir"),
         }
     }
 
     async fn consultar_dps(&self, id: &str) -> Result<Option<String>, ErroSefin> {
+        *self.ultima_dps.lock().unwrap() = Some(id.to_owned());
         match self.proxima(id) {
             Resposta::ConsultarDps(r) => r,
             _ => panic!("esperava consultar_dps"),
@@ -76,7 +99,7 @@ impl Sefin for SefinSimulada {
 
     async fn consultar_nfse(&self, chave: &str) -> Result<NfseAutorizada, ErroSefin> {
         match self.proxima(chave) {
-            Resposta::ConsultarNfse(r) => r,
+            Resposta::ConsultarNfse(r) => self.com_id_da_dps(r),
             _ => panic!("esperava consultar_nfse"),
         }
     }
@@ -1409,8 +1432,7 @@ async fn autorizada_e_nao_gravada_fica_incerta() {
     ilegivel.xml = "<NFSe>truncado".into();
     let c = cenario(vec![
         Resposta::Emitir(Ok(ilegivel)),
-        // Reconciliação: a Sefin devolve o XML íntegro.
-        Resposta::ConsultarDps(Ok(Some(CHAVE.into()))),
+        // Reconciliação: direto pela chave recebida; a Sefin devolve o XML íntegro.
         Resposta::ConsultarNfse(Ok(nfse_autorizada())),
     ])
     .await;
@@ -1419,11 +1441,92 @@ async fn autorizada_e_nao_gravada_fica_incerta() {
     };
     assert!(motivo.contains(CHAVE), "{motivo}");
     let banco = c.emissor.banco();
-    assert_eq!(banco.dps(dps_id).await.unwrap().situacao, SituacaoDps::Incerta);
+    let dps = banco.dps(dps_id).await.unwrap();
+    assert_eq!(dps.situacao, SituacaoDps::Incerta);
+    assert_eq!(
+        dps.chave_recebida.as_deref(),
+        Some(CHAVE),
+        "a chave fica no banco, não só no texto"
+    );
 
     let nfse = c.emissor.reconciliar(dps_id).await.unwrap().expect("nota gravada");
     assert_eq!(nfse.chave, CHAVE);
     assert_eq!(banco.dps(dps_id).await.unwrap().situacao, SituacaoDps::Autorizada);
+    assert!(c.sefin.roteiro_vazio());
+}
+
+#[tokio::test]
+async fn chave_recebida_nunca_libera_a_dps() {
+    let mut ilegivel = nfse_autorizada();
+    ilegivel.xml = "<NFSe>truncado".into();
+    let mut c = cenario(vec![
+        Resposta::Emitir(Ok(ilegivel)),
+        // Ao reabrir: a Sefin está fora; a DPS continua incerta, sem consulta pelo Id da DPS.
+        Resposta::ConsultarNfse(Err(ErroSefin::Http {
+            status: 404,
+            corpo: String::new(),
+        })),
+    ])
+    .await;
+    let ResultadoEmissao::Incerta { dps_id, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+        panic!()
+    };
+    c.emissor.janela_reconciliacao = chrono::Duration::zero();
+    let resultados = c.emissor.reconciliar_pendentes().await.unwrap();
+    assert!(matches!(resultados.as_slice(), [(id, Err(_))] if *id == dps_id));
+    let banco = c.emissor.banco();
+    assert_eq!(banco.dps(dps_id).await.unwrap().situacao, SituacaoDps::Incerta);
+    assert!(c.sefin.roteiro_vazio());
+}
+
+#[tokio::test]
+async fn nfse_de_outra_dps_nao_e_gravada() {
+    let mut outra = nfse_autorizada();
+    outra.xml = outra.xml.replace(
+        r#"<infDPS Id="X">"#,
+        r#"<infDPS Id="DPS351110221122233300018100001000000000000999">"#,
+    );
+    let c = cenario(vec![Resposta::Emitir(Ok(outra))]).await;
+    let ResultadoEmissao::Incerta { dps_id, motivo } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+        panic!("NFS-e de outra DPS não pode dar esta como autorizada")
+    };
+    assert!(motivo.contains("não desta"), "{motivo}");
+    let dps = c.emissor.banco().dps(dps_id).await.unwrap();
+    assert_eq!(dps.situacao, SituacaoDps::Incerta);
+    assert_eq!(
+        dps.chave_recebida, None,
+        "a chave de outra DPS não prova nada sobre esta"
+    );
+}
+
+#[tokio::test]
+async fn erro_do_banco_depois_do_envio_fica_incerta() {
+    for resposta in [Ok(nfse_autorizada()), Err(rejeicao("E0120"))] {
+        let c = cenario(vec![Resposta::Emitir(resposta)]).await;
+        *c.sefin.fechar_no_envio.lock().unwrap() = Some(c.emissor.banco().clone());
+        let Ok(ResultadoEmissao::Incerta { motivo, .. }) = c.emissor.emitir(&c.pedido).await else {
+            panic!("depois do envio, erro do banco não pode liberar novo clique")
+        };
+        assert!(motivo.contains("Verificar"), "{motivo}");
+    }
+}
+
+#[tokio::test]
+async fn erro_5xx_da_sefin_consulta_antes_de_liberar() {
+    let c = cenario(vec![
+        Resposta::Emitir(Err(ErroSefin::Http {
+            status: 500,
+            corpo: r#"{"erros":[{"Codigo":"E9999"}]}"#.into(),
+        })),
+        Resposta::ConsultarDps(Ok(Some(CHAVE.into()))),
+        Resposta::ConsultarNfse(Ok(nfse_autorizada())),
+    ])
+    .await;
+    let ResultadoEmissao::Autorizada { nfse, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+        panic!()
+    };
+    assert_eq!(nfse.chave, CHAVE);
+    assert!(c.sefin.roteiro_vazio());
 }
 
 #[tokio::test]

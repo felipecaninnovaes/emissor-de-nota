@@ -10,7 +10,23 @@ use crate::{ErroBanco, Resultado};
 pub(crate) async fn aplicar(pool: &SqlitePool) -> Resultado<()> {
     dps_unica_por_ambiente(pool).await?;
     dps_enviado_em(pool).await?;
-    dps_resposta_sefin(pool).await
+    dps_resposta_sefin(pool).await?;
+    dps_chave_recebida(pool).await
+}
+
+/// Coluna `dps.chave_recebida` (chave da NFS-e autorizada que não chegou a ser gravada). Fica aqui, e
+/// não numa migração, pelo mesmo motivo de [`dps_enviado_em`].
+async fn dps_chave_recebida(pool: &SqlitePool) -> Resultado<()> {
+    let tem_coluna = sqlx::query("SELECT 1 FROM pragma_table_info('dps') WHERE name = 'chave_recebida'")
+        .fetch_optional(pool)
+        .await?
+        .is_some();
+    if !tem_coluna {
+        sqlx::query("ALTER TABLE dps ADD COLUMN chave_recebida TEXT")
+            .execute(pool)
+            .await?;
+    }
+    Ok(())
 }
 
 /// Coluna `dps.resposta_sefin` (corpo da última resposta da Sefin, para diagnóstico). Fica aqui, e não
@@ -174,6 +190,7 @@ mod testes {
         aplicar(pool).await.unwrap(); // idempotente
         let tem = |sql: &'static str| async move { sqlx::query(sql).fetch_optional(pool).await.unwrap().is_some() };
         assert!(tem("SELECT 1 FROM pragma_table_info('dps') WHERE name = 'enviado_em'").await);
+        assert!(tem("SELECT 1 FROM pragma_table_info('dps') WHERE name = 'chave_recebida'").await);
         assert!(tem("SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'dps_empresa_id'").await);
     }
 }

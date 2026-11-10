@@ -10,6 +10,7 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 - DANFSe: quando as Informações Complementares não cabem no PDF, o corte é feito antes dos totais aproximados dos tributos (Lei 12.741), que continuam aparecendo.
 - Emitir: textos com os caracteres invisíveis U+FFFE ou U+FFFF são recusados antes do envio, sem gastar número; antes a nota falhava só na assinatura, depois de reservar o número.
 - Sefin: só o 404 da própria Sefin ("não há NFS-e para esta DPS", E2404) libera uma nota incerta; um 404 de gateway ou de manutenção a mantém incerta. Erro 5xx no envio deixa a nota incerta, com consulta à Sefin, em vez de dá-la como rejeitada.
+- Emissão: quando a Sefin autoriza e a nota não é gravada, a chave fica guardada e o Verificar busca a nota por ela, sem nunca liberar a DPS. Falha do banco depois do envio deixa a nota incerta (usar Verificar) em vez de um erro que permitia emitir de novo. Uma NFS-e devolvida para outra DPS não é gravada, e uma troca de ambiente ou série no meio da emissão cancela o envio. Nova coluna `chave_recebida` na tabela `dps`, criada ao abrir o banco.
 
 ## 1.18.0
 

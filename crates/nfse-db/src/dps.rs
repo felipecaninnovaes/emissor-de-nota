@@ -73,6 +73,10 @@ pub struct RegistroDps {
     pub ultimo_erro: Option<String>,
     /// Último envio à Sefin (RFC 3339, UTC); `None` se nunca enviada ou gravada antes da migração 0007.
     pub enviado_em: Option<String>,
+    /// Chave da NFS-e que a Sefin devolveu como autorizada, quando a nota não chegou a ser gravada
+    /// ([`Banco::registrar_autorizada_nao_gravada`]). É a prova de que a nota existe: a reconciliação
+    /// busca a NFS-e por ela e nunca libera a DPS para reenvio.
+    pub chave_recebida: Option<String>,
 }
 
 /// Dados da NFS-e autorizada a gravar (o XML é guardado exatamente como veio).
@@ -118,7 +122,7 @@ pub struct NfseGravada {
 /// Tamanho máximo, em caracteres, da resposta da Sefin guardada para diagnóstico.
 const LIMITE_RESPOSTA_SEFIN: usize = 20_000;
 
-const SELECT_DPS: &str = "SELECT id, empresa_id, ambiente, serie, numero, id_dps, situacao, xml_assinado, tentativas, ultimo_erro, enviado_em FROM dps";
+const SELECT_DPS: &str = "SELECT id, empresa_id, ambiente, serie, numero, id_dps, situacao, xml_assinado, tentativas, ultimo_erro, enviado_em, chave_recebida FROM dps";
 
 fn dps_de(r: &SqliteRow) -> Resultado<RegistroDps> {
     Ok(RegistroDps {
@@ -133,6 +137,7 @@ fn dps_de(r: &SqliteRow) -> Resultado<RegistroDps> {
         tentativas: r.get(8),
         ultimo_erro: r.get(9),
         enviado_em: r.get(10),
+        chave_recebida: r.get(11),
     })
 }
 
@@ -370,7 +375,9 @@ impl Banco {
     }
 
     /// Grava o XML assinado e marca como `enviando` antes de chamar a Sefin. Se o programa cair
-    /// depois daqui, a DPS aparece em [`Banco::dps_pendentes`] e é reconciliada.
+    /// depois daqui, a DPS aparece em [`Banco::dps_pendentes`] e é reconciliada. Só uma DPS
+    /// `reservada` é enviada: a rejeitada ou liberada pela reconciliação não volta à Sefin (a nova
+    /// tentativa reserva outro número).
     pub async fn registrar_envio(&self, dps_id: i64, modelo: &Dps, xml_assinado: &str) -> Resultado<()> {
         let registro = self.dps(dps_id).await?;
         if modelo.id().ok().as_ref().map(DpsId::as_str) != Some(registro.id_dps.as_str()) {
@@ -381,7 +388,7 @@ impl Banco {
         let afetadas = sqlx::query(
             "UPDATE dps SET situacao = 'enviando', modelo_json = ?1, xml_assinado = ?2, tentativas = tentativas + 1,
                  atualizado_em = ?3, enviado_em = ?3, resposta_sefin = NULL
-             WHERE id = ?4 AND situacao IN ('reservada', 'rejeitada')",
+             WHERE id = ?4 AND situacao = 'reservada'",
         )
         .bind(json(modelo))
         .bind(xml_assinado)
@@ -424,15 +431,49 @@ impl Banco {
         .await
     }
 
-    /// Reconciliação concluiu que a Sefin não gerou NFS-e: a DPS volta a poder ser enviada.
-    pub async fn liberar_para_reenvio(&self, dps_id: i64) -> Resultado<()> {
-        self.mudar_situacao(
-            dps_id,
-            &[SituacaoDps::Enviando, SituacaoDps::Incerta],
-            SituacaoDps::Rejeitada,
-            None,
+    /// A Sefin autorizou a NFS-e `chave`, mas ela não foi gravada (XML ilegível, falha do banco): a
+    /// DPS fica `incerta` com a chave guardada, para a reconciliação buscar a nota por ela.
+    pub async fn registrar_autorizada_nao_gravada(&self, dps_id: i64, chave: &str, erro: &str) -> Resultado<()> {
+        let afetadas = sqlx::query(
+            "UPDATE dps SET situacao = 'incerta', chave_recebida = ?, ultimo_erro = ?, atualizado_em = ?
+             WHERE id = ? AND situacao IN ('enviando', 'incerta')",
         )
-        .await
+        .bind(chave)
+        .bind(erro)
+        .bind(agora())
+        .bind(dps_id)
+        .execute(self.pool())
+        .await?
+        .rows_affected();
+        if afetadas == 0 {
+            return Err(ErroBanco::Regra(format!(
+                "DPS em situação \"{}\" não pode ficar incerta",
+                self.dps(dps_id).await?.situacao.texto()
+            )));
+        }
+        Ok(())
+    }
+
+    /// Reconciliação concluiu que a Sefin não gerou NFS-e: a DPS fica `rejeitada`, e o número, livre
+    /// de pendência (a nova tentativa reserva outro). Recusa a DPS com chave recebida: essa nota existe.
+    pub async fn liberar_para_reenvio(&self, dps_id: i64) -> Resultado<()> {
+        let afetadas = sqlx::query(
+            "UPDATE dps SET situacao = 'rejeitada', atualizado_em = ?
+             WHERE id = ? AND situacao IN ('enviando', 'incerta') AND chave_recebida IS NULL",
+        )
+        .bind(agora())
+        .bind(dps_id)
+        .execute(self.pool())
+        .await?
+        .rows_affected();
+        if afetadas == 0 {
+            let dps = self.dps(dps_id).await?;
+            return Err(ErroBanco::Regra(match dps.chave_recebida {
+                Some(chave) => format!("a Sefin já autorizou a NFS-e {chave} para esta DPS; ela não pode ser liberada"),
+                None => format!("DPS em situação \"{}\" não pode ser liberada", dps.situacao.texto()),
+            }));
+        }
+        Ok(())
     }
 
     /// Grava a NFS-e, marca a DPS como autorizada e audita, na mesma transação: depois do commit
@@ -663,7 +704,7 @@ mod testes {
     }
 
     #[tokio::test]
-    async fn guarda_a_resposta_da_sefin_ate_o_proximo_envio() {
+    async fn guarda_a_resposta_da_sefin() {
         let (banco, _, empresa) = banco_com_empresa().await;
         let r = banco.reservar_dps(empresa.id).await.unwrap();
         assert_eq!(banco.resposta_sefin(r.id).await.unwrap(), None);
@@ -674,9 +715,6 @@ mod testes {
             .unwrap();
         banco.registrar_rejeicao(r.id, "E0617").await.unwrap();
         assert!(banco.resposta_sefin(r.id).await.unwrap().unwrap().contains("E0617"));
-        // Nova tentativa começa sem a resposta da anterior.
-        banco.registrar_envio(r.id, &modelo_para(&r), "<DPS/>").await.unwrap();
-        assert_eq!(banco.resposta_sefin(r.id).await.unwrap(), None);
         // Resposta enorme é cortada.
         banco.guardar_resposta_sefin(r.id, &"x".repeat(50_000)).await.unwrap();
         assert_eq!(
@@ -892,10 +930,27 @@ mod testes {
         let erro = banco.registrar_envio(r.id, &modelo, "<DPS/>").await.unwrap_err();
         assert!(matches!(erro, ErroBanco::Regra(m) if m.contains("reconciliação")));
 
-        // Consulta disse que não há NFS-e: libera; reenvio conta nova tentativa.
+        // Consulta disse que não há NFS-e: libera, mas a DPS não volta à Sefin (a nova tentativa
+        // reserva outro número).
         banco.liberar_para_reenvio(r.id).await.unwrap();
-        banco.registrar_envio(r.id, &modelo, "<DPS/>").await.unwrap();
-        assert_eq!(banco.dps(r.id).await.unwrap().tentativas, 2);
+        assert!(banco.registrar_envio(r.id, &modelo, "<DPS/>").await.is_err());
+    }
+
+    #[tokio::test]
+    async fn chave_recebida_impede_liberar() {
+        let (banco, _, empresa) = banco_com_empresa().await;
+        let r = banco.reservar_dps(empresa.id).await.unwrap();
+        banco.registrar_envio(r.id, &modelo_para(&r), "<DPS/>").await.unwrap();
+        let chave = "35111022211222333000181000000000000126101234567890";
+        banco
+            .registrar_autorizada_nao_gravada(r.id, chave, "XML ilegível")
+            .await
+            .unwrap();
+        let dps = banco.dps(r.id).await.unwrap();
+        assert_eq!(dps.situacao, SituacaoDps::Incerta);
+        assert_eq!(dps.chave_recebida.as_deref(), Some(chave));
+        assert!(banco.liberar_para_reenvio(r.id).await.is_err());
+        banco.registrar_autorizacao(r.id, &nfse_recebida()).await.unwrap();
     }
 
     #[tokio::test]
@@ -909,21 +964,22 @@ mod testes {
     }
 
     #[tokio::test]
-    async fn rejeitada_pode_ser_corrigida_e_reenviada() {
+    async fn so_dps_reservada_e_enviada() {
         let (banco, _, empresa) = banco_com_empresa().await;
         let r = banco.reservar_dps(empresa.id).await.unwrap();
+        let mut outro = modelo_para(&r);
+        outro.numero += 1;
+        assert!(
+            banco.registrar_envio(r.id, &outro, "<DPS/>").await.is_err(),
+            "Id diferente do reservado"
+        );
         banco.registrar_envio(r.id, &modelo_para(&r), "<DPS/>").await.unwrap();
         banco.registrar_rejeicao(r.id, "E0120 IM").await.unwrap();
         let rejeitada = banco.dps(r.id).await.unwrap();
         assert_eq!(rejeitada.ultimo_erro.as_deref(), Some("E0120 IM"));
-        banco.registrar_envio(r.id, &modelo_para(&r), "<DPS/>").await.unwrap();
-
-        let mut outro = modelo_para(&r);
-        outro.numero += 1;
-        banco.registrar_rejeicao(r.id, "x").await.unwrap();
         assert!(
-            banco.registrar_envio(r.id, &outro, "<DPS/>").await.is_err(),
-            "Id diferente do reservado"
+            banco.registrar_envio(r.id, &modelo_para(&r), "<DPS/>").await.is_err(),
+            "rejeitada não volta à Sefin"
         );
     }
 

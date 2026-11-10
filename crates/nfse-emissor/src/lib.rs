@@ -40,7 +40,7 @@ use chrono::{Datelike, NaiveDate};
 use nfse_cert::CertificadoA1;
 use nfse_core::Valor;
 use nfse_core::modelo::{Ambiente, Obra};
-use nfse_db::dps::{NfseGravada, NfseRecebida};
+use nfse_db::dps::{NfseGravada, NfseRecebida, RegistroDps};
 use nfse_db::empresas::Empresa;
 use nfse_db::tomadores::TomadorVinculado;
 use nfse_db::{Banco, Cofre, ErroBanco};
@@ -379,6 +379,19 @@ impl<C: Conector> Emissor<C> {
         let (cert, sefin) = self.conectar(&empresa, empresa.ambiente).await?;
 
         let reserva = self.banco.reservar_dps(empresa.id).await?;
+        // A reserva lê a empresa de novo: se o ambiente ou a série mudou depois da validação, a DPS
+        // seria enviada a um ambiente (o da conexão) e registrada em outro.
+        if reserva.ambiente != empresa.ambiente || reserva.serie != empresa.serie {
+            self.banco
+                .registrar_rejeicao(
+                    reserva.id,
+                    "não enviada: o ambiente ou a série da empresa mudou durante a emissão",
+                )
+                .await?;
+            return Err(ErroEmissao::Regra(
+                "o ambiente ou a série da empresa mudou durante a emissão; nada foi enviado, emita de novo".into(),
+            ));
+        }
         let vinculo = match (&pedido.origem, &mes_recorrencia) {
             (Origem::Recorrencia(id), Some(mes)) => self.banco.registrar_emissao_recorrente(*id, mes, reserva.id).await,
             (Origem::Planilha { chave, arquivo, linha }, _) => {
@@ -419,19 +432,50 @@ impl<C: Conector> Emissor<C> {
         tracing::info!(dps = reserva.id, "emissão: enviando à Sefin");
         let resultado = sefin.emitir(&assinado).await;
         self.registrar_resposta(reserva.id, &resultado).await;
+        match self.desfecho(&sefin, &reserva, resultado).await {
+            // Depois do envio, falha do banco não pode virar erro comum: a Sefin pode ter autorizado e
+            // um novo clique reservaria outro número. A DPS continua pendente e é reconciliada.
+            Err(ErroEmissao::Banco(e)) => {
+                tracing::error!(dps = reserva.id, erro = %e, "emissão: falha do banco depois do envio");
+                Ok(ResultadoEmissao::Incerta {
+                    dps_id: reserva.id,
+                    motivo: format!(
+                        "a resposta da Sefin não foi registrada no banco ({e}); use Verificar na nota antes de emitir de novo"
+                    ),
+                })
+            }
+            outro => outro,
+        }
+    }
+
+    /// O que fazer com a resposta do envio da DPS `reserva`, já gravada como `enviando`.
+    async fn desfecho(
+        &self,
+        sefin: &C::S,
+        reserva: &RegistroDps,
+        resultado: Result<nfse_nacional::NfseAutorizada, ErroSefin>,
+    ) -> Result<ResultadoEmissao, ErroEmissao> {
         match resultado {
             Ok(nfse) => match self.gravar(reserva.id, &nfse.chave_acesso, &nfse.xml).await {
                 Ok((nfse, avisos)) => {
                     tracing::info!(dps = reserva.id, chave = %nfse.chave, "emissão: autorizada");
                     Ok(ResultadoEmissao::Autorizada { nfse, avisos })
                 }
-                // A nota existe na Sefin: fica incerta para a reconciliação buscá-la de novo.
+                // A nota existe na Sefin: fica incerta, com a chave guardada para a reconciliação
+                // buscá-la por ela. Se o XML é de outra DPS, a chave não prova nada sobre esta, e a
+                // reconciliação consulta pelo Id da DPS.
                 Err(e) => {
                     let motivo = format!(
                         "a Sefin autorizou a NFS-e {}, mas ela não foi gravada: {e}",
                         nfse.chave_acesso
                     );
-                    self.banco.registrar_incerta(reserva.id, &motivo).await?;
+                    if nfse_de_outra_dps(&nfse.xml, &reserva.id_dps) {
+                        self.banco.registrar_incerta(reserva.id, &motivo).await?;
+                    } else {
+                        self.banco
+                            .registrar_autorizada_nao_gravada(reserva.id, &nfse.chave_acesso, &motivo)
+                            .await?;
+                    }
                     Ok(ResultadoEmissao::Incerta {
                         dps_id: reserva.id,
                         motivo,
@@ -461,7 +505,7 @@ impl<C: Conector> Emissor<C> {
                 let motivo = e.to_string();
                 tracing::warn!(dps = reserva.id, %motivo, "emissão: resposta incerta, consultando a Sefin");
                 self.banco.registrar_incerta(reserva.id, &motivo).await?;
-                match self.reconciliar_com(&sefin, reserva.id).await {
+                match self.reconciliar_com(sefin, reserva.id).await {
                     Ok(Some(nfse)) => Ok(ResultadoEmissao::Autorizada { nfse, avisos: vec![] }),
                     Ok(None) => Err(ErroEmissao::SemConexao {
                         motivo: format!("{motivo}; a Sefin confirmou que não gerou a nota"),
@@ -498,12 +542,21 @@ impl<C: Conector> Emissor<C> {
     /// Grava a NFS-e no banco e depois confere a assinatura da Sefin e arquiva o XML na pasta.
     /// Erro só antes da gravação; o que falhar depois vira aviso (a nota já está registrada).
     async fn gravar(&self, dps_id: i64, chave: &str, xml: &str) -> Result<(NfseGravada, Vec<String>), ErroEmissao> {
-        let empresa_id = self.banco.dps(dps_id).await?.empresa_id;
+        let dps = self.banco.dps(dps_id).await?;
+        let empresa_id = dps.empresa_id;
         let dados = nfse_xml::ler_nfse(xml)?;
         if dados.chave != chave {
             return Err(ErroEmissao::Regra(format!(
                 "a chave do XML ({}) não confere com a da resposta ({chave})",
                 dados.chave
+            )));
+        }
+        // A NFS-e traz a DPS que a gerou: gravar a de outra DPS daria esta como autorizada sem ser.
+        if dados.id_dps.as_deref() != Some(dps.id_dps.as_str()) {
+            return Err(ErroEmissao::Regra(format!(
+                "a NFS-e {chave} é da DPS {}, não desta ({})",
+                dados.id_dps.as_deref().unwrap_or("sem Id"),
+                dps.id_dps
             )));
         }
         let competencia = dados
@@ -628,6 +681,14 @@ impl<C: Conector> Emissor<C> {
         }
         self.emitir(&pedido).await
     }
+}
+
+/// O XML legível de uma NFS-e gerada por outra DPS que não `id_dps`.
+fn nfse_de_outra_dps(xml: &str, id_dps: &str) -> bool {
+    nfse_xml::ler_nfse(xml)
+        .ok()
+        .and_then(|d| d.id_dps)
+        .is_some_and(|id| id != id_dps)
 }
 
 #[cfg(test)]
