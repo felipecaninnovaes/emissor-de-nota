@@ -65,20 +65,22 @@ jobs:
             atualizador: target/release/bundle/appimage/*.AppImage
             extras: target/release/bundle/deb/*.deb
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@59a558e8c538bf4a23bbffa19e5a278b703f2920 # 1.97.1
         with:
           targets: ${{ matrix.alvo }}
       # Antes do cache: com um cargo-binstall antigo restaurado em ~/.cargo/bin, o install-action
       # tenta "atualizar" apagando um arquivo que não existe e o job falha (macOS, v1.11.0).
-      - uses: taiki-e/install-action@v2
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2
         with:
           tool: cargo-binstall
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           key: ${{ matrix.chave }}
+      # Versão exata (a mesma do devbox.json): este job roda com a chave que assina as atualizações,
+      # e um `^2` executaria qualquer binário 2.x publicado depois.
       - name: Instalar tauri-cli
-        run: cargo binstall tauri-cli@^2 --no-confirm
+        run: cargo binstall tauri-cli@2.12.4 --no-confirm --locked
 
       - name: Dependências do Linux (WebKitGTK)
         if: runner.os == 'Linux'
@@ -128,7 +130,7 @@ jobs:
             --arg url "https://github.com/${{ github.repository }}/releases/download/v$versao/$final" \
             '{chave: $chave, signature: $assinatura, url: $url}' > "publicar/plataforma-${{ matrix.chave }}.json"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: instalador-${{ matrix.chave }}
           path: publicar/*
@@ -140,7 +142,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: instalador-*
           path: publicar
@@ -157,7 +159,7 @@ jobs:
           cat publicar/latest.json
           ls publicar
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: publicar/*
           generate_release_notes: true

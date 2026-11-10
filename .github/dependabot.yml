@@ -1,0 +1,7 @@
+# Atualiza os SHAs das ações fixadas nos workflows (a tag fica no comentário ao lado).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
