@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use serde::Serialize;
-use tauri::State;
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use nfse_core::modelo::{Ambiente, LeiauteDps};
 use nfse_db::Banco;
@@ -35,9 +35,13 @@ const LOGO_NFSE: &[u8] = include_bytes!("../../assets/logo-nfse.png");
 
 #[derive(Serialize)]
 pub struct Abertura {
-    /// Resultado da reconciliação das DPS que ficaram sem desfecho.
+    /// Avisos da abertura (restauração de backup, falha ao preparar as pendências). O resultado da
+    /// consulta à Sefin das DPS sem desfecho chega depois, no evento [`EVENTO_PENDENCIAS`].
     pendencias: Vec<String>,
 }
+
+/// Evento com o resultado da reconciliação em segundo plano (lista de textos, como `pendencias`).
+const EVENTO_PENDENCIAS: &str = "pendencias-verificadas";
 
 /// Roda a abertura do banco numa thread bloqueante. As migrações do sqlx usam `&mut conexão`, e o
 /// rustc não consegue provar `Send` para isso dentro de um comando do Tauri; ali o futuro nunca
@@ -51,7 +55,7 @@ where
     tauri::async_runtime::spawn_blocking(move || tauri::async_runtime::block_on(trabalho())).await
 }
 
-async fn iniciar(estado: &Estado, banco: Banco, cofre: nfse_db::Cofre) -> R<Abertura> {
+async fn iniciar(app: AppHandle, estado: &Estado, banco: Banco, cofre: nfse_db::Cofre) -> R<Abertura> {
     estado.trocar_banco(Some(banco.clone()));
     fixar_pasta_padrao(estado).await?;
     let pasta = pasta_configurada(estado).await?;
@@ -67,8 +71,36 @@ async fn iniciar(estado: &Estado, banco: Banco, cofre: nfse_db::Cofre) -> R<Aber
         ))
     });
     let mut pendencias: Vec<String> = restauracao.into_iter().collect();
-    for (dps_id, resultado) in emissor.reconciliar_pendentes().await.map_err(texto)? {
-        pendencias.push(match resultado {
+    // Só a parte local fica no caminho da senha. Falhar nela não impede abrir: as DPS continuam
+    // pendentes e são vistas na próxima abertura ou pelo "Verificar".
+    let a_consultar = emissor.preparar_pendentes().await.unwrap_or_else(|e| {
+        pendencias.push(format!(
+            "Não foi possível conferir os envios anteriores ({e}); use Verificar nas notas pendentes."
+        ));
+        Vec::new()
+    });
+    *estado.emissor.write().await = Some(emissor);
+    // A consulta à Sefin (até 90 s por DPS com ela fora do ar) e o backup automático (até centenas
+    // de MB) rodam depois de a tela abrir.
+    tauri::async_runtime::spawn(async move {
+        let estado = app.state::<Estado>();
+        let verificadas = reconciliar_em_segundo_plano(&estado, a_consultar).await;
+        if !verificadas.is_empty() {
+            let _ = app.emit(EVENTO_PENDENCIAS, verificadas);
+        }
+        super::backup::automatico(&estado).await;
+    });
+    Ok(Abertura { pendencias })
+}
+
+/// Consulta cada DPS pendente na Sefin. Segura o emissor só durante cada consulta, para o bloqueio
+/// do cofre não esperar a lista toda; se o cofre foi bloqueado no meio, para.
+async fn reconciliar_em_segundo_plano(estado: &Estado, dps: Vec<i64>) -> Vec<String> {
+    let mut textos = Vec::new();
+    for dps_id in dps {
+        let guarda = estado.emissor.read().await;
+        let Some(emissor) = guarda.as_ref() else { break };
+        textos.push(match emissor.reconciliar(dps_id).await {
             Ok(Some(n)) => format!(
                 "DPS {dps_id}: a Sefin tinha autorizado a nota {}; gravada.",
                 n.numero.unwrap_or_default()
@@ -77,29 +109,27 @@ async fn iniciar(estado: &Estado, banco: Banco, cofre: nfse_db::Cofre) -> R<Aber
             Err(e) => format!("DPS {dps_id}: ainda sem resposta ({e}); será verificada na próxima abertura."),
         });
     }
-    *estado.emissor.write().await = Some(emissor);
-    super::backup::automatico(estado).await;
-    Ok(Abertura { pendencias })
+    textos
 }
 
 #[tauri::command]
-pub async fn criar_cofre(estado: State<'_, Estado>, senha: String) -> R<Abertura> {
+pub async fn criar_cofre(app: AppHandle, estado: State<'_, Estado>, senha: String) -> R<Abertura> {
     let caminho = estado.caminho_banco();
     let (banco, cofre) = em_thread_bloqueante(move || Banco::criar_protegido(caminho, senha))
         .await
         .map_err(texto)?
         .map_err(texto)?;
-    iniciar(&estado, banco, cofre).await
+    iniciar(app, &estado, banco, cofre).await
 }
 
 #[tauri::command]
-pub async fn abrir_cofre(estado: State<'_, Estado>, senha: String) -> R<Abertura> {
+pub async fn abrir_cofre(app: AppHandle, estado: State<'_, Estado>, senha: String) -> R<Abertura> {
     let caminho = estado.caminho_banco();
     let (banco, cofre) = em_thread_bloqueante(move || Banco::abrir_protegido(caminho, senha))
         .await
         .map_err(texto)?
         .map_err(texto)?;
-    iniciar(&estado, banco, cofre).await
+    iniciar(app, &estado, banco, cofre).await
 }
 
 /// Descarta o emissor (e com ele a chave do cofre) e fecha o banco cifrado; a senha mestra volta

@@ -14,6 +14,7 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 - Abertura: sem o arquivo `emissor.db` ao lado do `emissor.cofre`, o sistema avisa para restaurar os dois juntos em vez de criar um banco vazio (com a numeração voltando a 1); a mensagem de senha mestra errada só aparece quando é mesmo a senha ou o cofre, e os demais erros (disco cheio, arquivo preso) aparecem como são.
 - Banco: gravações feitas ao mesmo tempo (por exemplo, um lote emitindo enquanto se edita um cadastro) esperam a vez em vez de falhar com "banco ocupado".
 - Backup na nuvem: o endereço do servidor é recusado se tiver usuário, senha, `?` ou `#`; um endereço como `http://localhost:1@servidor` passava como local e mandava o token sem cifra para outro servidor.
+- Abertura: a tela abre logo depois da senha mestra; a verificação na Sefin das notas pendentes e o backup automático rodam depois, e o resultado da verificação aparece no topo quando termina. Antes, com a Sefin fora do ar, a tela de senha podia ficar presa vários minutos.
 
 ## 1.18.0
 

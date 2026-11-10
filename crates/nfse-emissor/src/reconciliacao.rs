@@ -72,17 +72,28 @@ impl<C: Conector> Emissor<C> {
     pub async fn reconciliar_pendentes(
         &self,
     ) -> Result<Vec<(i64, Result<Option<NfseGravada>, ErroEmissao>)>, ErroEmissao> {
-        self.banco.liberar_reservadas().await?;
         let mut resultados = Vec::new();
+        for dps_id in self.preparar_pendentes().await? {
+            resultados.push((dps_id, self.reconciliar(dps_id).await));
+        }
+        Ok(resultados)
+    }
+
+    /// A parte local da abertura, sem a Sefin: libera as reservas que não foram enviadas e marca
+    /// como `incerta` o envio interrompido pelo fechamento do programa. Devolve as DPS que ainda
+    /// precisam de [`Emissor::reconciliar`], que o app consulta em segundo plano.
+    pub async fn preparar_pendentes(&self) -> Result<Vec<i64>, ErroEmissao> {
+        self.banco.liberar_reservadas().await?;
+        let mut pendentes = Vec::new();
         for dps in self.banco.dps_pendentes().await? {
             if dps.situacao == SituacaoDps::Enviando {
                 self.banco
                     .registrar_incerta(dps.id, "o programa foi fechado durante o envio")
                     .await?;
             }
-            resultados.push((dps.id, self.reconciliar(dps.id).await));
+            pendentes.push(dps.id);
         }
-        Ok(resultados)
+        Ok(pendentes)
     }
 
     /// Procura na Sefin o primeiro número da série atual da empresa que ainda não gerou NFS-e

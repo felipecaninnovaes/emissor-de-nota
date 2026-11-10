@@ -48,6 +48,7 @@ $("#form-trava").addEventListener("submit", async (ev) => {
   botao.disabled = true;
   botao.textContent = "Abrindo...";
   try {
+    await ouvirPendencias();
     const abertura = await chamar(cofreExiste ? "abrir_cofre" : "criar_cofre", { senha });
     $("#senha").value = "";
     $("#senha2").value = "";
@@ -59,14 +60,41 @@ $("#form-trava").addEventListener("submit", async (ev) => {
   }
 });
 
+let ouvindoPendencias = false;
+/** Resultado que chegou antes de a tela abrir; `entrar` mostra. */
+let pendenciasSefin = null;
+
+function mostrarPendenciasSefin(lista) {
+  $("#alertas").insertAdjacentHTML(
+    "afterbegin",
+    `<div class="aviso atencao"><strong>Envios anteriores verificados na Sefin:</strong>
+      <ul>${lista.map((p) => `<li>${esc(p)}</li>`).join("")}</ul></div>`,
+  );
+}
+
+/** O resultado da consulta à Sefin das notas sem desfecho chega depois de a tela abrir. */
+async function ouvirPendencias() {
+  if (ouvindoPendencias) return;
+  ouvindoPendencias = true;
+  await window.__TAURI__.event.listen("pendencias-verificadas", ({ payload }) => {
+    if (!payload?.length) return;
+    if ($("#app").hidden) pendenciasSefin = payload;
+    else mostrarPendenciasSefin(payload);
+  });
+}
+
 async function entrar(pendencias) {
   $("#trava").hidden = true;
   $("#app").hidden = false;
   const alertas = $("#alertas");
   alertas.innerHTML = "";
   if (pendencias.length) {
-    alertas.innerHTML = `<div class="aviso atencao"><strong>Envios anteriores verificados na Sefin:</strong>
+    alertas.innerHTML = `<div class="aviso atencao"><strong>Ao abrir:</strong>
       <ul>${pendencias.map((p) => `<li>${esc(p)}</li>`).join("")}</ul></div>`;
+  }
+  if (pendenciasSefin) {
+    mostrarPendenciasSefin(pendenciasSefin);
+    pendenciasSefin = null;
   }
   estado.mesPadrao = await invoke("obter_mes_padrao").catch(() => "atual");
   $("#mes-ref").value = mesPadrao();
