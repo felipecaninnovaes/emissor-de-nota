@@ -361,7 +361,12 @@ async fn entrar(
         return Ok((StatusCode::TOO_MANY_REQUESTS, html).into_response());
     }
     // A senha é conferida mesmo com usuário errado, para o tempo de resposta não revelar o usuário.
-    let senha_ok = senha_confere(&estado.config.admin_senha_hash, &dados.senha);
+    // Argon2 fora do runtime async: são dezenas de ms de CPU, que travariam uploads em curso.
+    let hash = estado.config.admin_senha_hash.clone();
+    let senha = dados.senha;
+    let senha_ok = tokio::task::spawn_blocking(move || senha_confere(&hash, &senha))
+        .await
+        .unwrap_or(false);
     if !(senha_ok && dados.usuario.trim() == estado.config.admin_usuario) {
         tracing::warn!(origem, "login recusado");
         let html = pagina(Login {
