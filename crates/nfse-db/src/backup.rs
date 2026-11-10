@@ -320,6 +320,64 @@ mod testes {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// Blocos cifrados de um arquivo de backup (cabeçalho, depois cada bloco com o tamanho na frente).
+    fn blocos(bytes: &[u8]) -> (Vec<u8>, Vec<Vec<u8>>) {
+        let tam_cab = u32::from_be_bytes(bytes[5..9].try_into().unwrap()) as usize;
+        let (cab, mut resto) = bytes.split_at(9 + tam_cab);
+        let mut lista = Vec::new();
+        while !resto.is_empty() {
+            let tam = u32::from_be_bytes(resto[..4].try_into().unwrap()) as usize;
+            lista.push(resto[..4 + tam].to_vec());
+            resto = &resto[4 + tam..];
+        }
+        (cab.to_vec(), lista)
+    }
+
+    #[test]
+    fn varios_blocos_ida_e_volta_e_recusas() {
+        let dir = pasta_temp("blocos");
+        let (cofre, cabecalho) = Cofre::criar_com("senha-mestra", 1024, 1, 1).unwrap();
+        // Dois blocos e meio, e um múltiplo exato do bloco (o último cheio).
+        for tamanho in [TAM_BLOCO * 2 + TAM_BLOCO / 2, TAM_BLOCO * 3] {
+            let origem = dir.join("origem.bin");
+            let dados: Vec<u8> = (0..tamanho).map(|i| (i % 251) as u8).collect();
+            std::fs::write(&origem, &dados).unwrap();
+            let arquivo = dir.join("copia.nfbk");
+            cifrar_arquivo(&cofre, &cabecalho, &origem, &arquivo).unwrap();
+            let bytes = std::fs::read(&arquivo).unwrap();
+            let (cab, lista) = blocos(&bytes);
+            assert_eq!(lista.len(), tamanho.div_ceil(TAM_BLOCO), "{tamanho}");
+
+            let alvo = dir.join("volta.bin");
+            decifrar_arquivo(&arquivo, "senha-mestra", &alvo).unwrap();
+            assert_eq!(std::fs::read(&alvo).unwrap(), dados, "{tamanho}");
+
+            let montar = |ordem: &[usize]| {
+                let mut v = cab.clone();
+                for &i in ordem {
+                    v.extend_from_slice(&lista[i]);
+                }
+                v
+            };
+            let n = lista.len();
+            let casos = [
+                ("ordem trocada", (0..n).rev().collect::<Vec<_>>()),
+                ("bloco do meio removido", vec![0, n - 1]),
+                ("cortado na fronteira de um bloco", (0..n - 1).collect()),
+                ("bloco repetido", (0..n).chain([n - 1]).collect()),
+            ];
+            for (nome, ordem) in casos {
+                let forjado = dir.join("forjado.nfbk");
+                std::fs::write(&forjado, montar(&ordem)).unwrap();
+                assert!(
+                    decifrar_arquivo(&forjado, "senha-mestra", &dir.join("x.bin")).is_err(),
+                    "{nome} ({tamanho})"
+                );
+            }
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn poda_so_os_backups_antigos() {
         let dir = pasta_temp("poda");
