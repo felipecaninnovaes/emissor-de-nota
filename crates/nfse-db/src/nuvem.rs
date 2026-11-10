@@ -21,27 +21,25 @@ pub struct ConfigNuvem {
     pub endereco: String,
 }
 
-/// Endereço sem barra no fim; `http://` só em `localhost` (o token iria aberto pela rede).
+/// Endereço sem barra no fim; `http://` só em `localhost` (o token iria aberto pela rede). Lido com
+/// `url::Url`, como o cliente HTTP o lê: em `http://localhost:1@servidor`, o servidor é `servidor`.
 pub fn normalizar_endereco(endereco: &str) -> Result<String, &'static str> {
     let endereco = endereco.trim().trim_end_matches('/');
-    let resto = if let Some(r) = endereco.strip_prefix("https://") {
-        r
-    } else if let Some(r) = endereco.strip_prefix("http://") {
-        let autoridade = r.split(['/', '?', '#']).next().unwrap_or_default();
-        // Sem a porta; o IPv6 vem entre colchetes.
-        let host = match autoridade.find(']') {
-            Some(fim) if autoridade.starts_with('[') => &autoridade[..=fim],
-            _ => autoridade.split(':').next().unwrap_or_default(),
-        };
-        if !matches!(host, "localhost" | "127.0.0.1" | "[::1]") {
-            return Err("use https:// (http:// só para servidor nesta máquina, em localhost)");
-        }
-        r
-    } else {
+    if !endereco.starts_with("https://") && !endereco.starts_with("http://") {
         return Err("o endereço do servidor começa com https://");
-    };
-    if resto.is_empty() {
+    }
+    let url = url::Url::parse(endereco).map_err(|_| "informe o endereço do servidor")?;
+    if url.host_str().is_none_or(str::is_empty) {
         return Err("informe o endereço do servidor");
+    }
+    if !url.username().is_empty() || url.password().is_some() {
+        return Err("o endereço do servidor não leva usuário nem senha");
+    }
+    if url.query().is_some() || url.fragment().is_some() {
+        return Err("o endereço do servidor não leva \"?\" nem \"#\"");
+    }
+    if url.scheme() == "http" && !matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "[::1]")) {
+        return Err("use https:// (http:// só para servidor nesta máquina, em localhost)");
     }
     Ok(endereco.to_owned())
 }
@@ -129,6 +127,11 @@ mod testes {
         assert!(normalizar_endereco("http://localhost.exemplo.com").is_err());
         assert!(normalizar_endereco("backup.exemplo.com").is_err());
         assert!(normalizar_endereco("https://").is_err());
+        // O cliente HTTP lê o host depois do "@": o token iria aberto para "servidor".
+        assert!(normalizar_endereco("http://localhost:1@servidor").is_err());
+        assert!(normalizar_endereco("https://usuario:senha@backup.exemplo.com").is_err());
+        assert!(normalizar_endereco("https://backup.exemplo.com/?x=1").is_err());
+        assert!(normalizar_endereco("ftp://backup.exemplo.com").is_err());
     }
 
     #[test]

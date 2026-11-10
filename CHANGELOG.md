@@ -13,6 +13,7 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 - Emissão: quando a Sefin autoriza e a nota não é gravada, a chave fica guardada e o Verificar busca a nota por ela, sem nunca liberar a DPS. Falha do banco depois do envio deixa a nota incerta (usar Verificar) em vez de um erro que permitia emitir de novo. Uma NFS-e devolvida para outra DPS não é gravada, e uma troca de ambiente ou série no meio da emissão cancela o envio. Nova coluna `chave_recebida` na tabela `dps`, criada ao abrir o banco.
 - Abertura: sem o arquivo `emissor.db` ao lado do `emissor.cofre`, o sistema avisa para restaurar os dois juntos em vez de criar um banco vazio (com a numeração voltando a 1); a mensagem de senha mestra errada só aparece quando é mesmo a senha ou o cofre, e os demais erros (disco cheio, arquivo preso) aparecem como são.
 - Banco: gravações feitas ao mesmo tempo (por exemplo, um lote emitindo enquanto se edita um cadastro) esperam a vez em vez de falhar com "banco ocupado".
+- Backup na nuvem: o endereço do servidor é recusado se tiver usuário, senha, `?` ou `#`; um endereço como `http://localhost:1@servidor` passava como local e mandava o token sem cifra para outro servidor.
 
 ## 1.18.0
 
