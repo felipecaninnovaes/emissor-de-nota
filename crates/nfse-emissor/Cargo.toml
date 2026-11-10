@@ -6,7 +6,7 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-calamine = { version = "0.35", features = ["dates"] }
+calamine = { version = "0.38", features = ["dates"] }
 chrono = "0.4.45"
 csv = "1.4"
 encoding_rs = "0.8"
@@ -25,4 +25,4 @@ tracing = "0.1"
 [dev-dependencies]
 nfse-db = { path = "../nfse-db", features = ["teste"] }
 serde_json = "1.0.154"
-zip = { version = "7", default-features = false }
+zip = { version = "9", default-features = false }
