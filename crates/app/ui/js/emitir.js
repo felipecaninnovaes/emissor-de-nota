@@ -323,8 +323,9 @@ export function descartarRevisao() {
   anunciar("Os dados mudaram: revise a nota de novo antes de emitir.");
 }
 
+// O cartão do formulário pelo id: o primeiro `.cartao` da tela é o de "Primeiros passos".
 for (const evento of ["input", "change"]) {
-  $('section[data-tela="emitir"] .cartao').addEventListener(evento, descartarRevisao);
+  $("#formulario-emissao").addEventListener(evento, descartarRevisao);
 }
 
 $("#revisar").addEventListener("click", () => {
@@ -337,7 +338,7 @@ let revisaoAtual = 0;
 
 async function revisar() {
   $("#resultado").hidden = true;
-  const formulario = $('section[data-tela="emitir"] .cartao');
+  const formulario = $("#formulario-emissao");
   limparErros(formulario);
   const erros = validarCampos(formulario);
   if (erros.length) return mostrarErros(erros);
@@ -485,6 +486,17 @@ $("#confirmar-emissao").addEventListener("click", async () => {
   // O pedido revisado; mudar o formulário durante o envio não troca o que já foi enviado.
   const pedido = estado.pedido;
   if (!pedido) return;
+  // Reforço: se o formulário mudou sem disparar os eventos que fecham a revisão, ela não vale mais.
+  let atual = null;
+  try {
+    atual = JSON.stringify(montarPedido());
+  } catch {
+    // formulário incompleto agora: também difere do pedido revisado
+  }
+  if (atual !== JSON.stringify(pedido)) {
+    descartarRevisao();
+    return toast("Os dados mudaram depois da revisão: revise a nota de novo antes de emitir.", true);
+  }
   if (atualizando) return toast("A atualização do sistema está em andamento; emita depois que ele abrir de novo.", true);
   emissaoEmCurso = true;
   const botao = $("#confirmar-emissao");
