@@ -51,7 +51,11 @@ impl Empresa {
             Ambiente::Producao => self.im_na_dps_producao,
             Ambiente::Homologacao => self.im_na_dps_homologacao,
         };
-        self.inscricao_municipal.as_deref().filter(|_| informar)
+        // "-", "0" e afins são marcadores de "sem IM" digitados no cadastro: não vão na DPS (E0120).
+        self.inscricao_municipal
+            .as_deref()
+            .map(str::trim)
+            .filter(|im| informar && im.chars().any(|c| c.is_ascii_alphanumeric() && c != '0'))
     }
 }
 
@@ -552,6 +556,12 @@ pub(crate) mod testes {
                 .im_para_dps(Ambiente::Homologacao),
             Some("12345")
         );
+        // Marcador de "sem IM" no cadastro não vai na DPS (E0120).
+        for marcador in ["-", " - ", "0", "000", "."] {
+            let mut sem_im = empresa.clone();
+            sem_im.inscricao_municipal = Some(marcador.into());
+            assert_eq!(sem_im.im_para_dps(Ambiente::Producao), None, "{marcador:?}");
+        }
 
         assert!(matches!(
             banco.cadastrar_empresa(&nova_empresa()).await,

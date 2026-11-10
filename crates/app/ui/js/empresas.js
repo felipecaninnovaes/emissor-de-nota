@@ -99,6 +99,11 @@ async function excluirEmpresa(empresa) {
 
 $("#nova-empresa").addEventListener("click", () => editarEmpresa(null));
 
+/** IM vazia ou só marcador ("-", "0"): mesma regra de `Empresa::im_para_dps`. */
+function semInscricao(im) {
+  return !/[1-9A-Za-z]/.test(im ?? "");
+}
+
 /** Cadastro (`empresa` nulo) ou edição de empresa no mesmo diálogo. */
 export function editarEmpresa(empresa) {
   const dlg = $("#dlg-empresa");
@@ -108,11 +113,20 @@ export function editarEmpresa(empresa) {
   $("#titulo-empresa").textContent = empresa ? "Editar empresa" : "Nova empresa";
   form.elements.cnpj.readOnly = !!empresa;
   $("[data-consultar-cnpj]", dlg).textContent = "Consultar";
+  // "Sem IM" desativa o campo: a IM fica vazia e não vai na DPS (E0120).
+  const semIm = form.elements.sem_im;
+  const sincronizarIm = () => {
+    form.elements.im.disabled = semIm.checked;
+    if (semIm.checked) form.elements.im.value = "";
+  };
+  semIm.onchange = sincronizarIm;
   if (empresa) {
+    const temIm = !semInscricao(empresa.inscricao_municipal);
     preencherForm(form, {
       cnpj: empresa.cnpj_formatado,
       nome: empresa.nome,
-      im: empresa.inscricao_municipal,
+      im: temIm ? empresa.inscricao_municipal : "",
+      sem_im: !temIm,
       municipio: empresa.municipio_emissor,
       serie: empresa.serie,
       simples: empresa.regime.simples,
@@ -123,6 +137,7 @@ export function editarEmpresa(empresa) {
       email: empresa.email,
     });
   }
+  sincronizarIm();
   abrirDialogo(dlg, $("#erro-empresa"), async (d) => {
     if (d.simples === "me_epp" && !d.apuracao) throw new ErroCampo("apuracao", "Para ME/EPP optante, escolha a forma de apuração.");
     const regime = { simples: d.simples, regime_especial: Number(d.regime_especial) };
@@ -130,7 +145,7 @@ export function editarEmpresa(empresa) {
     const dados = {
       cnpj: empresa ? empresa.cnpj : d.cnpj.replace(/[^0-9A-Za-z]/g, "").toUpperCase(),
       nome: d.nome.trim(),
-      inscricao_municipal: vazio(d.im),
+      inscricao_municipal: d.sem_im ? null : vazio(d.im),
       municipio_emissor: soDigitos(d.municipio),
       regime,
       ambiente: d.ambiente,

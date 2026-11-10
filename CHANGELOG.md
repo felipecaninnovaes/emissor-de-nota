@@ -4,6 +4,8 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 
 ## Não publicado
 
+- Empresa sem inscrição municipal: nova opção "Sem inscrição municipal" no cadastro, que desativa o campo; "-" ou "0" já cadastrados também não vão mais na DPS (rejeição E0120).
+
 ## 1.17.1
 
 Correção da troca da pasta das notas no Windows. Sem nova migração nem mudança no esquema do banco.
