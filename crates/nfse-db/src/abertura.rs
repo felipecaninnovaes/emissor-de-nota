@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use zeroize::Zeroizing;
 
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous};
-use sqlx::{Row, SqlitePool};
+use sqlx::{ConnectOptions, Row, SqlitePool};
 
 use crate::cofre::{CabecalhoCofre, Cofre, caminho_cabecalho, gravar_cabecalho, ler_cabecalho};
 use crate::{Banco, ErroBanco, Resultado, de_json};
@@ -43,10 +43,19 @@ fn pragma_chave(chave_hex: &str) -> String {
     format!("\"x'{chave_hex}'\"")
 }
 
-pub(crate) fn opcoes_do_arquivo(caminho: &Path, chave_hex: Option<&str>) -> SqliteConnectOptions {
-    let opcoes = SqliteConnectOptions::new()
+/// Opções de conexão de um arquivo do banco, sem o log de instruções do sqlx: a chave vai no texto
+/// do `PRAGMA key` e do `ATTACH`, e o sqlx registra em aviso toda instrução lenta (mais de 1 s, com
+/// um disco lento ou um antivírus segurando o arquivo), o que a mandaria para o arquivo de log.
+fn opcoes_sem_log(caminho: &Path) -> SqliteConnectOptions {
+    SqliteConnectOptions::new()
         .filename(caminho)
-        .create_if_missing(true)
+        .disable_statement_logging()
+}
+
+/// `criar`: só na criação do banco; ao abrir, um arquivo que falta não vira banco vazio.
+pub(crate) fn opcoes_do_arquivo(caminho: &Path, chave_hex: Option<&str>, criar: bool) -> SqliteConnectOptions {
+    let opcoes = opcoes_sem_log(caminho)
+        .create_if_missing(criar)
         .journal_mode(SqliteJournalMode::Wal)
         .synchronous(SqliteSynchronous::Full)
         .foreign_keys(true)
@@ -67,7 +76,7 @@ async fn pool_unico(opcoes: SqliteConnectOptions) -> Resultado<SqlitePool> {
 
 /// `PRAGMA integrity_check` num arquivo (cifrado, se vier a chave). Erro se não for "ok".
 pub(crate) async fn conferir_integridade(caminho: PathBuf, chave_hex: Option<Zeroizing<String>>) -> Resultado<()> {
-    let mut opcoes = SqliteConnectOptions::new().filename(&caminho).read_only(true);
+    let mut opcoes = opcoes_sem_log(&caminho).read_only(true);
     if let Some(chave) = chave_hex {
         opcoes = opcoes.pragma("key", pragma_chave(&chave));
     }
@@ -86,7 +95,7 @@ async fn cabecalho_legado(caminho: PathBuf) -> Resultado<Option<CabecalhoCofre>>
     if !em_claro(&caminho) {
         return Ok(None);
     }
-    let opcoes = SqliteConnectOptions::new().filename(&caminho);
+    let opcoes = opcoes_sem_log(&caminho);
     let conexao = pool_unico(opcoes).await?;
     let valor: Option<String> = sqlx::query("SELECT valor FROM configuracao WHERE chave = 'cofre'")
         .fetch_optional(&conexao)
@@ -105,7 +114,7 @@ async fn cifrar_banco_em_claro(caminho: PathBuf, chave: Zeroizing<String>) -> Re
     let _ = std::fs::remove_file(&novo);
 
     // `create_if_missing` vale também para o ATTACH, que cria o arquivo cifrado.
-    let opcoes = SqliteConnectOptions::new().filename(&caminho).create_if_missing(true);
+    let opcoes = opcoes_sem_log(&caminho).create_if_missing(true);
     let conexao = pool_unico(opcoes).await?;
     // Leva o que ainda está no WAL para o arquivo principal antes de copiar.
     sqlx::query("PRAGMA wal_checkpoint(TRUNCATE)").execute(&conexao).await?;
@@ -175,7 +184,7 @@ impl Banco {
             // Banco em claro sem cofre (nunca chegou a criar a senha): só cifra.
             cifrar_banco_em_claro(caminho.clone(), cofre.chave_banco_hex()).await?;
         }
-        let banco = Self::abrir_com_chave(caminho.clone(), cofre.chave_banco_hex()).await?;
+        let banco = Self::abrir_com_chave(caminho.clone(), cofre.chave_banco_hex(), true).await?;
         // O cabeçalho só vai para o disco com o banco já aberto e migrado.
         gravar_cabecalho(&caminho, cofre.cabecalho())?;
         banco.auditar("cofre_criado", None, None).await?;
@@ -186,6 +195,14 @@ impl Banco {
     pub async fn abrir_protegido(caminho: PathBuf, senha: String) -> Resultado<(Self, Cofre)> {
         let senha = Zeroizing::new(senha);
         let (cabecalho, legado) = match ler_cabecalho(&caminho)? {
+            // Com o cofre e sem o banco, abrir criaria um banco vazio e a numeração voltaria a 1.
+            Some(_) if !caminho.metadata().is_ok_and(|m| m.len() > 0) => {
+                return Err(ErroBanco::Regra(
+                    "o arquivo emissor.db não está ao lado do emissor.cofre (ou está vazio); restaure os dois \
+                     arquivos juntos do backup"
+                        .into(),
+                ));
+            }
             Some(c) => (c, false),
             None => match cabecalho_legado(caminho.clone()).await? {
                 Some(c) => (c, true),
@@ -199,7 +216,7 @@ impl Banco {
             cifrar_banco_em_claro(caminho.clone(), cofre.chave_banco_hex()).await?;
             gravar_cabecalho(&caminho, cofre.cabecalho())?;
         }
-        let banco = Self::abrir_com_chave(caminho, cofre.chave_banco_hex()).await?;
+        let banco = Self::abrir_com_chave(caminho, cofre.chave_banco_hex(), false).await?;
         if legado {
             sqlx::query("DELETE FROM configuracao WHERE chave = 'cofre'")
                 .execute(banco.pool())
@@ -211,21 +228,17 @@ impl Banco {
         Ok((banco, cofre))
     }
 
-    /// Abre (ou cria) o arquivo cifrado com a chave do cofre e aplica as migrações pendentes.
-    pub(crate) async fn abrir_com_chave(caminho: PathBuf, chave: Zeroizing<String>) -> Resultado<Self> {
+    /// Abre (ou, com `criar`, cria) o arquivo cifrado com a chave do cofre e aplica as migrações.
+    pub(crate) async fn abrir_com_chave(caminho: PathBuf, chave: Zeroizing<String>, criar: bool) -> Resultado<Self> {
         let pool = SqlitePoolOptions::new()
             .max_connections(4)
-            .connect_with(opcoes_do_arquivo(&caminho, Some(&chave)))
+            .connect_with(opcoes_do_arquivo(&caminho, Some(&chave), criar))
             .await
-            .map_err(|_| nao_abre())?;
+            .map_err(erro_ao_abrir)?;
         // Chave errada só aparece na primeira leitura.
-        if sqlx::query("SELECT count(*) FROM sqlite_master")
-            .fetch_one(&pool)
-            .await
-            .is_err()
-        {
+        if let Err(e) = sqlx::query("SELECT count(*) FROM sqlite_master").fetch_one(&pool).await {
             pool.close().await;
-            return Err(nao_abre());
+            return Err(erro_ao_abrir(e));
         }
         let banco = Self::com_pool(pool);
         banco.preparar().await?;
@@ -233,6 +246,17 @@ impl Banco {
     }
 }
 
-fn nao_abre() -> ErroBanco {
-    ErroBanco::Regra("o banco não abriu com esta senha mestra; o arquivo emissor.cofre pode ser de outro banco".into())
+/// Código do SQLite para "o arquivo não é um banco": com o SQLCipher, é a chave que não confere.
+const SQLITE_NOTADB: &str = "26";
+
+/// Só a chave que não confere vira a mensagem da senha mestra; disco cheio, arquivo preso ou sem
+/// permissão aparecem como são, para o operador não procurar o problema no lugar errado.
+fn erro_ao_abrir(e: sqlx::Error) -> ErroBanco {
+    if e.as_database_error().and_then(|d| d.code()).as_deref() == Some(SQLITE_NOTADB) {
+        ErroBanco::Regra(
+            "o banco não abriu com esta senha mestra; o arquivo emissor.cofre pode ser de outro banco".into(),
+        )
+    } else {
+        ErroBanco::Regra(format!("não foi possível abrir o banco: {e}"))
+    }
 }

@@ -268,6 +268,27 @@ mod testes {
     }
 
     #[tokio::test]
+    async fn cofre_sem_o_banco_nao_cria_banco_vazio() {
+        let dir = pasta_temp("sem-banco");
+        let (banco, _) = Banco::criar_protegido_rapido(dir.join("emissor.db"), "senha-mestra")
+            .await
+            .unwrap();
+        banco.fechar().await;
+        // Só o .cofre numa pasta sem o banco (no Windows, o banco recém-fechado pode seguir preso).
+        let outra = dir.join("so-o-cofre");
+        std::fs::create_dir_all(&outra).unwrap();
+        std::fs::copy(dir.join("emissor.cofre"), outra.join("emissor.cofre")).unwrap();
+        let caminho = outra.join("emissor.db");
+        let erro = Banco::abrir_protegido(caminho.clone(), "senha-mestra".into())
+            .await
+            .err()
+            .expect("não pode abrir");
+        assert!(erro.to_string().contains("emissor.db"), "{erro}");
+        assert!(!caminho.exists(), "não cria banco vazio");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
     async fn cabecalho_de_outro_banco_nao_abre() {
         let dir = pasta_temp("outro");
         let (a, _) = Banco::criar_protegido_rapido(dir.join("a.db"), "senha-mestra")

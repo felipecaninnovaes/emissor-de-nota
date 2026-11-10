@@ -45,6 +45,9 @@ fn filtro(detalhado: bool) -> Targets {
         .with_target("nfse_nacional", nivel)
         .with_target("nfse_xml", nivel)
         .with_target("nfse_db", nivel)
+        // As instruções do sqlx nunca vão para o log: o texto do `PRAGMA key` leva a chave do banco.
+        // As conexões já desligam esse log; isto é a segunda trava.
+        .with_target("sqlx::query", LevelFilter::OFF)
 }
 
 /// Liga o log em arquivo e o registro de pânicos. Falhar aqui não impede o aplicativo de abrir.
