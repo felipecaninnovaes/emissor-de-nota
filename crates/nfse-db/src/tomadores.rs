@@ -55,17 +55,6 @@ impl TipoTomador {
         }
     }
 
-    fn do_texto(t: &str) -> Resultado<Self> {
-        match t {
-            "privado" => Ok(Self::Privado),
-            "federal" => Ok(Self::Federal),
-            "estadual" => Ok(Self::Estadual),
-            "distrito_federal" => Ok(Self::DistritoFederal),
-            "municipal" | "estadual_municipal" => Ok(Self::Municipal),
-            outro => Err(ErroBanco::DadoInvalido(format!("tipo de tomador {outro:?}"))),
-        }
-    }
-
     /// `tpEnteGov` da DPS; `None` para tomador privado.
     pub fn ente_governamental(self) -> Option<EnteGovernamental> {
         match self {
@@ -80,6 +69,21 @@ impl TipoTomador {
     /// Só a União retém PIS, COFINS e CSLL; os demais entes públicos não (sem convênio com a RFB).
     pub fn retem_contribuicoes(self) -> bool {
         matches!(self, Self::Privado | Self::Federal)
+    }
+}
+
+impl std::str::FromStr for TipoTomador {
+    type Err = ErroBanco;
+
+    fn from_str(t: &str) -> Resultado<Self> {
+        match t {
+            "privado" => Ok(Self::Privado),
+            "federal" => Ok(Self::Federal),
+            "estadual" => Ok(Self::Estadual),
+            "distrito_federal" => Ok(Self::DistritoFederal),
+            "municipal" | "estadual_municipal" => Ok(Self::Municipal),
+            outro => Err(ErroBanco::DadoInvalido(format!("tipo de tomador {outro:?}"))),
+        }
     }
 }
 
@@ -146,7 +150,7 @@ pub(crate) fn tomador_de(r: &SqliteRow) -> Resultado<TomadorVinculado> {
         observacao: r.get(14),
         retem_federais: r.get(15),
         retem_iss: r.get(16),
-        tipo: TipoTomador::do_texto(r.get(17))?,
+        tipo: r.get::<&str, _>(17).parse::<TipoTomador>()?,
     })
 }
 
@@ -264,7 +268,7 @@ async fn retencao_de_outra_empresa<'e, E: sqlx::SqliteExecutor<'e>>(
         Ok(RetencaoDoVinculo {
             federais: r.get(0),
             iss: r.get(1),
-            tipo: TipoTomador::do_texto(r.get(2))?,
+            tipo: r.get::<&str, _>(2).parse::<TipoTomador>()?,
         })
     })
     .transpose()
@@ -617,11 +621,11 @@ mod testes {
         for (tipo, ente, contribuicoes) in casos {
             assert_eq!(tipo.ente_governamental().map(|e| e.codigo()), ente, "{tipo:?}");
             assert_eq!(tipo.retem_contribuicoes(), contribuicoes, "{tipo:?}");
-            assert_eq!(TipoTomador::do_texto(tipo.como_texto()).unwrap(), tipo);
+            assert_eq!(tipo.como_texto().parse::<TipoTomador>().unwrap(), tipo);
         }
         // versão de teste gravava "estadual_municipal"
-        assert_eq!(TipoTomador::do_texto("estadual_municipal").unwrap(), Municipal);
-        assert!(TipoTomador::do_texto("outro").is_err());
+        assert_eq!("estadual_municipal".parse::<TipoTomador>().unwrap(), Municipal);
+        assert!("outro".parse::<TipoTomador>().is_err());
     }
 
     #[tokio::test]

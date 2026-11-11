@@ -103,7 +103,7 @@ impl<C: Conector> Emissor<C> {
             modelo.as_ref().map_or("?", |m| m.leiaute.codigo())
         ));
         t.push_str(&format!("Id: {}\n", mascarar_ids(&dps.id_dps)));
-        t.push_str(&format!("Situação: {}\n", dps.situacao.texto()));
+        t.push_str(&format!("Situação: {}\n", dps.situacao.como_texto()));
         t.push_str(&format!("Tentativas: {}\n", dps.tentativas));
         if let Some(enviado) = &dps.enviado_em {
             t.push_str(&format!("Último envio (UTC): {enviado}\n"));

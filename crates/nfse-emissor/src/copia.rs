@@ -34,7 +34,7 @@ impl<C: Conector> Emissor<C> {
         if registro.situacao != SituacaoDps::Rejeitada {
             return Err(ErroEmissao::Regra(format!(
                 "só nota rejeitada pode ser refeita (esta está \"{}\")",
-                registro.situacao.texto()
+                registro.situacao.como_texto()
             )));
         }
         self.ler_dados_da_dps(dps_id).await
@@ -47,7 +47,7 @@ impl<C: Conector> Emissor<C> {
         if !matches!(registro.situacao, SituacaoDps::Autorizada | SituacaoDps::Cancelada) {
             return Err(ErroEmissao::Regra(format!(
                 "só nota autorizada ou cancelada pode ser copiada (esta está \"{}\")",
-                registro.situacao.texto()
+                registro.situacao.como_texto()
             )));
         }
         self.ler_dados_da_dps(dps_id).await
@@ -59,7 +59,7 @@ impl<C: Conector> Emissor<C> {
         if registro.situacao != SituacaoDps::Autorizada {
             return Err(ErroEmissao::Regra(format!(
                 "só nota autorizada pode ser substituída (esta está \"{}\")",
-                registro.situacao.texto()
+                registro.situacao.como_texto()
             )));
         }
         self.ler_dados_da_dps(dps_id).await

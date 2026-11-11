@@ -210,7 +210,7 @@ impl Banco {
             .map(|r| {
                 Ok(TentativaNoMes {
                     dps_id: r.get(0),
-                    situacao: SituacaoDps::de(r.get(1))?,
+                    situacao: r.get::<&str, _>(1).parse::<SituacaoDps>()?,
                     numero_nfse: r.get(2),
                     nfse_id: r.get(3),
                     erro: r.get(4),

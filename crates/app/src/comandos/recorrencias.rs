@@ -26,7 +26,7 @@ pub(crate) fn tentativa_dto(t: nfse_db::recorrencias::TentativaNoMes) -> Tentati
     TentativaDto {
         libera: t.libera_o_mes(),
         dps_id: t.dps_id,
-        situacao: t.situacao.texto(),
+        situacao: t.situacao.como_texto(),
         numero_nfse: t.numero_nfse,
         nfse_id: t.nfse_id,
         erro: t.erro,
@@ -117,7 +117,7 @@ pub async fn listar_recorrencias(
             no_mes: item.no_mes.map(|t| TentativaDto {
                 libera: t.libera_o_mes(),
                 dps_id: t.dps_id,
-                situacao: t.situacao.texto(),
+                situacao: t.situacao.como_texto(),
                 numero_nfse: t.numero_nfse,
                 nfse_id: t.nfse_id,
                 erro: t.erro,

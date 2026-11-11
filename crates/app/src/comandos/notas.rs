@@ -47,7 +47,7 @@ pub async fn listar_notas(estado: State<'_, Estado>, empresa_id: i64, mes: Optio
             numero_dps: n.numero_dps,
             numero_nfse: n.numero_nfse,
             chave: n.chave,
-            situacao: n.situacao.texto(),
+            situacao: n.situacao.como_texto(),
             erro: n.ultimo_erro,
             tomador: n.tomador,
             descricao: n.descricao,

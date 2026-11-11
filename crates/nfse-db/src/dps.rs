@@ -33,7 +33,7 @@ pub enum SituacaoDps {
 }
 
 impl SituacaoDps {
-    pub fn texto(self) -> &'static str {
+    pub fn como_texto(self) -> &'static str {
         match self {
             SituacaoDps::Reservada => "reservada",
             SituacaoDps::Enviando => "enviando",
@@ -44,8 +44,12 @@ impl SituacaoDps {
             SituacaoDps::Substituida => "substituida",
         }
     }
+}
 
-    pub(crate) fn de(s: &str) -> Resultado<Self> {
+impl std::str::FromStr for SituacaoDps {
+    type Err = ErroBanco;
+
+    fn from_str(s: &str) -> Resultado<Self> {
         Ok(match s {
             "reservada" => SituacaoDps::Reservada,
             "enviando" => SituacaoDps::Enviando,
@@ -132,7 +136,7 @@ fn dps_de(r: &SqliteRow) -> Resultado<RegistroDps> {
         serie: r.get(3),
         numero: r.get::<i64, _>(4) as u64,
         id_dps: r.get(5),
-        situacao: SituacaoDps::de(r.get(6))?,
+        situacao: r.get::<&str, _>(6).parse::<SituacaoDps>()?,
         xml_assinado: r.get(7),
         tentativas: r.get(8),
         ultimo_erro: r.get(9),
@@ -349,14 +353,14 @@ impl Banco {
     ) -> Resultado<()> {
         let lista = de
             .iter()
-            .map(|s| format!("'{}'", s.texto()))
+            .map(|s| format!("'{}'", s.como_texto()))
             .collect::<Vec<_>>()
             .join(",");
         let afetadas = sqlx::query(&format!(
             "UPDATE dps SET situacao = ?, ultimo_erro = COALESCE(?, ultimo_erro), atualizado_em = ?
              WHERE id = ? AND situacao IN ({lista})"
         ))
-        .bind(para.texto())
+        .bind(para.como_texto())
         .bind(erro)
         .bind(agora())
         .bind(dps_id)
@@ -367,8 +371,8 @@ impl Banco {
             let atual = self.dps(dps_id).await?.situacao;
             return Err(ErroBanco::Regra(format!(
                 "DPS em situação \"{}\" não pode passar para \"{}\"",
-                atual.texto(),
-                para.texto()
+                atual.como_texto(),
+                para.como_texto()
             )));
         }
         Ok(())
@@ -400,7 +404,7 @@ impl Banco {
         if afetadas == 0 {
             return Err(ErroBanco::Regra(format!(
                 "DPS em situação \"{}\" não pode ser enviada{}",
-                registro.situacao.texto(),
+                registro.situacao.como_texto(),
                 if registro.situacao == SituacaoDps::Incerta {
                     " antes da reconciliação"
                 } else {
@@ -448,7 +452,7 @@ impl Banco {
         if afetadas == 0 {
             return Err(ErroBanco::Regra(format!(
                 "DPS em situação \"{}\" não pode ficar incerta",
-                self.dps(dps_id).await?.situacao.texto()
+                self.dps(dps_id).await?.situacao.como_texto()
             )));
         }
         Ok(())
@@ -470,7 +474,10 @@ impl Banco {
             let dps = self.dps(dps_id).await?;
             return Err(ErroBanco::Regra(match dps.chave_recebida {
                 Some(chave) => format!("a Sefin já autorizou a NFS-e {chave} para esta DPS; ela não pode ser liberada"),
-                None => format!("DPS em situação \"{}\" não pode ser liberada", dps.situacao.texto()),
+                None => format!(
+                    "DPS em situação \"{}\" não pode ser liberada",
+                    dps.situacao.como_texto()
+                ),
             }));
         }
         Ok(())
@@ -614,7 +621,7 @@ impl Banco {
                     dps_id: r.get(0),
                     serie: r.get(1),
                     numero_dps: r.get::<i64, _>(2) as u64,
-                    situacao: SituacaoDps::de(r.get(3))?,
+                    situacao: r.get::<&str, _>(3).parse::<SituacaoDps>()?,
                     ultimo_erro: r.get(4),
                     criada_em: r.get(6),
                     nfse_id: r.get(7),
@@ -650,7 +657,7 @@ impl Banco {
             let atual = self.dps(nfse.dps_id).await?.situacao;
             return Err(ErroBanco::Regra(format!(
                 "DPS em situação \"{}\" não pode passar para \"cancelada\"",
-                atual.texto()
+                atual.como_texto()
             )));
         };
         let empresa_id: i64 = linha.get(0);

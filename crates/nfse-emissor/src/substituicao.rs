@@ -37,7 +37,7 @@ pub async fn aplicar_substituicao(
     if dps.situacao != SituacaoDps::Autorizada {
         return Err(ErroEmissao::Regra(format!(
             "a nota {nota} está \"{}\" e não pode ser substituída",
-            dps.situacao.texto()
+            dps.situacao.como_texto()
         )));
     }
     if let Some(id) = banco.substituta_em_andamento(&nfse.chave).await? {

@@ -23,7 +23,7 @@ impl<C: Conector> Emissor<C> {
         if dps.situacao != SituacaoDps::Autorizada {
             return Err(ErroEmissao::Regra(format!(
                 "a nota está \"{}\" e não pode ser cancelada",
-                dps.situacao.texto()
+                dps.situacao.como_texto()
             )));
         }
         let empresa = self.banco.empresa(dps.empresa_id).await?;
@@ -76,7 +76,7 @@ impl<C: Conector> Emissor<C> {
             outra => {
                 return Err(ErroEmissao::Regra(format!(
                     "a nota está \"{}\" e não tem o que sincronizar",
-                    outra.texto()
+                    outra.como_texto()
                 )));
             }
         }

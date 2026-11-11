@@ -378,7 +378,7 @@ impl<C: Conector> Emissor<C> {
         if let Some(t) = anterior.filter(|t| !t.libera_o_mes()) {
             return Err(ErroEmissao::Regra(format!(
                 "já existe nota {} para esta {}",
-                t.situacao.texto(),
+                t.situacao.como_texto(),
                 match pedido.origem {
                     Origem::Recorrencia(_) => "recorrência neste mês",
                     _ => "linha da planilha",
