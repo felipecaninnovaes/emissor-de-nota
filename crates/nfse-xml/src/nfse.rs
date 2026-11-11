@@ -1,5 +1,8 @@
 //! Leitura dos dados da NFS-e devolvida pela Sefin (para gravar no banco e montar a pasta/PDF).
 
+use chrono::NaiveDate;
+use nfse_core::Valor;
+
 use crate::dps::NS_NFSE;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -12,10 +15,10 @@ pub struct DadosNfse {
     pub situacao: Option<String>,
     /// `infDPS/@Id` da DPS encapsulada.
     pub id_dps: Option<String>,
-    /// `dCompet` da DPS (AAAA-MM-DD)
-    pub competencia: Option<String>,
-    /// `vServ` da DPS
-    pub valor_servico: Option<String>,
+    /// `dCompet` da DPS; `None` se faltar ou não for uma data.
+    pub competencia: Option<NaiveDate>,
+    /// `vServ` da DPS; `None` se faltar ou não for um valor.
+    pub valor_servico: Option<Valor>,
     /// `regTrib/opSimpNac` do prestador na DPS (1 não optante, 2 MEI, 3 ME/EPP).
     pub opcao_simples: Option<String>,
     /// CNPJ, CPF ou NIF do tomador na DPS, quando identificado.
@@ -50,8 +53,8 @@ pub fn ler_nfse(xml: &str) -> Result<DadosNfse, ErroLeituraNfse> {
         numero: texto("nNFSe").ok_or(ErroLeituraNfse::Estrutura("nNFSe"))?,
         situacao: texto("cStat"),
         id_dps: elemento("infDPS").and_then(|n| n.attribute("Id")).map(str::to_owned),
-        competencia: texto("dCompet"),
-        valor_servico: texto("vServ"),
+        competencia: texto("dCompet").and_then(|c| NaiveDate::parse_from_str(&c, "%Y-%m-%d").ok()),
+        valor_servico: texto("vServ").and_then(|v| Valor::parse(&v).ok()),
         opcao_simples: texto("opSimpNac"),
         documento_tomador: elemento("toma").and_then(|toma| {
             toma.children()
@@ -92,8 +95,8 @@ pub(crate) mod testes {
         assert_eq!(d.numero, "77");
         assert_eq!(d.situacao.as_deref(), Some("100"));
         assert_eq!(d.id_dps.as_deref(), Some("DPS1"));
-        assert_eq!(d.competencia.as_deref(), Some("2026-10-16"));
-        assert_eq!(d.valor_servico.as_deref(), Some("1.00"));
+        assert_eq!(d.competencia, NaiveDate::from_ymd_opt(2026, 10, 16));
+        assert_eq!(d.valor_servico, Some(Valor::de_centesimos(100)));
         assert_eq!(d.opcao_simples.as_deref(), Some("3"));
         assert_eq!(d.documento_tomador.as_deref(), Some("99888777000166"));
     }

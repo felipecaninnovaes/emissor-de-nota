@@ -248,10 +248,7 @@ impl<C: Conector> Emissor<C> {
             .banco
             .empresa(self.banco.dps(nfse.dps_id).await?.empresa_id)
             .await?;
-        let competencia = nfse_xml::ler_nfse(&nfse.xml)?
-            .competencia
-            .and_then(|c| NaiveDate::parse_from_str(&c, "%Y-%m-%d").ok())
-            .unwrap_or_else(|| agora_brasilia().date_naive());
+        let competencia = competencia_da_nfse(&nfse.xml)?;
         Ok(Some(arquivo::pasta_mes(raiz, &empresa, competencia).join(
             arquivo::nome_xml_nfse(nfse.numero.as_deref().unwrap_or("sem-numero"), &nfse.chave),
         )))
@@ -590,13 +587,9 @@ impl<C: Conector> Emissor<C> {
         }
         let competencia = dados
             .competencia
-            .as_deref()
-            .and_then(|c| NaiveDate::parse_from_str(c, "%Y-%m-%d").ok())
             .ok_or_else(|| ErroEmissao::Regra("NFS-e sem data de competência".into()))?;
         let valor = dados
             .valor_servico
-            .as_deref()
-            .and_then(|v| Valor::parse(v).ok())
             .ok_or_else(|| ErroEmissao::Regra("NFS-e sem valor do serviço".into()))?;
         let recebida = NfseRecebida {
             chave: dados.chave,
@@ -739,6 +732,14 @@ impl Validacao {
         (!self.dps_invalida.is_empty())
             .then(|| ErroEmissao::DpsInvalida(nfse_xml::DpsInvalida(self.dps_invalida.clone())))
     }
+}
+
+/// Competência da NFS-e gravada, que decide a pasta do mês dos arquivos dela; sem ela (XML antigo
+/// ou ilegível), o dia de hoje.
+pub(crate) fn competencia_da_nfse(xml: &str) -> Result<NaiveDate, ErroEmissao> {
+    Ok(nfse_xml::ler_nfse(xml)?
+        .competencia
+        .unwrap_or_else(|| agora_brasilia().date_naive()))
 }
 
 /// O XML legível de uma NFS-e gerada por outra DPS que não `id_dps`.

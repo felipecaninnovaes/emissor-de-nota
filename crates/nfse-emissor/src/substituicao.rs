@@ -10,7 +10,7 @@ use nfse_db::Banco;
 use nfse_db::dps::SituacaoDps;
 use nfse_db::empresas::Empresa;
 
-use crate::{Conector, Emissor, ErroEmissao, SubstituirNota, agora_brasilia, arquivo};
+use crate::{Conector, Emissor, ErroEmissao, SubstituirNota, arquivo};
 
 /// Confere a nota a substituir (da mesma empresa e ambiente, autorizada e sem outra substituta
 /// aguardando a Sefin) e prepara a nova DPS como substituta: grupo `subst` e a competência da
@@ -47,11 +47,7 @@ pub async fn aplicar_substituicao(
     }
     let original = nfse_xml::ler_nfse(&nfse.xml)?;
     // A substituta corrige a mesma prestação: fica na competência da original, não na data de hoje.
-    if let Some(competencia) = original
-        .competencia
-        .as_deref()
-        .and_then(|c| NaiveDate::parse_from_str(c, "%Y-%m-%d").ok())
-    {
+    if let Some(competencia) = original.competencia {
         modelo.competencia = competencia;
     }
     if let Some(erro) = campos_fixos_alterados(&original, modelo) {
@@ -97,9 +93,7 @@ fn comparar(
         return None;
     }
     let mut mudou = Vec::new();
-    if let Some(c) = &original.competencia
-        && *c != competencia.format("%Y-%m-%d").to_string()
-    {
+    if original.competencia.is_some_and(|c| c != competencia) {
         mudou.push("a data de competência".to_owned());
     }
     if let Some(doc) = &original.documento_tomador
@@ -107,7 +101,7 @@ fn comparar(
     {
         mudou.push("o tomador".to_owned());
     }
-    if let Some(v) = original.valor_servico.as_deref().and_then(|v| Valor::parse(v).ok())
+    if let Some(v) = original.valor_servico
         && v != valor
     {
         mudou.push(format!("o valor do serviço (de {v} para {valor})"));
@@ -153,10 +147,7 @@ impl<C: Conector> Emissor<C> {
                 .await?
                 .ok_or_else(|| ErroEmissao::Regra("a nota substituída não está no banco".into()))?;
             let original = self.banco.nfse(id).await?;
-            let competencia = nfse_xml::ler_nfse(&original.xml)?
-                .competencia
-                .and_then(|c| NaiveDate::parse_from_str(&c, "%Y-%m-%d").ok())
-                .unwrap_or_else(|| agora_brasilia().date_naive());
+            let competencia = crate::competencia_da_nfse(&original.xml)?;
             let caminho = arquivo::pasta_mes(raiz, empresa, competencia).join(arquivo::nome_xml_nfse(
                 original.numero.as_deref().unwrap_or("sem-numero"),
                 &original.chave,
@@ -184,8 +175,8 @@ mod testes {
             numero: "1".into(),
             situacao: Some("100".into()),
             id_dps: None,
-            competencia: Some("2026-11-08".into()),
-            valor_servico: Some("1000.00".into()),
+            competencia: NaiveDate::from_ymd_opt(2026, 11, 8),
+            valor_servico: Some(Valor::de_centesimos(100_000)),
             opcao_simples: Some(opcao.into()),
             documento_tomador: Some(TOMADOR.into()),
         }
