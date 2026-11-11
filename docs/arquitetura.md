@@ -37,7 +37,7 @@ nfse-poc      → cert, core, emissor, nacional, pdf, xml
 Implementado em `Emissor::emitir` (`crates/nfse-emissor/src/lib.rs`). Os demais fluxos do `Emissor` ficam em submódulos do mesmo crate: `montagem.rs` (DPS a partir dos cadastros), `reconciliacao.rs`, `cancelamento.rs`, `copia.rs` (refazer/copiar/substituir), `substituicao.rs` (grupo `subst` e PDF da nota substituída) e `envio_email.rs`. A Sefin fica atrás dos traits `Conector` e `Sefin`, que os testes substituem por um simulado.
 
 1. Recorrência e planilha: se o item já tem nota autorizada ou em andamento, não emite de novo.
-2. Monta e **valida a DPS antes de reservar número**: DPS inválida não gasta numeração.
+2. Monta e **valida a DPS antes de reservar número**: DPS inválida não gasta numeração. A conferência é `Emissor::validar`, a mesma das prévias do app (Emitir, planilha e lote); a nota já emitida no mês ou na linha da planilha é conferida só na emissão.
 3. Reserva o número em transação atômica (`numeracao`, por empresa, ambiente e série); a DPS fica `reservada`. Se o ambiente ou a série da empresa mudou depois da validação, a reserva vira `rejeitada` ("não enviada") e nada é enviado.
 4. Assina (XMLDSIG, em `spawn_blocking`), grava a DPS como `enviando` (com `enviado_em`) e envia (`POST /nfse`). Se a geração, a assinatura ou a gravação falharem, a DPS passa a `rejeitada` ("não enviada"); as que ficaram `reservada` por queda do programa são liberadas ao abrir o sistema. Só uma DPS `reservada` vai à Sefin: a rejeitada não é reenviada, e a nova tentativa reserva outro número.
 5. Resposta:
