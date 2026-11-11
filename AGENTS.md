@@ -19,7 +19,7 @@ just fmt
 just check-servidor   # servidor/, precisa do Postgres do compose.yaml
 ```
 
-No Linux e no macOS, o ambiente vem do Devbox (`devbox run setup`, `up`, `test`, `lint`, `fmt`, `run`, `down`). O CI roda fmt, clippy e testes no Windows. No Linux, `nfse-nacional::testes::identidade_mtls_a_partir_do_pfx` falha porque o OpenSSL 3 não abre o `.pfx` legado de teste; os outros passam ([docs/desenvolvimento.md](docs/desenvolvimento.md#problemas-conhecidos)).
+No Linux e no macOS, o ambiente vem do Devbox (`devbox run setup`, `up`, `test`, `lint`, `fmt`, `run`, `down`). O CI roda fmt, clippy e testes no Windows. No Linux, `nfse-nacional::testes::identidade_mtls_a_partir_do_pfx` falha porque o OpenSSL 3 não abre o `.pfx` legado de teste; os outros passam, e `just check` e `devbox run test` o pulam fora do Windows ([docs/desenvolvimento.md](docs/desenvolvimento.md#problemas-conhecidos)).
 
 ## Regras
 

@@ -33,7 +33,7 @@ As regras do projeto (Produção, migrações, comandos Tauri, emissão, conven�
 
 ## Armadilhas do ambiente
 - `just` roda as receitas em PowerShell no Windows; no Linux, dentro do `devbox shell`.
-- No Linux, `identidade_mtls_a_partir_do_pfx` falha (OpenSSL 3 e `.pfx` legado); `devbox run test` já pula esse teste.
+- No Linux, `identidade_mtls_a_partir_do_pfx` falha (OpenSSL 3 e `.pfx` legado); `just check` e `devbox run test` já pulam esse teste (`just test` não).
 - `DATABASE_URL` nunca global: o sqlx a leria ao compilar `nfse-db`. A receita `check-servidor` a define só para o servidor.
 
 ## Mapa
