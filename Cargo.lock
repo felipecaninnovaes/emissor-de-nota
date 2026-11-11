@@ -3295,6 +3295,7 @@ dependencies = [
  "base64 0.23.1",
  "flate2",
  "nfse-cert",
+ "nfse-core",
  "reqwest",
  "serde",
  "serde_json",

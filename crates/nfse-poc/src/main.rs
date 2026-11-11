@@ -11,7 +11,8 @@ use clap::{Parser, Subcommand, ValueEnum};
 
 use nfse_cert::CertificadoA1;
 use nfse_core::DpsId;
-use nfse_nacional::{Ambiente, ClienteSefin, ErroSefin};
+use nfse_core::modelo::Ambiente;
+use nfse_nacional::{ClienteSefin, ErroSefin};
 
 #[derive(Parser)]
 #[command(version, about = "Prova de conceito do emissor de NFS-e Nacional")]
@@ -29,7 +30,7 @@ enum AmbienteArg {
 impl From<AmbienteArg> for Ambiente {
     fn from(a: AmbienteArg) -> Self {
         match a {
-            AmbienteArg::Restrita => Ambiente::ProducaoRestrita,
+            AmbienteArg::Restrita => Ambiente::Homologacao,
             AmbienteArg::Producao => Ambiente::Producao,
         }
     }
@@ -293,10 +294,7 @@ async fn main() -> Result<()> {
             let cert = abrir_certificado(&pfx)?;
             let cnpj = cert.info().cnpj.clone().context("o certificado não tem CNPJ")?;
             let pedido = nfse_xml::PedidoCancelamento {
-                ambiente: match ambiente {
-                    AmbienteArg::Restrita => nfse_core::modelo::Ambiente::Homologacao,
-                    AmbienteArg::Producao => nfse_core::modelo::Ambiente::Producao,
-                },
+                ambiente: ambiente.into(),
                 versao_aplicativo: concat!("emissor-nfse/", env!("CARGO_PKG_VERSION")).into(),
                 quando: nfse_emissor::agora_brasilia(),
                 autor: nfse_core::modelo::Documento::Cnpj(cnpj),

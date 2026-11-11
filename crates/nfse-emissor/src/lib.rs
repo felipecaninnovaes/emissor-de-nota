@@ -91,10 +91,6 @@ impl Conector for ConectorSefin {
     type S = ClienteSefin;
 
     fn conectar(&self, certificado: &CertificadoA1, ambiente: Ambiente) -> Result<ClienteSefin, ErroSefin> {
-        let ambiente = match ambiente {
-            Ambiente::Producao => nfse_nacional::Ambiente::Producao,
-            Ambiente::Homologacao => nfse_nacional::Ambiente::ProducaoRestrita,
-        };
         ClienteSefin::novo(certificado, ambiente)
     }
 }
