@@ -6,54 +6,13 @@
 use nfse_core::modelo::{Documento, EnderecoNacional, IdentificacaoObra, LeiauteDps, SituacaoSimples, TotalTributos};
 use nfse_core::{Dps, DpsId};
 
+use crate::escrita::Xml;
+
 pub const NS_NFSE: &str = "http://www.sped.fazenda.gov.br/nfse";
 
 #[derive(Debug, thiserror::Error)]
 #[error("DPS inválida:\n- {}", .0.join("\n- "))]
 pub struct DpsInvalida(pub Vec<String>);
-
-/// Escritor mínimo de XML: o leiaute não usa atributos além de `versao` e `Id`.
-struct Xml(String);
-
-impl Xml {
-    fn abrir(&mut self, tag: &str) {
-        self.0.push('<');
-        self.0.push_str(tag);
-        self.0.push('>');
-    }
-
-    fn fechar(&mut self, tag: &str) {
-        self.0.push_str("</");
-        self.0.push_str(tag);
-        self.0.push('>');
-    }
-
-    fn campo(&mut self, tag: &str, valor: impl AsRef<str>) {
-        self.abrir(tag);
-        escapar(valor.as_ref(), &mut self.0);
-        self.fechar(tag);
-    }
-
-    fn opcional<T: AsRef<str>>(&mut self, tag: &str, valor: Option<T>) {
-        if let Some(v) = valor {
-            self.campo(tag, v);
-        }
-    }
-}
-
-fn escapar(texto: &str, saida: &mut String) {
-    for c in texto.chars() {
-        match c {
-            '&' => saida.push_str("&amp;"),
-            '<' => saida.push_str("&lt;"),
-            '>' => saida.push_str("&gt;"),
-            '"' => saida.push_str("&quot;"),
-            // \r viraria \n no parser; preservar como referência.
-            '\r' => saida.push_str("&#xD;"),
-            _ => saida.push(c),
-        }
-    }
-}
 
 fn documento(x: &mut Xml, d: &Documento) {
     match d {
@@ -84,13 +43,7 @@ pub fn gerar_dps(dps: &Dps) -> Result<(String, DpsId), DpsInvalida> {
     let id = dps.id().map_err(|e| DpsInvalida(vec![e.to_string()]))?;
 
     let nt009 = dps.leiaute == LeiauteDps::Nt009;
-    let mut x = Xml(String::with_capacity(2048));
-    x.0.push_str(r#"<?xml version="1.0" encoding="UTF-8"?>"#);
-    x.0.push_str(&format!(
-        r#"<DPS xmlns="{NS_NFSE}" versao="{}"><infDPS Id="{}">"#,
-        nfse_core::modelo::VERSAO_LEIAUTE,
-        id.as_str()
-    ));
+    let mut x = Xml::raiz("DPS", "infDPS", id.as_str(), 2048);
 
     x.campo("tpAmb", dps.ambiente.codigo());
     x.campo("dhEmi", dps.emissao.format("%Y-%m-%dT%H:%M:%S%:z").to_string());

@@ -78,7 +78,7 @@ async fn executar(estado: &Estado) -> R<String> {
         .map_err(texto)?;
     estado
         .banco()?
-        .definir_configuracao(CHAVE_ULTIMO_BACKUP, &chrono::Utc::now().to_rfc3339())
+        .definir_configuracao(CHAVE_ULTIMO_BACKUP, &nfse_db::agora())
         .await
         .map_err(texto)?;
     Ok(arquivo

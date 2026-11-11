@@ -26,7 +26,7 @@ pub(crate) fn tentativa_dto(t: nfse_db::recorrencias::TentativaNoMes) -> Tentati
     TentativaDto {
         libera: t.libera_o_mes(),
         dps_id: t.dps_id,
-        situacao: t.situacao.texto(),
+        situacao: t.situacao.como_texto(),
         numero_nfse: t.numero_nfse,
         nfse_id: t.nfse_id,
         erro: t.erro,
@@ -62,7 +62,8 @@ pub async fn listar_recorrencias(
     empresa_id: Option<i64>,
     mes: String,
 ) -> R<Vec<RecorrenciaDto>> {
-    exigir_cofre(&estado).await?;
+    let guarda = emissor!(estado);
+    let emissor = guarda.as_ref().expect("verificado");
     let data = mes_de(&mes)?;
     let b = &estado.banco()?;
     let mut lista = Vec::new();
@@ -91,7 +92,7 @@ pub async fn listar_recorrencias(
                     origem: r.id.map(Origem::Recorrencia).unwrap_or_default(),
                     substituir: None,
                 };
-                match validar_pedido(b, &pedido).await {
+                match validar_pedido(emissor, &pedido).await {
                     Ok((_, _, e)) => erros.extend(e),
                     Err(e) => erros.push(e),
                 }
@@ -116,7 +117,7 @@ pub async fn listar_recorrencias(
             no_mes: item.no_mes.map(|t| TentativaDto {
                 libera: t.libera_o_mes(),
                 dps_id: t.dps_id,
-                situacao: t.situacao.texto(),
+                situacao: t.situacao.como_texto(),
                 numero_nfse: t.numero_nfse,
                 nfse_id: t.nfse_id,
                 erro: t.erro,

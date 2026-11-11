@@ -7,6 +7,7 @@ use sqlx::Row;
 use sqlx::sqlite::SqliteRow;
 
 use nfse_core::modelo::{Documento, EnderecoNacional, EnteGovernamental, Tomador};
+use nfse_core::texto::sem_acento_minusculo;
 use nfse_core::{Cnpj, Cpf};
 
 use crate::{Banco, ErroBanco, Resultado, agora};
@@ -54,17 +55,6 @@ impl TipoTomador {
         }
     }
 
-    fn do_texto(t: &str) -> Resultado<Self> {
-        match t {
-            "privado" => Ok(Self::Privado),
-            "federal" => Ok(Self::Federal),
-            "estadual" => Ok(Self::Estadual),
-            "distrito_federal" => Ok(Self::DistritoFederal),
-            "municipal" | "estadual_municipal" => Ok(Self::Municipal),
-            outro => Err(ErroBanco::DadoInvalido(format!("tipo de tomador {outro:?}"))),
-        }
-    }
-
     /// `tpEnteGov` da DPS; `None` para tomador privado.
     pub fn ente_governamental(self) -> Option<EnteGovernamental> {
         match self {
@@ -79,6 +69,21 @@ impl TipoTomador {
     /// Só a União retém PIS, COFINS e CSLL; os demais entes públicos não (sem convênio com a RFB).
     pub fn retem_contribuicoes(self) -> bool {
         matches!(self, Self::Privado | Self::Federal)
+    }
+}
+
+impl std::str::FromStr for TipoTomador {
+    type Err = ErroBanco;
+
+    fn from_str(t: &str) -> Resultado<Self> {
+        match t {
+            "privado" => Ok(Self::Privado),
+            "federal" => Ok(Self::Federal),
+            "estadual" => Ok(Self::Estadual),
+            "distrito_federal" => Ok(Self::DistritoFederal),
+            "municipal" | "estadual_municipal" => Ok(Self::Municipal),
+            outro => Err(ErroBanco::DadoInvalido(format!("tipo de tomador {outro:?}"))),
+        }
     }
 }
 
@@ -145,26 +150,8 @@ pub(crate) fn tomador_de(r: &SqliteRow) -> Resultado<TomadorVinculado> {
         observacao: r.get(14),
         retem_federais: r.get(15),
         retem_iss: r.get(16),
-        tipo: TipoTomador::do_texto(r.get(17))?,
+        tipo: r.get::<&str, _>(17).parse::<TipoTomador>()?,
     })
-}
-
-/// Minúsculas e sem acentos, para comparar nomes ("Café" casa com "cafe").
-fn sem_acentos(texto: &str) -> String {
-    texto
-        .chars()
-        .flat_map(char::to_lowercase)
-        .map(|c| match c {
-            'á' | 'à' | 'â' | 'ã' | 'ä' => 'a',
-            'é' | 'è' | 'ê' | 'ë' => 'e',
-            'í' | 'ì' | 'î' | 'ï' => 'i',
-            'ó' | 'ò' | 'ô' | 'õ' | 'ö' => 'o',
-            'ú' | 'ù' | 'û' | 'ü' => 'u',
-            'ç' => 'c',
-            'ñ' => 'n',
-            outro => outro,
-        })
-        .collect()
 }
 
 /// Tomadores cujo nome contém o termo ou cujo documento começa com ele (termo vazio: todos). O
@@ -172,7 +159,7 @@ fn sem_acentos(texto: &str) -> String {
 /// acentos.
 fn casam_com_termo<'a>(linhas: &'a [SqliteRow], termo: &str) -> impl Iterator<Item = Resultado<TomadorVinculado>> + 'a {
     let termo = termo.trim();
-    let nome_buscado = sem_acentos(termo);
+    let nome_buscado = sem_acento_minusculo(termo);
     let so_documento: String = termo
         .chars()
         .filter(|c| c.is_ascii_alphanumeric())
@@ -182,7 +169,7 @@ fn casam_com_termo<'a>(linhas: &'a [SqliteRow], termo: &str) -> impl Iterator<It
         let Ok(t) = t else { return true }; // o erro segue adiante
         let (_, documento) = tipo_e_numero(&t.tomador.documento);
         let casa_documento = !so_documento.is_empty() && documento.starts_with(&so_documento);
-        casa_documento || sem_acentos(&t.tomador.nome).contains(&nome_buscado)
+        casa_documento || sem_acento_minusculo(&t.tomador.nome).contains(&nome_buscado)
     })
 }
 
@@ -281,7 +268,7 @@ async fn retencao_de_outra_empresa<'e, E: sqlx::SqliteExecutor<'e>>(
         Ok(RetencaoDoVinculo {
             federais: r.get(0),
             iss: r.get(1),
-            tipo: TipoTomador::do_texto(r.get(2))?,
+            tipo: r.get::<&str, _>(2).parse::<TipoTomador>()?,
         })
     })
     .transpose()
@@ -634,11 +621,11 @@ mod testes {
         for (tipo, ente, contribuicoes) in casos {
             assert_eq!(tipo.ente_governamental().map(|e| e.codigo()), ente, "{tipo:?}");
             assert_eq!(tipo.retem_contribuicoes(), contribuicoes, "{tipo:?}");
-            assert_eq!(TipoTomador::do_texto(tipo.como_texto()).unwrap(), tipo);
+            assert_eq!(tipo.como_texto().parse::<TipoTomador>().unwrap(), tipo);
         }
         // versão de teste gravava "estadual_municipal"
-        assert_eq!(TipoTomador::do_texto("estadual_municipal").unwrap(), Municipal);
-        assert!(TipoTomador::do_texto("outro").is_err());
+        assert_eq!("estadual_municipal".parse::<TipoTomador>().unwrap(), Municipal);
+        assert!("outro".parse::<TipoTomador>().is_err());
     }
 
     #[tokio::test]

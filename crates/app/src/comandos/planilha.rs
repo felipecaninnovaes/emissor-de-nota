@@ -5,7 +5,7 @@ use tauri::State;
 
 use nfse_core::Valor;
 
-use super::comum::{R, emissor, exigir_cofre, gravar_e_abrir_csv, mes_de, texto};
+use super::comum::{R, emissor, gravar_e_abrir_csv, mes_de, texto};
 use super::emissao::{ResultadoDto, concluir, validar_pedido};
 use super::recorrencias::{TentativaDto, tentativa_dto};
 use crate::Estado;
@@ -42,7 +42,8 @@ pub async fn ler_planilha(
     empresa_id: Option<i64>,
     mes: String,
 ) -> R<Vec<ItemPlanilhaDto>> {
-    exigir_cofre(&estado).await?;
+    let guarda = emissor!(estado);
+    let emissor = guarda.as_ref().expect("verificado");
     let mes_padrao = mes_de(&mes)?;
     let linhas = nfse_emissor::planilha::ler(&nome, &bytes)?;
     let b = &estado.banco()?;
@@ -59,7 +60,7 @@ pub async fn ler_planilha(
             if item.vincular_tomador {
                 pedido.tomador = None;
             }
-            match validar_pedido(b, &pedido).await {
+            match validar_pedido(emissor, &pedido).await {
                 Ok((_, _, e)) => erros.extend(e),
                 Err(e) => erros.push(e),
             }

@@ -273,9 +273,10 @@ pub fn ler_cabecalho(banco: &Path) -> crate::Resultado<Option<CabecalhoCofre>> {
             .map(Some)
             .map_err(|e| crate::ErroBanco::DadoInvalido(format!("emissor.cofre: {e}"))),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(e) => Err(crate::ErroBanco::Regra(format!(
-            "não foi possível ler o cabeçalho do cofre: {e}"
-        ))),
+        Err(erro) => Err(crate::ErroBanco::Arquivo {
+            contexto: "não foi possível ler o cabeçalho do cofre",
+            erro,
+        }),
     }
 }
 
@@ -284,8 +285,10 @@ pub fn ler_cabecalho(banco: &Path) -> crate::Resultado<Option<CabecalhoCofre>> {
 pub fn gravar_cabecalho(banco: &Path, cabecalho: &CabecalhoCofre) -> crate::Resultado<()> {
     let destino = caminho_cabecalho(banco);
     let temporario = destino.with_extension("cofre.tmp");
-    let erro =
-        |e: std::io::Error| crate::ErroBanco::Regra(format!("não foi possível gravar o cabeçalho do cofre: {e}"));
+    let erro = |erro: std::io::Error| crate::ErroBanco::Arquivo {
+        contexto: "não foi possível gravar o cabeçalho do cofre",
+        erro,
+    };
     {
         let mut f = std::fs::File::create(&temporario).map_err(erro)?;
         f.write_all(&serde_json::to_vec_pretty(cabecalho).expect("cabeçalho serializa"))

@@ -1,7 +1,5 @@
 //! Cancelamento da NFS-e (evento e101101), feito aqui ou detectado na Sefin.
 
-use chrono::NaiveDate;
-
 use nfse_core::modelo::Documento;
 use nfse_db::dps::{NfseGravada, SituacaoDps};
 use nfse_db::empresas::Empresa;
@@ -25,7 +23,7 @@ impl<C: Conector> Emissor<C> {
         if dps.situacao != SituacaoDps::Autorizada {
             return Err(ErroEmissao::Regra(format!(
                 "a nota está \"{}\" e não pode ser cancelada",
-                dps.situacao.texto()
+                dps.situacao.como_texto()
             )));
         }
         let empresa = self.banco.empresa(dps.empresa_id).await?;
@@ -78,7 +76,7 @@ impl<C: Conector> Emissor<C> {
             outra => {
                 return Err(ErroEmissao::Regra(format!(
                     "a nota está \"{}\" e não tem o que sincronizar",
-                    outra.texto()
+                    outra.como_texto()
                 )));
             }
         }
@@ -118,10 +116,7 @@ impl<C: Conector> Emissor<C> {
         self.banco.registrar_cancelamento(nfse.id, evento).await?;
 
         if let Some(raiz) = &self.pasta {
-            let competencia = nfse_xml::ler_nfse(&nfse.xml)?
-                .competencia
-                .and_then(|c| NaiveDate::parse_from_str(&c, "%Y-%m-%d").ok())
-                .unwrap_or_else(|| agora_brasilia().date_naive());
+            let competencia = crate::competencia_da_nfse(&nfse.xml)?;
             let caminho = arquivo::pasta_mes(raiz, empresa, competencia).join(arquivo::nome_xml_evento(
                 nfse.numero.as_deref().unwrap_or("sem-numero"),
                 &nfse.chave,

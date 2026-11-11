@@ -90,7 +90,10 @@
       ]
     },
     "gcc": "16.2.0",
-    "docker-compose": "5.6.0"
+    "docker-compose": "5.6.0",
+    "github:NixOS/nixpkgs/e62746b0b472753ef019baceab6f1e2e52014980#just": "",
+    "github:NixOS/nixpkgs/e62746b0b472753ef019baceab6f1e2e52014980#pre-commit": "",
+    "github:NixOS/nixpkgs/e62746b0b472753ef019baceab6f1e2e52014980#gitleaks": ""
   },
   "env": {
     "LIBCLANG_PATH": "$PWD/.devbox/nix/profile/default/lib"

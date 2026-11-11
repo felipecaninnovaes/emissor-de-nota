@@ -180,6 +180,15 @@
         }
       }
     },
+    "github:NixOS/nixpkgs/e62746b0b472753ef019baceab6f1e2e52014980#gitleaks": {
+      "resolved": "github:NixOS/nixpkgs/e62746b0b472753ef019baceab6f1e2e52014980#gitleaks"
+    },
+    "github:NixOS/nixpkgs/e62746b0b472753ef019baceab6f1e2e52014980#just": {
+      "resolved": "github:NixOS/nixpkgs/e62746b0b472753ef019baceab6f1e2e52014980#just"
+    },
+    "github:NixOS/nixpkgs/e62746b0b472753ef019baceab6f1e2e52014980#pre-commit": {
+      "resolved": "github:NixOS/nixpkgs/e62746b0b472753ef019baceab6f1e2e52014980#pre-commit"
+    },
     "github:NixOS/nixpkgs/nixpkgs-unstable": {
       "last_modified": "2026-10-28T22:04:29Z",
       "resolved": "github:NixOS/nixpkgs/e62746b0b472753ef019baceab6f1e2e52014980?lastModified=1793225069"

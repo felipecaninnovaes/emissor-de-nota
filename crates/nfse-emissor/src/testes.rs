@@ -1953,3 +1953,26 @@ async fn substituta_achada_na_reconciliacao_marca_a_original() {
         SituacaoDps::Substituida
     );
 }
+
+#[tokio::test]
+async fn previa_e_emissao_conferem_o_mesmo() {
+    let c = cenario(vec![]).await;
+    let v = c.emissor.validar(&c.pedido).await.unwrap();
+    assert!(v.erros().is_empty(), "{:?}", v.erros());
+    assert_eq!(
+        v.dps.versao_aplicativo, c.emissor.versao_aplicativo,
+        "a prévia leva a versão do aplicativo"
+    );
+
+    // Variável errada: a prévia aponta e a emissão recusa com o mesmo texto, sem chamar a Sefin.
+    let mut pedido = c.pedido.clone();
+    pedido.descricao = Some("REF {tomadr}".into());
+    let v = c.emissor.validar(&pedido).await.unwrap();
+    assert!(v.regras.iter().any(|e| e.contains("tomadr")), "{:?}", v.regras);
+    assert!(matches!(
+        c.emissor.emitir(&pedido).await,
+        Err(ErroEmissao::Regra(m)) if m.contains("tomadr")
+    ));
+    assert!(c.sefin.recebidos().is_empty());
+    assert!(c.emissor.banco().dps_pendentes().await.unwrap().is_empty());
+}

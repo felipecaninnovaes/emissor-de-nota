@@ -28,7 +28,7 @@ impl<C: Conector> Emissor<C> {
         if !matches!(dps.situacao, SituacaoDps::Enviando | SituacaoDps::Incerta) {
             return Err(ErroEmissao::Regra(format!(
                 "DPS em situação \"{}\" não precisa de reconciliação",
-                dps.situacao.texto()
+                dps.situacao.como_texto()
             )));
         }
         // `enviando` recente é um envio em curso (ex.: num lote): a resposta dele decide.

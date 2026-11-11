@@ -15,6 +15,7 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 - Banco: gravações feitas ao mesmo tempo (por exemplo, um lote emitindo enquanto se edita um cadastro) esperam a vez em vez de falhar com "banco ocupado".
 - Backup na nuvem: o endereço do servidor é recusado se tiver usuário, senha, `?` ou `#`; um endereço como `http://localhost:1@servidor` passava como local e mandava o token sem cifra para outro servidor.
 - Abertura: a tela abre logo depois da senha mestra; a verificação na Sefin das notas pendentes e o backup automático rodam depois, e o resultado da verificação aparece no topo quando termina. Antes, com a Sefin fora do ar, a tela de senha podia ficar presa vários minutos.
+- Prévias (Emitir, planilha e lote do mês): conferem a nota com a mesma regra da emissão; antes, uma prévia sem erro podia ter o envio recusado (por exemplo, com o serviço de outra empresa).
 
 ## 1.18.0
 

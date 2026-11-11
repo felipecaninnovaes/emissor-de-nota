@@ -45,14 +45,27 @@ pub enum ErroBanco {
     DadoInvalido(String),
     #[error("{0}")]
     Regra(String),
+    /// Falha de arquivo (backup, cabeçalho do cofre, conversão do banco); `contexto` diz o que se fazia.
+    #[error("{contexto}: {erro}")]
+    Arquivo {
+        contexto: &'static str,
+        erro: std::io::Error,
+    },
     #[error("{0} não encontrado(a)")]
     NaoEncontrado(&'static str),
 }
 
 pub type Resultado<T> = Result<T, ErroBanco>;
 
-pub(crate) fn agora() -> String {
-    chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+/// Momento atual no formato das datas gravadas no banco (ver [`data_gravada`]).
+pub fn agora() -> String {
+    data_gravada(chrono::Utc::now())
+}
+
+/// Formato único das datas gravadas: RFC 3339 em UTC, com segundos e `Z` (`2026-11-10T12:00:00Z`).
+/// Linhas antigas podem ter `+00:00` ou frações de segundo; comparação em SQL usa `datetime()`.
+pub fn data_gravada(momento: chrono::DateTime<chrono::Utc>) -> String {
+    momento.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
 }
 
 pub(crate) fn json<T: serde::Serialize>(v: &T) -> String {

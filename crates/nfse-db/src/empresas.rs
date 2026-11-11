@@ -443,8 +443,8 @@ impl Banco {
         .bind(&info.thumbprint)
         .bind(&info.titular)
         .bind(&info.emissor)
-        .bind(info.valido_de.to_rfc3339())
-        .bind(info.valido_ate.to_rfc3339())
+        .bind(crate::data_gravada(info.valido_de))
+        .bind(crate::data_gravada(info.valido_ate))
         .bind(agora())
         .execute(&mut *tx)
         .await?;
@@ -480,11 +480,14 @@ impl Banco {
 
     /// Certificados ativos que vencem em até `dias` (inclui os já vencidos), do mais urgente ao menos.
     pub async fn certificados_vencendo(&self, dias: i64) -> Resultado<Vec<VencimentoCertificado>> {
-        let limite = (Utc::now() + chrono::Duration::days(dias)).to_rfc3339();
+        let limite = crate::data_gravada(Utc::now() + chrono::Duration::days(dias));
+        // `datetime()`: certificados importados por versões anteriores têm `+00:00` em vez de `Z`, e
+        // como texto as duas formas não se comparam.
         let linhas = sqlx::query(
             "SELECT c.empresa_id, p.nome, c.titular, c.valido_ate FROM certificado c
              JOIN empresa e ON e.id = c.empresa_id JOIN pessoa p ON p.id = e.pessoa_id
-             WHERE c.ativo = 1 AND e.ativa = 1 AND c.valido_ate <= ? ORDER BY c.valido_ate",
+             WHERE c.ativo = 1 AND e.ativa = 1 AND datetime(c.valido_ate) <= datetime(?)
+             ORDER BY datetime(c.valido_ate)",
         )
         .bind(limite)
         .fetch_all(self.pool())
@@ -633,6 +636,21 @@ pub(crate) mod testes {
         // Vence em ~10 anos: aparece numa janela de 4000 dias, não numa de 30.
         assert!(banco.certificados_vencendo(30).await.unwrap().is_empty());
         assert_eq!(banco.certificados_vencendo(4000).await.unwrap().len(), 1);
+
+        // Gravado por versão anterior (`+00:00` e frações): continua comparado como data.
+        let hoje = Utc::now().format("%Y-%m-%d").to_string();
+        sqlx::query("UPDATE certificado SET valido_ate = ?")
+            .bind(format!("{hoje}T00:00:00.5+00:00"))
+            .execute(banco.pool())
+            .await
+            .unwrap();
+        assert_eq!(banco.certificados_vencendo(0).await.unwrap().len(), 1);
+        let valido: String = sqlx::query("SELECT valido_de FROM certificado")
+            .fetch_one(banco.pool())
+            .await
+            .unwrap()
+            .get(0);
+        assert!(valido.ends_with('Z'), "{valido}");
     }
 
     #[tokio::test]

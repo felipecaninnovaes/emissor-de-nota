@@ -4,6 +4,7 @@
 pub mod assinatura;
 pub mod c14n;
 pub mod dps;
+mod escrita;
 pub mod evento;
 pub mod nfse;
 

@@ -47,7 +47,7 @@ pub async fn listar_notas(estado: State<'_, Estado>, empresa_id: i64, mes: Optio
             numero_dps: n.numero_dps,
             numero_nfse: n.numero_nfse,
             chave: n.chave,
-            situacao: n.situacao.texto(),
+            situacao: n.situacao.como_texto(),
             erro: n.ultimo_erro,
             tomador: n.tomador,
             descricao: n.descricao,
@@ -119,6 +119,21 @@ pub struct RefazerDto {
     informacoes_complementares: Option<String>,
 }
 
+impl From<nfse_emissor::Refazer> for RefazerDto {
+    fn from(r: nfse_emissor::Refazer) -> Self {
+        RefazerDto {
+            empresa_id: r.empresa_id,
+            tomador: r.tomador.map(Into::into),
+            servico_id: r.servico_id,
+            valor: r.valor.to_string(),
+            descricao: r.descricao,
+            obra: r.obra,
+            local_prestacao: r.local_prestacao,
+            informacoes_complementares: r.informacoes_complementares,
+        }
+    }
+}
+
 /// Dados de uma nota rejeitada para preencher a tela de emissão de novo.
 #[tauri::command]
 pub async fn dados_para_refazer(estado: State<'_, Estado>, dps_id: i64) -> R<RefazerDto> {
@@ -129,16 +144,7 @@ pub async fn dados_para_refazer(estado: State<'_, Estado>, dps_id: i64) -> R<Ref
         .dados_para_refazer(dps_id)
         .await
         .map_err(texto)?;
-    Ok(RefazerDto {
-        empresa_id: r.empresa_id,
-        tomador: r.tomador.map(Into::into),
-        servico_id: r.servico_id,
-        valor: r.valor.to_string(),
-        descricao: r.descricao,
-        obra: r.obra,
-        local_prestacao: r.local_prestacao,
-        informacoes_complementares: r.informacoes_complementares,
-    })
+    Ok(r.into())
 }
 
 /// Dados de uma nota autorizada ou cancelada para emitir outra igual.
@@ -151,16 +157,7 @@ pub async fn dados_para_copiar(estado: State<'_, Estado>, dps_id: i64) -> R<Refa
         .dados_para_copiar(dps_id)
         .await
         .map_err(texto)?;
-    Ok(RefazerDto {
-        empresa_id: r.empresa_id,
-        tomador: r.tomador.map(Into::into),
-        servico_id: r.servico_id,
-        valor: r.valor.to_string(),
-        descricao: r.descricao,
-        obra: r.obra,
-        local_prestacao: r.local_prestacao,
-        informacoes_complementares: r.informacoes_complementares,
-    })
+    Ok(r.into())
 }
 
 /// Dados de uma nota autorizada para emitir a que a substitui.
@@ -173,16 +170,7 @@ pub async fn dados_para_substituir(estado: State<'_, Estado>, dps_id: i64) -> R<
         .dados_para_substituir(dps_id)
         .await
         .map_err(texto)?;
-    Ok(RefazerDto {
-        empresa_id: r.empresa_id,
-        tomador: r.tomador.map(Into::into),
-        servico_id: r.servico_id,
-        valor: r.valor.to_string(),
-        descricao: r.descricao,
-        obra: r.obra,
-        local_prestacao: r.local_prestacao,
-        informacoes_complementares: r.informacoes_complementares,
-    })
+    Ok(r.into())
 }
 
 #[derive(Serialize)]

@@ -153,50 +153,25 @@ fn avisos_retencao(simples: SituacaoSimples, f: &nfse_core::modelo::TributosFede
     avisos
 }
 
-/// Monta a DPS do pedido como ela sairia agora e lista os erros que impedem a emissão.
+/// Monta a DPS do pedido como ela sairia agora e lista os erros que impedem a emissão: a mesma
+/// conferência da emissão ([`Emissor::validar`](nfse_emissor::Emissor::validar)).
 pub(crate) async fn validar_pedido(
-    b: &nfse_db::Banco,
+    emissor: &Emissor<ConectorSefin>,
     pedido: &PedidoEmissao,
 ) -> R<(nfse_core::Dps, nfse_db::empresas::Empresa, Vec<String>)> {
-    let empresa = b.empresa(pedido.empresa_id).await.map_err(texto)?;
-    let servico = b.servico(pedido.servico_id).await.map_err(texto)?;
-    let tomador = match pedido.tomador {
-        Some(id) => Some(b.tomador(empresa.id, id).await.map_err(texto)?),
-        None => None,
-    };
-    let mut dps = nfse_emissor::montar_dps(
-        &empresa,
-        tomador.as_ref(),
-        &servico,
-        pedido,
-        nfse_emissor::agora_brasilia(),
-    );
-    dps.leiaute = b.leiaute_dps(empresa.ambiente).await.map_err(texto)?;
-    let mut erro_substituicao = None;
-    if let Some(s) = &pedido.substituir
-        && let Err(e) = nfse_emissor::aplicar_substituicao(b, &empresa, s, &mut dps).await
-    {
-        erro_substituicao = Some(e.to_string());
-    }
-    let mut erros = dps.validar();
-    erros.extend(erro_substituicao);
-    let desconhecidas = nfse_emissor::variaveis_desconhecidas(&dps.servico.descricao);
-    if !desconhecidas.is_empty() {
-        erros.push(nfse_emissor::texto_variaveis_desconhecidas(&desconhecidas));
-    }
-    if b.certificado_resumo(empresa.id).await.map_err(texto)?.is_none() {
-        erros.push("a empresa não tem certificado digital importado".into());
-    }
-    Ok((dps, empresa, erros))
+    let v = emissor.validar(pedido).await.map_err(texto)?;
+    let erros = v.erros();
+    Ok((v.dps, v.empresa, erros))
 }
 
 /// Mostra como a DPS vai sair (descrição com o mês já aplicado) e os erros de validação, sem emitir.
 #[tauri::command]
 pub async fn previa_dps(estado: State<'_, Estado>, pedido: PedidoDto) -> R<PreviaDto> {
-    exigir_cofre(&estado).await?;
+    let guarda = emissor!(estado);
+    let emissor = guarda.as_ref().expect("verificado");
     let mut pedido = pedido.pedido()?;
     completar_mes(&estado, &mut pedido).await?;
-    let (dps, empresa, erros) = validar_pedido(&estado.banco()?, &pedido).await?;
+    let (dps, empresa, erros) = validar_pedido(emissor, &pedido).await?;
     let servico = estado.banco()?.servico(pedido.servico_id).await.map_err(texto)?;
     let tomador = match pedido.tomador {
         Some(id) => Some(estado.banco()?.tomador(empresa.id, id).await.map_err(texto)?),

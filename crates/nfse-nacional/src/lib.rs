@@ -20,28 +20,13 @@ use reqwest::StatusCode;
 use serde::Deserialize;
 
 use nfse_cert::CertificadoA1;
+use nfse_core::modelo::Ambiente;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Ambiente {
-    /// Homologação ("Produção Restrita"): notas sem valor fiscal.
-    ProducaoRestrita,
-    Producao,
-}
-
-impl Ambiente {
-    pub fn url_sefin(self) -> &'static str {
-        match self {
-            Ambiente::ProducaoRestrita => "https://sefin.producaorestrita.nfse.gov.br/SefinNacional",
-            Ambiente::Producao => "https://sefin.nfse.gov.br/SefinNacional",
-        }
-    }
-
-    /// Valor de `tpAmb` na DPS.
-    pub fn tp_amb(self) -> u8 {
-        match self {
-            Ambiente::Producao => 1,
-            Ambiente::ProducaoRestrita => 2,
-        }
+/// Endereço da API da Sefin Nacional no ambiente (Homologação é a "Produção Restrita").
+pub fn url_sefin(ambiente: Ambiente) -> &'static str {
+    match ambiente {
+        Ambiente::Homologacao => "https://sefin.producaorestrita.nfse.gov.br/SefinNacional",
+        Ambiente::Producao => "https://sefin.nfse.gov.br/SefinNacional",
     }
 }
 
@@ -153,7 +138,7 @@ pub struct ClienteSefin {
 
 impl ClienteSefin {
     pub fn novo(certificado: &CertificadoA1, ambiente: Ambiente) -> Result<Self, ErroSefin> {
-        Self::com_url_base(certificado, ambiente.url_sefin())
+        Self::com_url_base(certificado, url_sefin(ambiente))
     }
 
     pub fn com_url_base(certificado: &CertificadoA1, base: &str) -> Result<Self, ErroSefin> {
@@ -438,9 +423,8 @@ async fn ler(resposta: reqwest::Response) -> Result<(StatusCode, String), ErroSe
 }
 
 /// A chave vira caminho de URL e nome de arquivo: fora do formato, é resposta inesperada.
-/// Mesma regra de `nfse_core::dps::chave_de_acesso_valida` (este crate não depende do core).
 fn chave_conferida(chave: String) -> Result<String, ErroSefin> {
-    if chave.len() == 50 && chave.bytes().all(|b| b.is_ascii_digit() || b.is_ascii_uppercase()) {
+    if nfse_core::dps::chave_de_acesso_valida(&chave) {
         Ok(chave)
     } else {
         let inicio: String = chave.chars().take(60).collect();
@@ -634,6 +618,6 @@ mod testes {
         let pfx = include_bytes!("../../nfse-cert/tests/fixtures/teste-ecnpj-legacy.pfx");
         let cert = CertificadoA1::carregar(pfx, "1234").unwrap();
         // Só monta o cliente (SChannel no Windows); não faz requisição.
-        ClienteSefin::novo(&cert, Ambiente::ProducaoRestrita).unwrap();
+        ClienteSefin::novo(&cert, Ambiente::Homologacao).unwrap();
     }
 }
