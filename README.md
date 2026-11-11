@@ -37,6 +37,10 @@ devbox run run
 
 No Windows, instale o Rust com o rustup (a versão vem de `rust-toolchain.toml`). Setup completo, testes, CLI de diagnóstico e problemas conhecidos: [docs/desenvolvimento.md](docs/desenvolvimento.md).
 
+### Desenvolvimento com IA
+
+O projeto é desenvolvido principalmente com Claude Code, num fluxo `/spec → /plan → /implement → /review → /ship` descrito em [docs/workflow.md](docs/workflow.md). Os comandos do dia a dia passam pelo [`justfile`](justfile) (`just setup`, `just check`, `just test`, `just run`); no Windows, instale `just`, `pre-commit`, `gitleaks` e `jq` (por exemplo, com winget e pip). Trabalho em branch com PR e commits no formato Conventional Commits, com título em português ([AGENTS.md](AGENTS.md)).
+
 ## Documentação
 
 | Documento | Conteúdo |
@@ -50,6 +54,7 @@ No Windows, instale o Rust com o rustup (a versão vem de `rust-toolchain.toml`)
 | [docs/nuvem.md](docs/nuvem.md) | Servidor do backup na nuvem (compose, painel, API) |
 | [docs/escopo.md](docs/escopo.md) | Escopo e roadmap |
 | [docs/decisoes/](docs/decisoes/) | Decisões de projeto |
+| [docs/workflow.md](docs/workflow.md) · [docs/specs/](docs/specs/) | Fluxo de desenvolvimento com IA e especificações |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Como contribuir e a cessão de direitos |
 | [CHANGELOG.md](CHANGELOG.md) | Histórico de versões |
 | [AGENTS.md](AGENTS.md) | Instruções para agentes de código |

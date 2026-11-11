@@ -1,0 +1,11 @@
+---
+paths:
+  - ".github/workflows/**"
+---
+- O job principal do CI roda no Windows e chama `cargo` direto (o Devbox não se aplica no Windows); o Devbox só entra nos jobs Linux, via `devbox run -- ...`. Ao mudar `just check`, mantenha o job Windows equivalente.
+- A versão do Rust em `dtolnay/rust-toolchain@` acompanha `rust-toolchain.toml` e a imagem em `servidor/Dockerfile`.
+- Actions fixadas por SHA com a tag no comentário; o Dependabot mantém as versões. Só publicadores conhecidos.
+- `permissions:` mínimas no nível do workflow (`contents: read`) e ampliadas só no job que precisa.
+- Nunca use `pull_request_target` com checkout do código do PR. Nunca interpole `${{ github.event.* }}` direto em `run:` — passe por `env:`.
+- O `instalador.yml` publica a release só se todas as plataformas compilarem; não torne um build opcional.
+- Nomes de jobs usados como status check obrigatório no ruleset da `main` não podem ser renomeados sem atualizar o ruleset.

@@ -58,3 +58,8 @@ Thumbs.db
 *.cofre
 *.nfbk
 *.legado
+
+# Claude Code: estado local dos hooks e preferências pessoais
+.claude/.stop-check.ok
+.claude/settings.local.json
+CLAUDE.local.md

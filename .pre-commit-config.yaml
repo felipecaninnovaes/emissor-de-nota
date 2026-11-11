@@ -1,0 +1,35 @@
+# Instalado por `just setup`. Rodar em tudo: `just hooks-run`.
+default_install_hook_types: [pre-commit, commit-msg]
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      # Trabalho em branch + PR; a main só recebe merge.
+      - id: no-commit-to-branch
+        args: [--branch, main]
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.28.0
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: fmt-check
+        name: cargo fmt --check (just fmt-check)
+        entry: just fmt-check
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      # Conventional Commits com título em português: `tipo(escopo opcional): título`.
+      # Aceita também as mensagens geradas pelo git (merge, revert, fixup).
+      - id: conventional-commit
+        name: mensagem no formato Conventional Commits
+        language: pygrep
+        entry: '\A(?:(?:feat|fix|refactor|perf|test|docs|build|ci|chore|style|revert)(?:\([^)\r\n]+\))?!?: \S|Merge |Revert "|fixup! |squash! |amend! )'
+        args: [--multiline, --negate]
+        stages: [commit-msg]
