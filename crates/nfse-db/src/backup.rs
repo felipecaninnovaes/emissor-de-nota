@@ -33,8 +33,11 @@ fn contexto(indice: u64, ultimo: bool) -> String {
     format!("backup:v1:{indice}:{}", u8::from(ultimo))
 }
 
-fn erro_io(e: std::io::Error) -> ErroBanco {
-    ErroBanco::Regra(format!("falha de arquivo no backup: {e}"))
+fn erro_io(erro: std::io::Error) -> ErroBanco {
+    ErroBanco::Arquivo {
+        contexto: "falha de arquivo no backup",
+        erro,
+    }
 }
 
 /// Apaga o arquivo ao sair de escopo (cópia do banco em claro e arquivos parciais).

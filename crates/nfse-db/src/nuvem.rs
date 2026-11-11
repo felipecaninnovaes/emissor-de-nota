@@ -46,7 +46,10 @@ pub fn normalizar_endereco(endereco: &str) -> Result<String, &'static str> {
 
 /// SHA-256 (hex minúsculo) do arquivo, lido em blocos.
 pub fn sha256_arquivo(caminho: &Path) -> Resultado<String> {
-    let erro = |e: std::io::Error| ErroBanco::Regra(format!("não foi possível ler o arquivo: {e}"));
+    let erro = |erro: std::io::Error| ErroBanco::Arquivo {
+        contexto: "não foi possível ler o arquivo",
+        erro,
+    };
     let mut arquivo = std::fs::File::open(caminho).map_err(erro)?;
     let mut h = Sha256::new();
     let mut buffer = vec![0u8; 1024 * 1024];

@@ -34,8 +34,11 @@ fn com_sufixo(caminho: &Path, sufixo: &str) -> PathBuf {
     PathBuf::from(nome)
 }
 
-fn erro_io(e: std::io::Error) -> ErroBanco {
-    ErroBanco::Regra(format!("falha de arquivo ao proteger o banco: {e}"))
+fn erro_io(erro: std::io::Error) -> ErroBanco {
+    ErroBanco::Arquivo {
+        contexto: "falha de arquivo ao proteger o banco",
+        erro,
+    }
 }
 
 /// Valor do `PRAGMA key` para uma chave bruta (sem o PBKDF2 do SQLCipher: a chave já vem do Argon2).

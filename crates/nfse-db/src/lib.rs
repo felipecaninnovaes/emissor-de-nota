@@ -45,6 +45,12 @@ pub enum ErroBanco {
     DadoInvalido(String),
     #[error("{0}")]
     Regra(String),
+    /// Falha de arquivo (backup, cabeçalho do cofre, conversão do banco); `contexto` diz o que se fazia.
+    #[error("{contexto}: {erro}")]
+    Arquivo {
+        contexto: &'static str,
+        erro: std::io::Error,
+    },
     #[error("{0} não encontrado(a)")]
     NaoEncontrado(&'static str),
 }
