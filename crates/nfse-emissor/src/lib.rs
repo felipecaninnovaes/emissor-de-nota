@@ -10,6 +10,7 @@
 pub mod arquivo;
 pub mod email;
 pub mod importacao;
+pub mod importacao_email;
 pub mod leitura_email;
 pub mod pedido_email;
 pub mod planilha;
@@ -321,15 +322,48 @@ impl<C: Conector> Emissor<C> {
     /// fora a nota já emitida no mês (recorrência) ou na linha (planilha), que a emissão confere e
     /// as telas mostram pela situação da tentativa anterior. `Err` só para falha do banco.
     pub async fn validar(&self, pedido: &PedidoEmissao) -> Result<Validacao, ErroEmissao> {
+        self.validar_com(pedido, None).await
+    }
+
+    /// Erros de uma linha importada (planilha ou e-mail), pela mesma conferência de
+    /// [`Emissor::validar`]. O tomador ainda não vinculado à empresa fica de fora (é vinculado ao
+    /// emitir), e o tomador novo do e-mail é conferido como vai ser cadastrado. `Err` só para
+    /// falha do banco.
+    pub async fn validar_importado(&self, item: &importacao::ItemImportado) -> Result<Vec<String>, ErroEmissao> {
+        let Some(mut pedido) = item.pedido(None) else {
+            return Ok(Vec::new());
+        };
+        if item.vincular_tomador {
+            pedido.tomador = None;
+        }
+        let avulso = item.tomador_novo.clone().map(|tomador| TomadorVinculado {
+            pessoa_id: 0,
+            tomador,
+            emails: None,
+            observacao: None,
+            retem_federais: false,
+            retem_iss: false,
+            tipo: Default::default(),
+        });
+        Ok(self.validar_com(&pedido, avulso).await?.erros())
+    }
+
+    /// [`Emissor::validar`] com um tomador que ainda não está no cadastro, se dado.
+    async fn validar_com(
+        &self,
+        pedido: &PedidoEmissao,
+        tomador_avulso: Option<TomadorVinculado>,
+    ) -> Result<Validacao, ErroEmissao> {
         let empresa = self.banco.empresa(pedido.empresa_id).await?;
         let servico = self.banco.servico(pedido.servico_id).await?;
         let mut regras = Vec::new();
         if servico.empresa_id != empresa.id {
             regras.push("o serviço escolhido é de outra empresa".to_owned());
         }
-        let tomador = match pedido.tomador {
-            Some(id) => Some(self.banco.tomador(empresa.id, id).await?),
-            None => None,
+        let tomador = match (tomador_avulso, pedido.tomador) {
+            (Some(t), _) => Some(t),
+            (None, Some(id)) => Some(self.banco.tomador(empresa.id, id).await?),
+            (None, None) => None,
         };
         let mut dps = montar_dps(&empresa, tomador.as_ref(), &servico, pedido, agora_brasilia());
         if let Some(s) = &pedido.substituir {
@@ -702,6 +736,13 @@ impl<C: Conector> Emissor<C> {
     ) -> Result<ResultadoEmissao, ErroEmissao> {
         if let Some(erro) = item.erros.first() {
             return Err(ErroEmissao::Regra(format!("linha {}: {erro}", item.linha)));
+        }
+        if item.tomador_novo.is_some() {
+            // O cadastro do tomador novo na emissão vem na etapa seguinte (spec 0001, T7).
+            return Err(ErroEmissao::Regra(format!(
+                "linha {}: cadastre o tomador antes de emitir",
+                item.linha
+            )));
         }
         let pedido = item
             .pedido(arquivo)

@@ -6,7 +6,7 @@ use tauri::State;
 use nfse_core::Valor;
 
 use super::comum::{R, emissor, gravar_e_abrir_csv, mes_de, texto};
-use super::emissao::{ResultadoDto, concluir, validar_pedido};
+use super::emissao::{ResultadoDto, concluir};
 use super::recorrencias::{TentativaDto, tentativa_dto};
 use crate::Estado;
 
@@ -53,16 +53,10 @@ pub async fn ler_planilha(
     let mut lista = Vec::with_capacity(itens.len());
     for item in itens {
         let mut erros = item.erros.clone();
-        if erros.is_empty()
-            && let Some(mut pedido) = item.pedido(None)
-        {
-            // Tomador ainda não vinculado à empresa: confere o resto (ele é vinculado ao emitir).
-            if item.vincular_tomador {
-                pedido.tomador = None;
-            }
-            match validar_pedido(emissor, &pedido).await {
-                Ok((_, _, e)) => erros.extend(e),
-                Err(e) => erros.push(e),
+        if erros.is_empty() {
+            match emissor.validar_importado(&item).await {
+                Ok(e) => erros.extend(e),
+                Err(e) => erros.push(texto(e)),
             }
         }
         lista.push(ItemPlanilhaDto {
@@ -111,6 +105,8 @@ pub async fn emitir_planilha(
         chave: item.chave,
         anterior: None,
         erros: vec![],
+        avisos: vec![],
+        tomador_novo: None,
     };
     let guarda = emissor!(estado);
     let emissor = guarda.as_ref().expect("verificado");

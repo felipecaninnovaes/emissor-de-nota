@@ -32,7 +32,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
   - Teste: os testes existentes da planilha (`planilha_emite_e_nao_repete_ao_reimportar` e os de `importacao::testes`) continuam verdes, sem mudança
   - Verificar: `just test -p nfse-emissor planilha` e `just test -p nfse-emissor importacao`
 
-- [ ] **T6** — Resolução das linhas do e-mail (serviço, mês, descrição, tomador, CEP, repetição, validação)
+- [x] **T6** — Resolução das linhas do e-mail (serviço, mês, descrição, tomador, CEP, repetição, validação)
   - Requisitos: R7, R8, R9, R10, R12, R13, R14, R15
   - Arquivos: `crates/nfse-emissor/src/importacao_email.rs`, `crates/nfse-emissor/src/importacao.rs` (`avisos`, `tomador_novo`), `crates/nfse-emissor/src/testes.rs`
   - Teste: `testes::email_tomador_da_filial_valor_e_mes` (CA7), `email_sem_periodo_usa_mes_da_tela` (CA9), `email_sem_servico` (CA10), `email_descricao_do_bloco_e_padrao` (CA11), `email_pessoa_nova_sem_municipio` (CA14), `email_valor_invalido_igual_planilha` (CA15), `email_reimportado_ja_emitido` (CA16), `email_bloco_repetido`, `email_aviso_dados_diferentes`
@@ -59,3 +59,4 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
 ## Notas de desvio
 <!-- T#: o que mudou em relação ao plano e por quê -->
 - T5: além da chave (`base_da_chave`, `chave_da_ocorrencia`), extraída também a busca do tomador cadastrado (`tomador_cadastrado`), que o e-mail usa igual à planilha.
+- T6: `PedidoEmissao.tomador` só aceita pessoa cadastrada, então a prévia da linha passou para `Emissor::validar_importado` (backend), que confere o tomador novo como vai ser cadastrado e tira o não vinculado; o `ler_planilha` do app passou a usá-la, com o mesmo comportamento. A consulta de CEP devolve também logradouro e bairro (`EnderecoDoCep`), usados quando faltam no e-mail. A repetição só conta entre linhas sem erro, para não esconder o erro de valor. `emitir_importado` recusa a linha com tomador novo até a T7.

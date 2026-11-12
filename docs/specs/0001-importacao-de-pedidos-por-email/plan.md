@@ -46,7 +46,7 @@ O mapa de CEP é o ponto de simulação nos testes. No app, ele é preenchido po
 ### `ItemImportado`
 Ganha `avisos: Vec<String>` e `tomador_novo: Option<Tomador>`. Na planilha os dois ficam vazios.
 
-`pedido()` usa `tomador_novo` como tomador da DPS, para a prévia passar em `Emissor::validar`. A T7 confere como o `PedidoEmissao.tomador` é tratado hoje com `vincular_tomador` (`comandos/planilha.rs:54-67`).
+Como `PedidoEmissao.tomador` só aceita pessoa cadastrada (`pessoa_id`), a prévia da linha é `Emissor::validar_importado` (no `nfse-emissor`): confere o tomador novo como ele vai ser cadastrado e deixa de fora o tomador ainda não vinculado. O `ler_planilha` do app passa a usá-la (antes ele mesmo tirava o tomador não vinculado), com o mesmo resultado.
 
 ### Emissão
 `Emissor::emitir_importado` (`lib.rs:696`), antes de `emitir`, no mesmo ponto em que o vínculo é feito hoje (L707-714):
