@@ -4,3 +4,4 @@ Uma pasta por mudança: `NNNN-slug/` com `spec.md` (o quê/por quê), `plan.md` 
 
 | Nº | Título | Status |
 |---|---|---|
+| [0001](0001-importacao-de-pedidos-por-email/spec.md) | Importação de pedidos de nota por e-mail | aprovada |
