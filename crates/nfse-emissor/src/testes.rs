@@ -2031,3 +2031,244 @@ async fn pix_da_empresa_na_descricao_e_nas_complementares() {
         v.regras
     );
 }
+
+// ---- Importação de pedidos por e-mail (spec 0001) ----
+
+fn pedidos_do_email(texto: &str) -> Vec<crate::pedido_email::PedidoEmail> {
+    crate::pedido_email::extrair(texto, &["11222333000181".to_string()]).unwrap()
+}
+
+fn endereco_do_cep(municipio: &str) -> Option<importacao_email::EnderecoDoCep> {
+    Some(importacao_email::EnderecoDoCep {
+        municipio: municipio.into(),
+        logradouro: "RUA DO CEP".into(),
+        bairro: "BAIRRO DO CEP".into(),
+    })
+}
+
+async fn resolver_email(
+    c: &Cenario,
+    texto: &str,
+    servico: Option<i64>,
+    ceps: &importacao_email::CepsConsultados,
+) -> Vec<importacao::ItemImportado> {
+    let outubro = NaiveDate::from_ymd_opt(2026, 10, 1).unwrap();
+    importacao_email::resolver(
+        c.emissor.banco(),
+        &pedidos_do_email(texto),
+        Some(c.pedido.empresa_id),
+        servico,
+        outubro,
+        ceps,
+    )
+    .await
+    .unwrap()
+}
+
+#[tokio::test]
+async fn email_tomador_da_filial_valor_e_mes() {
+    let c = cenario(vec![]).await;
+    let texto = "Solicitamos a nota da EMPRESA TESTE (CNPJ 11.222.333/0001-81) para a filial \
+                 CNPJ 11.444.777/0002-42, valor R$ 1.234,56, atendimentos de 07/2026.";
+    let itens = resolver_email(&c, texto, Some(c.pedido.servico_id), &Default::default()).await;
+    assert_eq!(itens.len(), 1);
+    let i = &itens[0];
+    assert_eq!(i.documento_tomador, "11444777000242");
+    assert_eq!(i.valor, Some(Valor::de_centesimos(123_456)));
+    assert_eq!(i.mes, NaiveDate::from_ymd_opt(2026, 7, 1).unwrap());
+    // CNPJ sem cadastro: o mesmo erro da planilha, que a tela resolve com "Cadastrar tomador".
+    assert_eq!(i.erros, ["tomador 11444777000242 não cadastrado"]);
+    assert!(i.tomador_novo.is_none());
+}
+
+#[tokio::test]
+async fn email_sem_periodo_usa_mes_da_tela() {
+    let c = cenario(vec![]).await;
+    let itens = resolver_email(
+        &c,
+        "Nota para 12.ABC.345/01DE-35 de R$ 100,00.",
+        Some(c.pedido.servico_id),
+        &Default::default(),
+    )
+    .await;
+    assert_eq!(itens[0].mes, NaiveDate::from_ymd_opt(2026, 10, 1).unwrap());
+    assert!(itens[0].erros.is_empty(), "{:?}", itens[0].erros);
+    assert_eq!(itens[0].tomador.as_deref(), Some("CLIENTE EXEMPLO LTDA"));
+    assert_eq!(
+        c.emissor.validar_importado(&itens[0]).await.unwrap(),
+        Vec::<String>::new()
+    );
+}
+
+#[tokio::test]
+async fn email_sem_servico() {
+    let c = cenario(vec![]).await;
+    let texto =
+        "PACIENTE: Ana\nCPF: 12.ABC.345/01DE-35\nVALOR: 10,00\n\nPACIENTE: Bia\nCPF: 12ABC34501DE35\nVALOR: 20,00";
+    let itens = resolver_email(&c, texto, None, &Default::default()).await;
+    assert_eq!(itens.len(), 2);
+    for i in &itens {
+        assert!(
+            i.erros.contains(&importacao_email::ESCOLHA_SERVICO.to_string()),
+            "{:?}",
+            i.erros
+        );
+        assert!(!i.emitivel());
+    }
+    // Serviço de outra empresa também não vale.
+    let itens = resolver_email(&c, texto, Some(c.pedido.servico_id + 1000), &Default::default()).await;
+    assert!(itens[0].erros.contains(&importacao_email::ESCOLHA_SERVICO.to_string()));
+}
+
+#[tokio::test]
+async fn email_descricao_do_bloco_e_padrao() {
+    let c = cenario(vec![]).await;
+    let banco = c.emissor.banco();
+    let mut servico = banco.servico(c.pedido.servico_id).await.unwrap();
+    servico.descricao = "SESSÕES {mes_ref}. PIX: {pix}".into();
+    banco.salvar_servico(&servico).await.unwrap();
+    let e = banco.empresa(c.pedido.empresa_id).await.unwrap();
+    banco
+        .atualizar_empresa(
+            e.id,
+            &NovaEmpresa {
+                cnpj: e.cnpj.clone(),
+                nome: e.nome.clone(),
+                inscricao_municipal: e.inscricao_municipal.clone(),
+                municipio_emissor: e.municipio_emissor.clone(),
+                regime: e.regime.clone(),
+                ambiente: e.ambiente,
+                serie: e.serie.clone(),
+                telefone: e.telefone.clone(),
+                email: e.email.clone(),
+                chave_pix: Some(nfse_core::ChavePix::parse("+55 17 99999-8888").unwrap()),
+            },
+        )
+        .await
+        .unwrap();
+
+    let texto = "Pedidos de 07/2026\n\nPACIENTE: Ana\nCPF: 12ABC34501DE35\nVALOR: 10,00\n\
+                 colocar no corpo da nota: Sessão de {mes_ref}\n\n\
+                 PACIENTE: Bia\nCPF: 12ABC34501DE35\nVALOR: 20,00";
+    let itens = resolver_email(&c, texto, Some(c.pedido.servico_id), &Default::default()).await;
+    assert_eq!(itens[0].descricao, "Sessão de 07/2026");
+    assert_eq!(itens[1].descricao, "SESSÕES 07/2026. PIX: {pix}");
+    let v = c.emissor.validar(&itens[1].pedido(None).unwrap()).await.unwrap();
+    assert_eq!(v.dps.servico.descricao, "SESSÕES 07/2026. PIX: +5517999998888");
+}
+
+#[tokio::test]
+async fn email_aviso_dados_diferentes() {
+    let c = cenario(vec![]).await;
+    let texto = "PACIENTE: Outro Nome Qualquer\nCPF: 12ABC34501DE35\nCEP: 01001-000\nVALOR: 10,00\n\n\
+                 PACIENTE: cliente  exemplo ltda\nCPF: 12ABC34501DE35\nCEP: 15800-000\nVALOR: 20,00";
+    let itens = resolver_email(&c, texto, Some(c.pedido.servico_id), &Default::default()).await;
+    assert!(itens[0].erros.is_empty(), "{:?}", itens[0].erros);
+    assert_eq!(itens[0].tomador.as_deref(), Some("CLIENTE EXEMPLO LTDA"));
+    assert_eq!(itens[0].avisos.len(), 1, "{:?}", itens[0].avisos);
+    assert!(itens[0].avisos[0].contains("nome") && itens[0].avisos[0].contains("CEP"));
+    // Só diferença de maiúsculas e espaços não é aviso.
+    assert!(itens[1].avisos.is_empty(), "{:?}", itens[1].avisos);
+}
+
+#[tokio::test]
+async fn email_pessoa_nova_e_municipio_do_cep() {
+    let c = cenario(vec![]).await;
+    let texto = "PACIENTE: Ana Nova\nCPF: 529.982.247-25\nENDEREÇO: Rua das Flores, 100\nBAIRRO: Centro\n\
+                 CEP: 15800-000\nVALOR: 10,00\n\n\
+                 PACIENTE: Sem Cep\nCPF: 111.444.777-35\nVALOR: 10,00\n\n\
+                 PACIENTE: Cep Desconhecido\nCPF: 390.533.447-05\nCEP: 99999-999\nVALOR: 10,00\n\n\
+                 PACIENTE: Sem Conexao\nCPF: 714.602.380-01\nCEP: 01001000\nVALOR: 10,00\n\n\
+                 PACIENTE: Cliente\nCPF: 12ABC34501DE35\nCEP: 15800-000\nVALOR: 10,00";
+    let pedidos = pedidos_do_email(texto);
+    let ceps = importacao_email::ceps_a_consultar(c.emissor.banco(), &pedidos)
+        .await
+        .unwrap();
+    // Só das pessoas sem cadastro, sem repetir; quem não tem CEP não entra.
+    assert_eq!(ceps, ["15800000", "99999999", "01001000"]);
+
+    // "99999999" não encontrado; "01001000" sem resposta (sem conexão): os dois sem endereço.
+    let consultados: importacao_email::CepsConsultados = [
+        ("15800000".to_string(), endereco_do_cep("3511102")),
+        ("99999999".to_string(), None),
+    ]
+    .into();
+    let itens = resolver_email(&c, texto, Some(c.pedido.servico_id), &consultados).await;
+
+    let novo = itens[0].tomador_novo.as_ref().expect("tomador novo");
+    assert!(itens[0].erros.is_empty(), "{:?}", itens[0].erros);
+    assert_eq!(novo.nome, "Ana Nova");
+    let end = novo.endereco.as_ref().unwrap();
+    assert_eq!(
+        (
+            end.municipio.as_str(),
+            end.cep.as_str(),
+            end.logradouro.as_str(),
+            end.numero.as_str(),
+            end.bairro.as_str()
+        ),
+        ("3511102", "15800000", "Rua das Flores", "100", "Centro")
+    );
+    assert_eq!(itens[0].pessoa_id, None);
+    assert_eq!(
+        c.emissor.validar_importado(&itens[0]).await.unwrap(),
+        Vec::<String>::new()
+    );
+    // Antes de emitir, a pessoa não está no banco.
+    assert_eq!(
+        c.emissor.banco().pessoa_por_documento("52998224725").await.unwrap(),
+        None
+    );
+
+    for i in &itens[1..4] {
+        assert_eq!(i.erros, [importacao_email::SEM_MUNICIPIO], "linha {}", i.linha);
+        assert!(!i.emitivel());
+    }
+    assert!(itens[4].tomador_novo.is_none() && itens[4].erros.is_empty());
+}
+
+#[tokio::test]
+async fn email_valor_invalido_igual_planilha() {
+    let c = cenario(vec![]).await;
+    let texto = "PACIENTE: Ana\nCPF: 12ABC34501DE35\n\nPACIENTE: Bia\nCPF: 12ABC34501DE35\nVALOR: R$ 150,555";
+    let itens = resolver_email(&c, texto, Some(c.pedido.servico_id), &Default::default()).await;
+
+    let csv = "Tomador;Valor\r\n12ABC34501DE35;\r\n12ABC34501DE35;R$ 150,555\r\n";
+    let linhas = crate::planilha::ler("p.csv", csv.as_bytes()).unwrap();
+    let outubro = NaiveDate::from_ymd_opt(2026, 10, 1).unwrap();
+    let planilha = importacao::resolver(c.emissor.banco(), &linhas, Some(c.pedido.empresa_id), outubro)
+        .await
+        .unwrap();
+    assert_eq!(itens[0].erros, planilha[0].erros);
+    assert_eq!(itens[1].erros, planilha[1].erros);
+    assert!(!itens[1].erros.is_empty());
+}
+
+#[tokio::test]
+async fn email_bloco_repetido() {
+    let c = cenario(vec![]).await;
+    let bloco = "PACIENTE: Ana\nCPF: 12ABC34501DE35\nVALOR: 10,00\n\n";
+    let texto = format!("{bloco}PACIENTE: Bia\nCPF: 12ABC34501DE35\nVALOR: 11,00\n\n> {bloco}");
+    let itens = resolver_email(&c, &texto, Some(c.pedido.servico_id), &Default::default()).await;
+    assert_eq!(itens.len(), 3);
+    assert!(itens[0].erros.is_empty() && itens[1].erros.is_empty());
+    assert_eq!(itens[2].erros, ["repetido (já está na linha 1)"]);
+    assert_eq!(itens[2].chave, itens[0].chave);
+}
+
+#[tokio::test]
+async fn email_reimportado_ja_emitido() {
+    let c = cenario(vec![Resposta::Emitir(Ok(nfse_autorizada()))]).await;
+    let texto = "PACIENTE: Ana\nCPF: 12ABC34501DE35\nVALOR: 10,00";
+    let itens = resolver_email(&c, texto, Some(c.pedido.servico_id), &Default::default()).await;
+    assert!(itens[0].emitivel());
+    assert!(matches!(
+        c.emissor.emitir_importado(&itens[0], Some("pedido.eml")).await.unwrap(),
+        ResultadoEmissao::Autorizada { .. }
+    ));
+    let de_novo = resolver_email(&c, texto, Some(c.pedido.servico_id), &Default::default()).await;
+    assert_eq!(de_novo[0].anterior.as_ref().unwrap().situacao, SituacaoDps::Autorizada);
+    assert!(!de_novo[0].emitivel());
+    assert!(c.emissor.emitir_importado(&de_novo[0], None).await.is_err());
+    assert_eq!(c.sefin.recebidos().len(), 1);
+}

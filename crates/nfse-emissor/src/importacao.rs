@@ -6,6 +6,7 @@ use std::collections::HashMap;
 
 use chrono::{Datelike, NaiveDate};
 
+use nfse_core::modelo::Tomador;
 use nfse_core::texto::sem_acento_minusculo;
 use nfse_core::{Cnpj, Cpf, Valor};
 use nfse_db::Banco;
@@ -37,6 +38,10 @@ pub struct ItemImportado {
     pub chave: String,
     pub anterior: Option<TentativaNoMes>,
     pub erros: Vec<String>,
+    /// Diferenças que não impedem a emissão (dados do e-mail que diferem do cadastro).
+    pub avisos: Vec<String>,
+    /// Pessoa física do e-mail ainda sem cadastro: é cadastrada e vinculada ao emitir.
+    pub tomador_novo: Option<Tomador>,
 }
 
 impl ItemImportado {
@@ -350,6 +355,8 @@ pub async fn resolver(
             chave,
             anterior,
             erros,
+            avisos: Vec::new(),
+            tomador_novo: None,
         });
     }
     Ok(itens)
