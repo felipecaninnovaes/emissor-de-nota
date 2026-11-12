@@ -3291,6 +3291,7 @@ name = "nfse-emissor"
 version = "0.1.0"
 dependencies = [
  "calamine",
+ "cfb",
  "chrono",
  "csv",
  "encoding_rs",
