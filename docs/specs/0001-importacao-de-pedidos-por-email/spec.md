@@ -37,8 +37,8 @@ O escritório usa o Outlook clássico, que salva em `.msg`, o novo Outlook e o w
 | R5 | No leiaute de **blocos com rótulos**, cada bloco iniciado por PACIENTE vira uma linha com nome, CPF, endereço, bairro, CEP, cidade/UF, valor e descrição ("colocar no corpo da nota"). Os rótulos são reconhecidos sem acento, sem diferença de maiúsculas e com qualquer espaço em volta. Pode haver mais de um rótulo por linha de texto, e o valor de um rótulo pode continuar na linha seguinte até o próximo rótulo. | obrigatório |
 | R6 | No leiaute de **texto corrido** (sem rótulo PACIENTE), o e-mail vira uma linha. Tomador: o primeiro CNPJ ou CPF com dígito verificador válido que não seja o CNPJ de uma empresa cadastrada. Valor: o primeiro após "R$". Período: o primeiro "MM/AAAA". | obrigatório |
 | R7 | Mês de referência: o período encontrado no e-mail. Sem período, vale o mês escolhido na tela, como na planilha. | obrigatório |
-| R8 | Ao ler um e-mail, a tela exige um serviço da empresa escolhida, que vale para todas as linhas dele. Sem serviço escolhido, as linhas ficam com o erro "escolha o serviço". | obrigatório |
-| R9 | Descrição da nota: o texto de "colocar no corpo da nota" do bloco, se houver; senão, a descrição padrão do serviço. As variáveis (`{mes}`, `{pix}` etc.) valem nos dois casos, como hoje. | obrigatório |
+| R8 | Ao ler um e-mail, a tela exige um serviço da empresa escolhida, num seletor novo (pré-escolhido quando a empresa tem um só serviço), que vale para todas as linhas dele. A planilha não usa o seletor. Sem serviço escolhido, as linhas ficam com o erro "escolha o serviço". | obrigatório |
+| R9 | Descrição da nota: o texto de "colocar no corpo da nota" do bloco, se houver; senão, a descrição padrão do serviço. As variáveis (`{mes_ref}`, `{pix}` etc.) valem nos dois casos, como hoje. | obrigatório |
 | R10 | Tomador já cadastrado (pelo CPF/CNPJ) é usado como está; o cadastro não muda. Se o nome ou o CEP do e-mail diferem do cadastro, a linha mostra um aviso (não é erro). O vínculo com a empresa é criado ao emitir, como na planilha. | obrigatório |
 | R11 | Pessoa física sem cadastro vira "tomador novo" na linha, com nome, CPF e endereço do e-mail. O município (código IBGE) vem da consulta do CEP (ViaCEP), que o app já usa. A pessoa é cadastrada e vinculada à empresa só quando a linha é emitida. | obrigatório |
 | R12 | Tomador novo sem CEP, com CEP que a consulta não encontra ou sem conexão fica com o erro "endereço sem município: confira o CEP". A linha não fica pronta. | obrigatório |
@@ -62,7 +62,7 @@ Cada critério vira pelo menos um teste, com e-mails **fictícios** no leiaute d
 - **CA8 (R6)** — Dado um texto corrido com um número de 14 dígitos de dígito verificador inválido antes do CNPJ válido, quando ele é lido, então o tomador é o CNPJ válido.
 - **CA9 (R7)** — Dado um e-mail sem período, quando ele é lido com o mês 2026-10 na tela, então a linha usa 2026-10.
 - **CA10 (R8)** — Dado um e-mail lido sem serviço escolhido, então todas as linhas têm o erro "escolha o serviço" e nenhuma pode ser marcada.
-- **CA11 (R9)** — Dado um bloco com "colocar no corpo da nota: Sessão de {mes}", quando a linha é montada para 2026-07, então a descrição traz o mês aplicado; dado um bloco sem esse rótulo, então a descrição é a padrão do serviço, com `{pix}` trocada pela chave da empresa.
+- **CA11 (R9)** — Dado um bloco com "colocar no corpo da nota: Sessão de {mes_ref}", quando a linha é montada para 2026-07, então a descrição traz o mês aplicado; dado um bloco sem esse rótulo, então a descrição é a padrão do serviço, com `{pix}` trocada pela chave da empresa.
 - **CA12 (R10)** — Dado um paciente com CPF já cadastrado com outro endereço, quando o e-mail é lido e a linha é emitida, então a nota usa o endereço gravado, o cadastro não muda e a linha mostrou o aviso de dados diferentes.
 - **CA13 (R11)** — Dado um paciente com CPF sem cadastro e CEP válido (consulta simulada), quando a linha é emitida, então a pessoa é cadastrada com o nome, o endereço e o código IBGE do município e vinculada à empresa. Antes de emitir, o banco não tem a pessoa.
 - **CA14 (R12)** — Dado um paciente novo sem CEP, ou com CEP que a consulta (simulada) não encontra ou que falha por falta de conexão, quando o e-mail é lido, então a linha tem o erro "endereço sem município: confira o CEP".
@@ -76,7 +76,7 @@ Cada critério vira pelo menos um teste, com e-mails **fictícios** no leiaute d
   - texto colado vazio: o botão não lê;
   - `.msg` ou `.eml` corrompido: "não consegui abrir o e-mail", sem linhas;
   - arquivo com outra extensão: segue a regra atual da planilha.
-- **Texto citado (respostas e encaminhamentos):** a extração usa o corpo inteiro. Se os blocos se repetem no histórico citado, a repetição é marcada como linha repetida, como na planilha.
+- **Texto citado (respostas e encaminhamentos):** a extração usa o corpo inteiro. Se um bloco se repete (mesmo tomador, valor, mês e descrição), a repetição vira linha com o erro "repetido (já está na linha N)", como na importação de tomadores. A planilha de notas não marca repetição e continua assim.
 - **CPF com ou sem pontuação, valor com "R$", ponto de milhar ou vírgula:** o mesmo entendimento das funções da planilha (`documentos_da_planilha`, `valor_da_planilha`).
 - **Vários "R$" ou vários períodos no texto corrido:** vale o primeiro; o operador confere na linha.
 - **Falha da consulta de CEP:** a linha fica com erro (R12) e a leitura das outras linhas continua.
@@ -99,10 +99,11 @@ Cada critério vira pelo menos um teste, com e-mails **fictícios** no leiaute d
 - **Compatibilidade:** sem migração de banco, se a origem atual da planilha (`Origem::Planilha` com o nome do arquivo) bastar. O plano confirma.
 
 ## Questões em aberto
-- [ ] O leiaute de texto corrido deve aceitar também CPF como tomador, ou só CNPJ? (R6 aceita os dois; confirmar com os e-mails reais.)
-- [ ] Rótulos além dos vistos nos exemplos (por exemplo "NOME", "PACIENTE/TITULAR", "TELEFONE", "E-MAIL") devem ser reconhecidos já na primeira versão?
+- [x] O leiaute de texto corrido deve aceitar também CPF como tomador, ou só CNPJ? **CNPJ e CPF**, como no R6.
+- [x] Rótulos além dos vistos nos exemplos (por exemplo "NOME", "PACIENTE/TITULAR", "TELEFONE", "E-MAIL") devem ser reconhecidos já na primeira versão? **Não**: só os rótulos do R5; os outros ficam para quando aparecerem nos e-mails reais.
 
 ## Histórico de mudanças
 | Data | Mudança | Motivo |
 |---|---|---|
 | 2026-11-12 | Primeira versão | Entrevista do `/spec` |
+| 2026-11-12 | R9 e CA11 usam `{mes_ref}`; caso de borda de repetição reescrito; questões em aberto respondidas; R8 cria um seletor de serviço na tela, usado só na leitura de e-mail | `/plan`: `{mes}` não existe (as variáveis são `{mes_ref}`, `{mes_ref_extenso}`, `{ano_ref}`), a planilha de notas não marca repetição e a tela não tinha seletor de serviço |
