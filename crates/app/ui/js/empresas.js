@@ -135,6 +135,7 @@ export function editarEmpresa(empresa) {
       ambiente: empresa.ambiente,
       telefone: empresa.telefone,
       email: empresa.email,
+      chave_pix: empresa.chave_pix,
     });
   }
   sincronizarIm();
@@ -152,14 +153,22 @@ export function editarEmpresa(empresa) {
       serie: d.serie,
       telefone: vazio(soDigitos(d.telefone)),
       email: vazio(d.email),
+      chave_pix: vazio(d.chave_pix),
     };
     const vaiParaProducao = d.ambiente === "producao" && empresa?.ambiente !== "producao";
     const mudaEmissao = empresa && (d.ambiente !== empresa.ambiente || d.serie.trim() !== empresa.serie);
     if (vaiParaProducao && !(await confirmar(`${empresa ? "Passar" : "Cadastrar"} ${d.nome.trim()} em PRODUÇÃO? As notas emitidas terão valor fiscal.`))) {
       throw "Não confirmado.";
     }
+    // A chave é conferida no backend; o erro dela volta para junto do campo.
+    const naChave = (e) => {
+      const msg = String(e);
+      if (!/^chave PIX/i.test(msg)) throw e;
+      const motivo = msg.replace(/^chave PIX:\s*/i, "");
+      throw new ErroCampo("chave_pix", motivo.charAt(0).toUpperCase() + motivo.slice(1));
+    };
     if (!empresa) {
-      const id = await chamar("cadastrar_empresa", { empresa: dados });
+      const id = await chamar("cadastrar_empresa", { empresa: dados }).catch(naChave);
       toast("Empresa cadastrada. Agora importe o certificado digital.");
       estado.empresa = { id };
       await carregarEmpresas();
@@ -168,7 +177,7 @@ export function editarEmpresa(empresa) {
       if (nova) setTimeout(() => importarCertificado(nova), 0);
       return;
     }
-    await chamar("atualizar_empresa", { empresaId: empresa.id, empresa: dados });
+    await chamar("atualizar_empresa", { empresaId: empresa.id, empresa: dados }).catch(naChave);
     toast(
       mudaEmissao
         ? `Empresa agora emite em ${NOME_AMBIENTE[d.ambiente]}, série ${d.serie.trim()}. Confira o próximo número e a IM em "Numeração / IM".`

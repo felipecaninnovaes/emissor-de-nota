@@ -51,7 +51,7 @@ Situações da DPS (`SituacaoDps` em `nfse-db/src/dps.rs`): `reservada`, `envian
 
 Outras operações em `Emissor`: `cancelar` (evento e101101; recusado ou sem resposta, consulta o evento e registra se a Sefin já o tem; senão a nota continua `autorizada` e o operador é orientado a repetir, já que o Id do pedido é fixo), `sincronizar_cancelamento` (cancelamento feito fora do sistema), `emitir_recorrencia`, `emitir_importado`, `ajustar_numeracao_pela_sefin`, `dados_para_refazer` (nota rejeitada), `dados_para_copiar` (autorizada ou cancelada), `enviar_email` e `enviar_email_apos_emissao`.
 
-Descrição da nota: `aplicar_mes_ref` troca as variáveis (lista em [usuario.md](usuario.md#variáveis-na-descrição)); variável desconhecida é barrada antes do envio (`variaveis_desconhecidas`).
+Descrição e informações complementares da nota: `montar_dps` troca as variáveis (lista em [usuario.md](usuario.md#variáveis-na-descrição); `{pix}` vem do cadastro da empresa, validado por `nfse_core::ChavePix`); variável desconhecida ou sem valor é barrada antes do envio (`variaveis_desconhecidas`).
 
 ## Banco de dados
 

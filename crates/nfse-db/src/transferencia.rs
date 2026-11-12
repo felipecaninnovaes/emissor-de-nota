@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::Row;
 
 use nfse_core::modelo::{Ambiente, Obra, RegimeTributario, Tomador};
-use nfse_core::{Cnpj, Valor};
+use nfse_core::{ChavePix, Cnpj, Valor};
 
 use crate::empresas::{NovaEmpresa, ambiente_texto, validar};
 use crate::servicos::{Servico, Tributacao, chave_nome, gravar_servico};
@@ -47,6 +47,9 @@ pub struct EmpresaExportada {
     pub serie: String,
     pub telefone: Option<String>,
     pub email: Option<String>,
+    /// Ausente nos arquivos gerados antes da versão que trouxe a chave PIX.
+    #[serde(default)]
+    pub chave_pix: Option<String>,
     pub servicos: Vec<ServicoExportado>,
     pub tomadores: Vec<TomadorExportado>,
     pub recorrencias: Vec<RecorrenciaExportada>,
@@ -261,6 +264,7 @@ impl Banco {
                 serie: e.serie,
                 telefone: e.telefone,
                 email: e.email,
+                chave_pix: e.chave_pix.map(String::from),
                 servicos,
                 tomadores,
                 recorrencias,
@@ -468,6 +472,10 @@ fn nova_empresa(e: &EmpresaExportada) -> Resultado<NovaEmpresa> {
         serie: e.serie.clone(),
         telefone: vazio(&e.telefone),
         email: vazio(&e.email),
+        chave_pix: vazio(&e.chave_pix)
+            .map(|c| ChavePix::parse(&c))
+            .transpose()
+            .map_err(|err| ErroBanco::Regra(format!("{}: {err}", e.nome)))?,
     };
     validar(&nova).map_err(|err| ErroBanco::Regra(format!("{}: {err}", e.nome)))?;
     Ok(nova)
@@ -527,13 +535,14 @@ async fn gravar_empresa(
     if let Some(id) = existente {
         sqlx::query(
             "UPDATE empresa SET inscricao_municipal = ?, im_na_dps_producao = ?, im_na_dps_homologacao = ?,
-                 municipio_emissor = ?, regime_json = ?, ativa = 1 WHERE id = ?",
+                 municipio_emissor = ?, regime_json = ?, chave_pix = COALESCE(?, chave_pix), ativa = 1 WHERE id = ?",
         )
         .bind(&nova.inscricao_municipal)
         .bind(e.im_na_dps_producao)
         .bind(e.im_na_dps_homologacao)
         .bind(&nova.municipio_emissor)
         .bind(json(&nova.regime))
+        .bind(nova.chave_pix.as_ref().map(ChavePix::as_str))
         .bind(id)
         .execute(&mut **tx)
         .await?;
@@ -542,8 +551,8 @@ async fn gravar_empresa(
     }
     let id: i64 = sqlx::query(
         "INSERT INTO empresa (pessoa_id, inscricao_municipal, im_na_dps_producao, im_na_dps_homologacao,
-             municipio_emissor, regime_json, ambiente, serie, conferir_numeracao, criado_em)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?) RETURNING id",
+             municipio_emissor, regime_json, ambiente, serie, chave_pix, conferir_numeracao, criado_em)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?) RETURNING id",
     )
     .bind(pessoa_id)
     .bind(&nova.inscricao_municipal)
@@ -553,6 +562,7 @@ async fn gravar_empresa(
     .bind(json(&nova.regime))
     .bind(ambiente_texto(nova.ambiente))
     .bind(&nova.serie)
+    .bind(nova.chave_pix.as_ref().map(ChavePix::as_str))
     .bind(agora())
     .fetch_one(&mut **tx)
     .await?
@@ -629,6 +639,9 @@ mod testes {
     #[tokio::test]
     async fn exporta_e_importa_em_banco_novo() {
         let (banco, id) = origem().await;
+        let mut dados = nova_empresa();
+        dados.chave_pix = Some(ChavePix::parse("financeiro@exemplo.com.br").unwrap());
+        banco.atualizar_empresa(id, &dados).await.unwrap();
         let pacote = banco.exportar_empresas(&[id]).await.unwrap();
         let arquivo = cifrar_rapido(&pacote, "frase da exportacao");
         let lido = decifrar_pacote(&arquivo, "frase da exportacao").unwrap();
@@ -657,6 +670,7 @@ mod testes {
         let empresa = &destino.empresas().await.unwrap()[0];
         assert_eq!(empresa.cnpj, nova_empresa().cnpj);
         assert!(empresa.conferir_numeracao);
+        assert_eq!(empresa.chave_pix, dados.chave_pix);
         let t = &destino.buscar_tomadores(empresa.id, "convenio").await.unwrap()[0];
         assert_eq!(t.emails.as_deref(), Some("a@convenio.exemplo"));
         assert!(t.retem_federais && !t.retem_iss);
@@ -693,7 +707,16 @@ mod testes {
         pacote.empresas[0].serie = "9".into();
         pacote.empresas[0].ambiente = Ambiente::Producao;
 
+        // Arquivo de uma versão anterior, sem a chave PIX: a do destino fica.
+        let mut json = serde_json::to_value(&pacote).unwrap();
+        json["empresas"][0].as_object_mut().unwrap().remove("chave_pix");
+        let pacote: PacoteEmpresas = serde_json::from_value(json).unwrap();
+        assert_eq!(pacote.empresas[0].chave_pix, None);
+
         let (destino, _, empresa) = banco_com_empresa().await;
+        let mut com_pix = nova_empresa();
+        com_pix.chave_pix = Some(ChavePix::parse("11.222.333/0001-81").unwrap());
+        destino.atualizar_empresa(empresa.id, &com_pix).await.unwrap();
         destino.reservar_dps(empresa.id).await.unwrap();
         assert_eq!(
             destino.previa_importacao(&pacote).await.unwrap()[0].situacao,
@@ -708,6 +731,7 @@ mod testes {
         assert_eq!(depois.nome, "NOME NOVO LTDA");
         assert_eq!((depois.ambiente, depois.serie.as_str()), (Ambiente::Homologacao, "1"));
         assert!(!depois.conferir_numeracao);
+        assert_eq!(depois.chave_pix, com_pix.chave_pix);
         assert_eq!(
             destino
                 .proximo_numero(empresa.id, Ambiente::Homologacao, "1")

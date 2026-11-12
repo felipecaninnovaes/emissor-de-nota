@@ -186,6 +186,7 @@ async fn cenario(respostas: Vec<Resposta>) -> Cenario {
             serie: "1".into(),
             telefone: None,
             email: None,
+            chave_pix: None,
         })
         .await
         .unwrap();
@@ -375,7 +376,7 @@ fn valor_liquido_da_descricao() {
     assert_eq!(valor_liquido(valor, &f, &t), None);
     t.issqn.aliquota = Some(p("2"));
     assert_eq!(valor_liquido(valor, &f, &t).unwrap().to_string(), "965.00");
-    assert!(texto_variaveis_desconhecidas(&["valor_liquido".into()]).contains("alíquota"));
+    assert!(texto_variaveis_desconhecidas("a descrição tem", &["valor_liquido".into()]).contains("alíquota"));
 }
 
 #[test]
@@ -1063,6 +1064,7 @@ async fn cancela_nota_autorizada() {
                 serie: e.serie.clone(),
                 telefone: e.telefone.clone(),
                 email: e.email.clone(),
+                chave_pix: e.chave_pix.clone(),
             },
         )
         .await
@@ -1236,6 +1238,7 @@ async fn planilha_vincula_tomador_herdando_retencao_e_tipo() {
             serie: "1".into(),
             telefone: None,
             email: None,
+            chave_pix: None,
         })
         .await
         .unwrap();
@@ -1975,4 +1978,56 @@ async fn previa_e_emissao_conferem_o_mesmo() {
     ));
     assert!(c.sefin.recebidos().is_empty());
     assert!(c.emissor.banco().dps_pendentes().await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn pix_da_empresa_na_descricao_e_nas_complementares() {
+    let c = cenario(vec![]).await;
+    let mut pedido = c.pedido.clone();
+    pedido.descricao = Some("REPASSE {mes_ref}. PIX: {pix}".into());
+    pedido.informacoes_complementares = Some("Chave PIX {pix}".into());
+
+    // Sem chave no cadastro: barra com o motivo, uma vez só para os dois campos.
+    let v = c.emissor.validar(&pedido).await.unwrap();
+    let pix: Vec<_> = v.regras.iter().filter(|r| r.contains("chave PIX cadastrada")).collect();
+    assert_eq!(pix.len(), 1, "{:?}", v.regras);
+
+    let e = c.emissor.banco().empresa(pedido.empresa_id).await.unwrap();
+    c.emissor
+        .banco()
+        .atualizar_empresa(
+            e.id,
+            &NovaEmpresa {
+                cnpj: e.cnpj.clone(),
+                nome: e.nome.clone(),
+                inscricao_municipal: e.inscricao_municipal.clone(),
+                municipio_emissor: e.municipio_emissor.clone(),
+                regime: e.regime.clone(),
+                ambiente: e.ambiente,
+                serie: e.serie.clone(),
+                telefone: e.telefone.clone(),
+                email: e.email.clone(),
+                chave_pix: Some(nfse_core::ChavePix::parse("+55 17 99999-8888").unwrap()),
+            },
+        )
+        .await
+        .unwrap();
+    let v = c.emissor.validar(&pedido).await.unwrap();
+    assert!(v.erros().is_empty(), "{:?}", v.erros());
+    assert_eq!(v.dps.servico.descricao, "REPASSE 09/2026. PIX: +5517999998888");
+    assert_eq!(
+        v.dps.servico.informacoes_complementares.as_deref(),
+        Some("Chave PIX +5517999998888")
+    );
+
+    // Variável errada nas complementares também é apontada, com o nome do campo.
+    pedido.informacoes_complementares = Some("PIX {pixx}".into());
+    let v = c.emissor.validar(&pedido).await.unwrap();
+    assert!(
+        v.regras
+            .iter()
+            .any(|r| r.starts_with("as informações complementares têm") && r.contains("{pixx}")),
+        "{:?}",
+        v.regras
+    );
 }

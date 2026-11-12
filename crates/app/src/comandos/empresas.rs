@@ -6,8 +6,8 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use nfse_core::Cnpj;
 use nfse_core::modelo::{Ambiente, RegimeTributario};
+use nfse_core::{ChavePix, Cnpj};
 use nfse_db::empresas::{Exclusao, NovaEmpresa};
 use nfse_db::transferencia;
 
@@ -29,6 +29,7 @@ pub struct EmpresaDto {
     serie: String,
     telefone: Option<String>,
     email: Option<String>,
+    chave_pix: Option<String>,
     conferir_numeracao: bool,
     certificado: Option<CertificadoDto>,
 }
@@ -69,6 +70,7 @@ pub async fn listar_empresas(estado: State<'_, Estado>) -> R<Vec<EmpresaDto>> {
             serie: e.serie,
             telefone: e.telefone,
             email: e.email,
+            chave_pix: e.chave_pix.map(String::from),
             conferir_numeracao: e.conferir_numeracao,
             certificado,
         });
@@ -87,6 +89,8 @@ pub struct NovaEmpresaDto {
     serie: String,
     telefone: Option<String>,
     email: Option<String>,
+    #[serde(default)]
+    chave_pix: Option<String>,
 }
 
 impl NovaEmpresaDto {
@@ -101,6 +105,10 @@ impl NovaEmpresaDto {
             serie: self.serie.trim().to_owned(),
             telefone: vazio_para_none(self.telefone).map(|t| t.chars().filter(char::is_ascii_digit).collect()),
             email: vazio_para_none(self.email),
+            chave_pix: vazio_para_none(self.chave_pix)
+                .map(|c| ChavePix::parse(&c))
+                .transpose()
+                .map_err(|e| e.to_string())?,
         })
     }
 }

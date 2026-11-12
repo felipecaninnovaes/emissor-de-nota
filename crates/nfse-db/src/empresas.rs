@@ -5,8 +5,8 @@ use sqlx::Row;
 use sqlx::sqlite::SqliteRow;
 
 use nfse_cert::{CertificadoA1, InfoCertificado};
-use nfse_core::Cnpj;
 use nfse_core::modelo::{Ambiente, RegimeTributario};
+use nfse_core::{ChavePix, Cnpj};
 
 use crate::{Banco, Cofre, ErroBanco, Resultado, agora, auditar_em, de_json, json};
 
@@ -23,6 +23,8 @@ pub struct NovaEmpresa {
     pub serie: String,
     pub telefone: Option<String>,
     pub email: Option<String>,
+    /// Chave PIX padrão, usada nas descrições pela variável `{pix}`.
+    pub chave_pix: Option<ChavePix>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -42,6 +44,7 @@ pub struct Empresa {
     pub ativa: bool,
     /// Importada de outra máquina: a reserva de número espera "Consultar na Sefin" (ADR 0015).
     pub conferir_numeracao: bool,
+    pub chave_pix: Option<ChavePix>,
 }
 
 impl Empresa {
@@ -76,7 +79,7 @@ pub(crate) fn ambiente_de(s: &str) -> Resultado<Ambiente> {
 
 const SELECT_EMPRESA: &str = "SELECT e.id, p.documento, p.nome, e.inscricao_municipal, e.im_na_dps_producao,
     e.im_na_dps_homologacao, e.municipio_emissor, e.regime_json, e.ambiente, e.serie, p.telefone, p.email, e.ativa,
-    e.conferir_numeracao FROM empresa e JOIN pessoa p ON p.id = e.pessoa_id";
+    e.conferir_numeracao, e.chave_pix FROM empresa e JOIN pessoa p ON p.id = e.pessoa_id";
 
 fn empresa_de(r: &SqliteRow) -> Resultado<Empresa> {
     let documento: String = r.get(1);
@@ -95,6 +98,10 @@ fn empresa_de(r: &SqliteRow) -> Resultado<Empresa> {
         email: r.get(11),
         ativa: r.get(12),
         conferir_numeracao: r.get(13),
+        chave_pix: r
+            .get::<Option<&str>, _>(14)
+            .map(|c| ChavePix::parse(c).map_err(|e| ErroBanco::DadoInvalido(e.to_string())))
+            .transpose()?,
     })
 }
 
@@ -202,13 +209,14 @@ impl Banco {
         if let Some(id) = arquivada {
             sqlx::query(
                 "UPDATE empresa SET inscricao_municipal = ?, municipio_emissor = ?, regime_json = ?, ambiente = ?,
-                     serie = ?, ativa = 1 WHERE id = ?",
+                     serie = ?, chave_pix = ?, ativa = 1 WHERE id = ?",
             )
             .bind(&nova.inscricao_municipal)
             .bind(&nova.municipio_emissor)
             .bind(json(&nova.regime))
             .bind(ambiente_texto(nova.ambiente))
             .bind(&nova.serie)
+            .bind(nova.chave_pix.as_ref().map(ChavePix::as_str))
             .bind(id)
             .execute(&mut *tx)
             .await?;
@@ -218,8 +226,9 @@ impl Banco {
         }
 
         let id: i64 = sqlx::query(
-            "INSERT INTO empresa (pessoa_id, inscricao_municipal, municipio_emissor, regime_json, ambiente, serie, criado_em)
-             VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
+            "INSERT INTO empresa (pessoa_id, inscricao_municipal, municipio_emissor, regime_json, ambiente, serie,
+                 chave_pix, criado_em)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
         )
         .bind(pessoa_id)
         .bind(&nova.inscricao_municipal)
@@ -227,6 +236,7 @@ impl Banco {
         .bind(json(&nova.regime))
         .bind(ambiente_texto(nova.ambiente))
         .bind(&nova.serie)
+        .bind(nova.chave_pix.as_ref().map(ChavePix::as_str))
         .bind(&agora)
         .fetch_one(&mut *tx)
         .await
@@ -291,13 +301,14 @@ impl Banco {
         .await?;
         sqlx::query(
             "UPDATE empresa SET inscricao_municipal = ?, municipio_emissor = ?, regime_json = ?, ambiente = ?,
-                 serie = ? WHERE id = ?",
+                 serie = ?, chave_pix = ? WHERE id = ?",
         )
         .bind(&dados.inscricao_municipal)
         .bind(&dados.municipio_emissor)
         .bind(json(&dados.regime))
         .bind(ambiente_texto(dados.ambiente))
         .bind(&dados.serie)
+        .bind(dados.chave_pix.as_ref().map(ChavePix::as_str))
         .bind(id)
         .execute(&mut *tx)
         .await?;
@@ -528,6 +539,7 @@ pub(crate) mod testes {
             serie: "1".into(),
             telefone: Some("1733334444".into()),
             email: None,
+            chave_pix: None,
         }
     }
 
@@ -584,7 +596,10 @@ pub(crate) mod testes {
         dados.serie = "2".into();
         dados.inscricao_municipal = None;
         dados.telefone = None;
+        dados.chave_pix = Some(ChavePix::parse("+55 17 99999-8888").unwrap());
         let nova = banco.atualizar_empresa(empresa.id, &dados).await.unwrap();
+        assert_eq!(nova.chave_pix.as_ref().map(ChavePix::as_str), Some("+5517999998888"));
+        assert_eq!(banco.empresa(empresa.id).await.unwrap().chave_pix, nova.chave_pix);
         assert_eq!(nova.nome, "NOME NOVO LTDA");
         assert_eq!(nova.ambiente, Ambiente::Producao);
         assert_eq!(nova.serie, "2");
