@@ -14,7 +14,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
   - Teste: `leitura_email::testes::msg_unicode` (CA3), `msg_ansi_windows_1252`, `msg_so_rtf` (CA4), `msg_corrompido`
   - Verificar: `just test -p nfse-emissor leitura_email`
 
-- [ ] **T3** — Extração do leiaute de blocos com rótulos
+- [x] **T3** — Extração do leiaute de blocos com rótulos
   - Requisitos: R5
   - Arquivos: `crates/nfse-emissor/src/pedido_email.rs`, `crates/nfse-emissor/src/lib.rs` (mod)
   - Teste: `pedido_email::testes::tres_blocos_irregulares` (CA5), `rotulos_sem_acento_e_espacos` (CA6), `cem_blocos_em_menos_de_2s`
