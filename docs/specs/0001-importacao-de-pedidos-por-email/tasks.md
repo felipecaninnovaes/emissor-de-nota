@@ -2,7 +2,7 @@
 
 Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
 
-- [ ] **T1** — Leitura de `.eml` (texto puro, HTML, QP, base64, charset)
+- [x] **T1** — Leitura de `.eml` (texto puro, HTML, QP, base64, charset)
   - Requisitos: R1, R3
   - Arquivos: `crates/nfse-emissor/Cargo.toml` (+ `mail-parser`), `crates/nfse-emissor/src/leitura_email.rs`, `crates/nfse-emissor/src/lib.rs` (mod)
   - Teste: `leitura_email::testes::eml_quoted_printable_iso_8859_1` (CA1), `eml_so_html_base64` (CA2), `eml_corrompido`
