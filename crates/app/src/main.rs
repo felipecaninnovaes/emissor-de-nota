@@ -27,6 +27,9 @@ pub struct Estado {
     banco: std::sync::RwLock<Option<Banco>>,
     /// Preenchido depois que o operador abre o cofre com a senha mestra.
     pub emissor: RwLock<Option<Emissor<ConectorSefin>>>,
+    /// Arquivos que o operador escolheu no diálogo nesta sessão, para "Ler de novo" abrir o mesmo
+    /// arquivo do disco sem a interface mandar um caminho qualquer.
+    pub arquivos_escolhidos: std::sync::Mutex<Vec<PathBuf>>,
 }
 
 impl Estado {
@@ -114,6 +117,7 @@ fn main() {
                 dados,
                 banco: std::sync::RwLock::new(None),
                 emissor: RwLock::new(None),
+                arquivos_escolhidos: Default::default(),
             });
             Ok(())
         })
@@ -134,6 +138,7 @@ fn main() {
             comandos::dialogo::escolher_pasta,
             comandos::dialogo::escolher_arquivo,
             comandos::dialogo::ler_arquivo_escolhido,
+            comandos::dialogo::reler_arquivo_escolhido,
             comandos::dialogo::salvar_arquivo,
             comandos::backup::obter_backup,
             comandos::backup::definir_pasta_backup,

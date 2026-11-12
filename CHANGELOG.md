@@ -4,6 +4,7 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 
 ## Não publicado
 
+- Importação por planilha: "Ler de novo" abre o arquivo outra vez do disco; antes relia o conteúdo da hora da escolha e não via as correções feitas na planilha depois.
 - Emitir: durante o envio à Sefin, "Revisar" fica desabilitado e o Ctrl+Enter (inclusive com a tecla segurada) não revisa nem emite de novo; antes, revisar durante o envio reabilitava "Emitir nota" e um segundo Ctrl+Enter emitia a mesma nota outra vez, com outro número.
 - Empresas: campo **Chave PIX** no cadastro, com o formato conferido ao salvar (CPF, CNPJ, e-mail, telefone com +55 ou chave aleatória). A variável `{pix}` leva a chave para a nota, e as variáveis passam a valer também nas informações complementares. A chave vai junto na exportação de empresas. Nova coluna `chave_pix` na tabela `empresa` (migração 0010).
 - Emitir: mudar o formulário depois de revisar a nota fecha a revisão, e "Emitir nota" recusa enviar se os dados não forem os revisados; antes, uma alteração feita com a revisão aberta podia sair na nota sem ser conferida.
