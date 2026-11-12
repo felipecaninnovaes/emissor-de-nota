@@ -4,6 +4,7 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 
 ## Não publicado
 
+- Emitir: durante o envio à Sefin, "Revisar" fica desabilitado e o Ctrl+Enter (inclusive com a tecla segurada) não revisa nem emite de novo; antes, revisar durante o envio reabilitava "Emitir nota" e um segundo Ctrl+Enter emitia a mesma nota outra vez, com outro número.
 - Emitir: mudar o formulário depois de revisar a nota fecha a revisão, e "Emitir nota" recusa enviar se os dados não forem os revisados; antes, uma alteração feita com a revisão aberta podia sair na nota sem ser conferida.
 - Importação por planilha: o tomador vinculado à empresa pela planilha herda a retenção e o tipo (órgão público etc.) que já tem em outra empresa, como no cadastro pela tela; antes entrava sem retenção.
 - Substituição: aceita a nota de prestador com CNPJ alfanumérico, cuja chave de acesso tem letras; antes a substituição era recusada antes do envio.

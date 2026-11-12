@@ -61,6 +61,8 @@ document.addEventListener("keydown", (ev) => {
   } else if (ev.key === "Enter" && telaAtual() === "emitir") {
     // primeiro Enter revisa; com a revisão aberta, o segundo emite
     ev.preventDefault();
+    // tecla segurada repete o evento: sem isso, revisaria e emitiria num só aperto
+    if (ev.repeat) return;
     const confirmar = $("#confirmar-emissao");
     if (!$("#revisao").hidden && !confirmar.disabled) confirmar.click();
     else $("#revisar").click();
