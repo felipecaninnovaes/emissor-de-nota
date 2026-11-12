@@ -7,6 +7,13 @@
 //! uma linha que começa com outro rótulo qualquer (`TELEFONE:`, por exemplo), e pode continuar na
 //! linha seguinte.
 //!
+//! **Texto corrido** (sem rótulo PACIENTE): um pedido só, com o primeiro CNPJ ou CPF de dígito
+//! verificador válido que não seja de uma empresa cadastrada, o primeiro valor após "R$" e o
+//! primeiro período. Sem documento de tomador, não há pedido.
+//!
+//! **Período:** o primeiro `MM/AAAA` do e-mail, que vale para todos os pedidos dele; o mês de uma
+//! data completa (`DD/MM/AAAA`) não conta.
+//!
 //! Os campos saem como texto; a conversão (documento, valor, mês) é a da planilha, em
 //! `importacao_email`.
 
@@ -64,12 +71,85 @@ const ROTULOS: [(&str, Rotulo); 9] = [
 ];
 
 /// Pedidos do e-mail; sem nenhum, [`NENHUM_PEDIDO`].
-pub fn extrair(texto: &str) -> Result<Vec<PedidoEmail>, String> {
-    let pedidos = blocos(texto);
+///
+/// `cnpjs_das_empresas`: CNPJs (só os 14 caracteres) das empresas cadastradas, que no texto
+/// corrido não são o tomador.
+pub fn extrair(texto: &str, cnpjs_das_empresas: &[String]) -> Result<Vec<PedidoEmail>, String> {
+    let mut pedidos = blocos(texto);
+    if pedidos.is_empty() {
+        pedidos.extend(texto_corrido(texto, cnpjs_das_empresas));
+    }
     if pedidos.is_empty() {
         return Err(NENHUM_PEDIDO.into());
     }
+    let mes = periodo(texto);
+    for p in &mut pedidos {
+        p.mes.clone_from(&mes);
+    }
     Ok(pedidos)
+}
+
+/// Leiaute de texto corrido: um pedido, se houver documento de tomador.
+fn texto_corrido(texto: &str, cnpjs_das_empresas: &[String]) -> Option<PedidoEmail> {
+    let documento = documentos(texto).find(|d| !cnpjs_das_empresas.contains(d))?;
+    Some(PedidoEmail {
+        numero: 1,
+        documento: Some(documento),
+        valor: valor_apos_cifrao(texto),
+        ..Default::default()
+    })
+}
+
+/// CNPJs e CPFs de dígito verificador válido, na ordem do texto, sem pontuação.
+fn documentos(texto: &str) -> impl Iterator<Item = String> + '_ {
+    texto
+        .split(|c: char| !(c.is_ascii_alphanumeric() || matches!(c, '.' | '/' | '-')))
+        .filter_map(|trecho| {
+            let doc: String = trecho.chars().filter(char::is_ascii_alphanumeric).collect();
+            match doc.len() {
+                14 => nfse_core::Cnpj::parse(&doc).ok().map(|c| c.as_str().to_owned()),
+                11 => nfse_core::Cpf::parse(&doc).ok().map(|c| c.as_str().to_owned()),
+                _ => None,
+            }
+        })
+}
+
+/// O primeiro valor depois de "R$", só os dígitos, pontos e vírgulas ("1.234,56").
+fn valor_apos_cifrao(texto: &str) -> Option<String> {
+    let (_, depois) = texto.split_once("R$")?;
+    let valor: String = depois
+        .trim_start()
+        .chars()
+        .take_while(|c| c.is_ascii_digit() || matches!(c, '.' | ','))
+        .collect();
+    let valor = valor.trim_end_matches(['.', ',']);
+    (!valor.is_empty()).then(|| valor.to_owned())
+}
+
+/// O primeiro `MM/AAAA` (ou `M/AAAA`) que não seja parte de uma data, como `MM/AAAA`.
+fn periodo(texto: &str) -> Option<String> {
+    let c: Vec<char> = texto.chars().collect();
+    let digito = |i: usize| c.get(i).is_some_and(char::is_ascii_digit);
+    (0..c.len()).find_map(|i| {
+        if c[i] != '/' || !(digito(i + 1) && digito(i + 2) && digito(i + 3) && digito(i + 4)) || digito(i + 5) {
+            return None;
+        }
+        let inicio_mes = if i >= 2 && digito(i - 2) {
+            i - 2
+        } else {
+            i.checked_sub(1)?
+        };
+        if !digito(i - 1) {
+            return None;
+        }
+        // Antes do mês não pode haver dígito nem barra (seria o dia de uma data completa).
+        if inicio_mes > 0 && (digito(inicio_mes - 1) || c[inicio_mes - 1] == '/') {
+            return None;
+        }
+        let mes: u32 = c[inicio_mes..i].iter().collect::<String>().parse().ok()?;
+        let ano: String = c[i + 1..i + 5].iter().collect();
+        (1..=12).contains(&mes).then(|| format!("{mes:02}/{ano}"))
+    })
 }
 
 /// Leiaute de blocos: um pedido por rótulo PACIENTE.
@@ -263,7 +343,7 @@ Fulana";
 
     #[test]
     fn tres_blocos_irregulares() {
-        let pedidos = extrair(TRES_BLOCOS).unwrap();
+        let pedidos = extrair(TRES_BLOCOS, &[]).unwrap();
         assert_eq!(pedidos.len(), 3);
         assert_eq!(
             pedidos[0],
@@ -308,7 +388,7 @@ Fulana";
                      CIDADE/UF: Catanduva - SP\n\
                      Valor : R$ 99,90\n\
                      Colocar no  Corpo da Nota : Sessão única";
-        let p = &extrair(texto).unwrap()[0];
+        let p = &extrair(texto, &[]).unwrap()[0];
         assert_eq!(p.nome, s("Daniel Rocha"));
         assert_eq!(p.documento, s("529.982.247-25"));
         assert_eq!(p.endereco, s("Rua Um, 1"));
@@ -318,14 +398,14 @@ Fulana";
         assert_eq!(p.valor, s("R$ 99,90"));
         assert_eq!(p.descricao, s("Sessão única"));
 
-        let p = &extrair("PACIENTE: Eva\ncidade / uf : Tabapuã/SP").unwrap()[0];
+        let p = &extrair("PACIENTE: Eva\ncidade / uf : Tabapuã/SP", &[]).unwrap()[0];
         assert_eq!(p.cidade, s("Tabapuã/SP"));
     }
 
     #[test]
     fn rotulo_desconhecido_encerra_o_valor() {
         let texto = "PACIENTE: Eva Marques\nTELEFONE: (17) 99999-0000\nVALOR: R$ 10,00";
-        let p = &extrair(texto).unwrap()[0];
+        let p = &extrair(texto, &[]).unwrap()[0];
         assert_eq!(p.nome, s("Eva Marques"));
         assert_eq!(p.valor, s("R$ 10,00"));
     }
@@ -335,14 +415,87 @@ Fulana";
         // "valor" sem `:` e "cidades" não são rótulos.
         let texto =
             "PACIENTE: Eva\nCPF: 529.982.247-25\ncolocar no corpo da nota: valor das sessões nas cidades: A e B";
-        let p = &extrair(texto).unwrap()[0];
+        let p = &extrair(texto, &[]).unwrap()[0];
         assert_eq!(p.valor, None);
         assert_eq!(p.descricao, s("valor das sessões nas cidades: A e B"));
     }
 
     #[test]
-    fn sem_paciente_nao_ha_bloco() {
-        assert_eq!(extrair("CPF: 529.982.247-25\nVALOR: 10,00").unwrap_err(), NENHUM_PEDIDO);
+    fn sem_paciente_vale_o_texto_corrido() {
+        // Sem PACIENTE, os rótulos não contam: o valor do texto corrido é só o que vem após "R$".
+        let pedidos = extrair("CPF: 529.982.247-25\nVALOR: 10,00", &[]).unwrap();
+        assert_eq!(
+            pedidos,
+            [PedidoEmail {
+                numero: 1,
+                documento: s("52998224725"),
+                ..Default::default()
+            }]
+        );
+    }
+
+    const PRESTADORA: &str = "11222333000181";
+
+    fn corrido(texto: &str) -> Result<Vec<PedidoEmail>, String> {
+        extrair(texto, &[PRESTADORA.to_string()])
+    }
+
+    #[test]
+    fn texto_corrido_ignora_cnpj_da_prestadora() {
+        let texto = "Prezados, solicitamos a nota de serviços da Clínica Fictícia \
+                     (CNPJ 11.222.333/0001-81) para a nossa filial CNPJ 11.444.777/0002-42, \
+                     no valor de R$ 1.234,56, referente aos atendimentos de 07/2026.\n\
+                     Enviado em 10/11/2026. Outro valor citado: R$ 9,99 em 08/2026.";
+        let pedidos = corrido(texto).unwrap();
+        assert_eq!(
+            pedidos,
+            [PedidoEmail {
+                numero: 1,
+                documento: s("11444777000242"),
+                valor: s("1.234,56"),
+                mes: s("07/2026"),
+                ..Default::default()
+            }]
+        );
+    }
+
+    #[test]
+    fn texto_corrido_pula_dv_invalido() {
+        let texto = "Protocolo 12345678901234. Tomador: 11.444.777/0001-61. Valor R$80,00.";
+        let p = &corrido(texto).unwrap()[0];
+        assert_eq!(p.documento, s("11444777000161"));
+        assert_eq!(p.valor, s("80,00"));
+        assert_eq!(p.mes, None);
+    }
+
+    #[test]
+    fn texto_corrido_aceita_cpf() {
+        let p = &corrido("Nota para o CPF 529.982.247-25 de R$ 150,00 (7/2026).").unwrap()[0];
+        assert_eq!(p.documento, s("52998224725"));
+        assert_eq!(p.mes, s("07/2026"));
+    }
+
+    #[test]
+    fn data_completa_nao_e_periodo() {
+        let p = &corrido("CNPJ 11444777000161, R$ 10,00, enviado em 15/09/2026.").unwrap()[0];
+        assert_eq!(p.mes, None);
+    }
+
+    #[test]
+    fn blocos_recebem_o_periodo_do_email() {
+        let texto = "Pedidos de 10/2026 (enviado em 03/11/2026):\n\nPACIENTE: Eva\nVALOR: 10,00\n\nPACIENTE: Ivo";
+        let pedidos = corrido(texto).unwrap();
+        assert!(pedidos.iter().all(|p| p.mes == s("10/2026")), "{pedidos:?}");
+    }
+
+    #[test]
+    fn sem_pedido() {
+        assert_eq!(corrido("Bom dia, segue em anexo.").unwrap_err(), NENHUM_PEDIDO);
+        // Só o CNPJ da prestadora (na assinatura, por exemplo) não é pedido.
+        assert_eq!(
+            corrido("Obrigado. Clínica Fictícia - CNPJ 11.222.333/0001-81 - R$ 10,00").unwrap_err(),
+            NENHUM_PEDIDO
+        );
     }
 
     #[test]
@@ -353,7 +506,7 @@ Fulana";
                      colocar no corpo da nota: Sessões de fisioterapia\n\n";
         let texto = bloco.repeat(100);
         let inicio = std::time::Instant::now();
-        let pedidos = extrair(&texto).unwrap();
+        let pedidos = extrair(&texto, &[]).unwrap();
         assert_eq!(pedidos.len(), 100);
         assert!(inicio.elapsed() < std::time::Duration::from_secs(2));
     }

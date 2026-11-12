@@ -20,7 +20,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
   - Teste: `pedido_email::testes::tres_blocos_irregulares` (CA5), `rotulos_sem_acento_e_espacos` (CA6), `cem_blocos_em_menos_de_2s`
   - Verificar: `just test -p nfse-emissor pedido_email`
 
-- [ ] **T4** — Extração do texto corrido e "nenhum pedido"
+- [x] **T4** — Extração do texto corrido e "nenhum pedido"
   - Requisitos: R6, R16
   - Arquivos: `crates/nfse-emissor/src/pedido_email.rs`
   - Teste: `pedido_email::testes::texto_corrido_ignora_cnpj_da_prestadora` (CA7, extração), `texto_corrido_pula_dv_invalido` (CA8), `sem_pedido` (CA17)
