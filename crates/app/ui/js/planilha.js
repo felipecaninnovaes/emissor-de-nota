@@ -7,7 +7,7 @@ import { editarTomador } from "./tomadores.js";
 import { FILTRO_PLANILHA, ligarEscolhaArquivo } from "./componentes.js";
 
 let planilhaLida = [];
-let planilhaArquivo = null; // { nome, bytes }
+let planilhaArquivo = null; // { id, nome, bytes }
 export let planilhaEmAndamento = false;
 
 const podeEmitirDaPlanilha = (it) => !it.erros.length && (!it.anterior || it.anterior.libera);
@@ -35,7 +35,17 @@ ligarEscolhaArquivo($("#arquivo-planilha"), $("#escolher-planilha"), { titulo: "
 });
 
 $("#mes-planilha").addEventListener("change", () => planilhaArquivo && lerPlanilha());
-$("#reler-planilha").addEventListener("click", () => planilhaArquivo && lerPlanilha());
+// Abre o arquivo de novo do disco: o operador pode ter corrigido a planilha depois de escolhê-la.
+$("#reler-planilha").addEventListener("click", async () => {
+  if (!planilhaArquivo || planilhaEmAndamento) return;
+  try {
+    planilhaArquivo = await chamar("reler_arquivo_escolhido", { id: planilhaArquivo.id });
+  } catch (e) {
+    toast(String(e), true);
+    return;
+  }
+  await lerPlanilha();
+});
 
 async function lerPlanilha() {
   // Durante a emissão a lista mostra o andamento; relê ao terminar.
