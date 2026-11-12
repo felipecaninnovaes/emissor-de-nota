@@ -8,7 +8,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
   - Teste: `leitura_email::testes::eml_quoted_printable_iso_8859_1` (CA1), `eml_so_html_base64` (CA2), `eml_corrompido`
   - Verificar: `just test -p nfse-emissor leitura_email`
 
-- [ ] **T2** — Leitura de `.msg` (Unicode, ANSI com página de código, HTML, só RTF)
+- [x] **T2** — Leitura de `.msg` (Unicode, ANSI com página de código, HTML, só RTF)
   - Requisitos: R1, R4
   - Arquivos: `crates/nfse-emissor/Cargo.toml` (+ `cfb`), `crates/nfse-emissor/src/leitura_email.rs`
   - Teste: `leitura_email::testes::msg_unicode` (CA3), `msg_ansi_windows_1252`, `msg_so_rtf` (CA4), `msg_corrompido`

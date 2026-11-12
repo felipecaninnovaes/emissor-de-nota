@@ -1,7 +1,9 @@
-//! Leitura do corpo de um e-mail salvo (`.eml`) em texto, para a importação de pedidos de nota.
+//! Leitura do corpo de um e-mail salvo (`.eml` ou `.msg`) em texto, para a importação de pedidos
+//! de nota.
 //!
 //! Do `.eml` (MIME) vale o primeiro corpo em texto puro; sem ele, o HTML convertido em texto. A
-//! decodificação (quoted-printable, base64 e charset) é do `mail-parser`. Os anexos são ignorados.
+//! decodificação (quoted-printable, base64 e charset) é do `mail-parser`. Do `.msg` do Outlook
+//! (contêiner CFB) só os streams do corpo são lidos. Os anexos são ignorados.
 //! O texto lido nunca vai para log nem para mensagem de erro (dados de pacientes).
 
 use mail_parser::{HeaderName, MessageParser, PartType};
@@ -19,6 +21,7 @@ pub fn texto_do_email(nome_arquivo: &str, bytes: &[u8]) -> Result<String, String
         .unwrap_or_default();
     match extensao.as_str() {
         "eml" => ler_eml(bytes),
+        "msg" => ler_msg(bytes),
         _ => Err("use um e-mail .eml ou .msg".into()),
     }
 }
@@ -51,6 +54,86 @@ fn ler_eml(bytes: &[u8]) -> Result<String, String> {
         return Err(ERRO_CORPO.into());
     }
     Ok(texto)
+}
+
+/// Corpo de um `.msg` do Outlook (contêiner CFB com uma propriedade MAPI por stream).
+///
+/// Lê só os streams do corpo: `PR_BODY` em Unicode (`1000001F`) ou na página de código da
+/// mensagem (`1000001E`) e, sem eles, `PR_HTML` (`1013`). O corpo só em RTF compactado (`1009`)
+/// não é lido.
+fn ler_msg(bytes: &[u8]) -> Result<String, String> {
+    let mut cfb = cfb::CompoundFile::open(std::io::Cursor::new(bytes)).map_err(|_| ERRO_ABRIR.to_string())?;
+    let e_mensagem = cfb
+        .read_root_storage()
+        .any(|e| e.is_stream() && e.name().starts_with("__substg1.0_"));
+    if !e_mensagem {
+        return Err(ERRO_ABRIR.into());
+    }
+    let mut ler = |nome: &str| -> Option<Vec<u8>> {
+        let mut stream = cfb.open_stream(format!("/{nome}")).ok()?;
+        let mut conteudo = Vec::new();
+        std::io::Read::read_to_end(&mut stream, &mut conteudo).ok()?;
+        Some(conteudo)
+    };
+    let codificacao = ler("__properties_version1.0")
+        .and_then(|p| pagina_de_codigo(&p))
+        .map_or(encoding_rs::WINDOWS_1252, codificacao_da_pagina);
+
+    let texto = if let Some(b) = ler("__substg1.0_1000001F") {
+        arrumar_linhas(&utf16(&b))
+    } else if let Some(b) = ler("__substg1.0_1000001E") {
+        arrumar_linhas(&codificacao.decode(&b).0)
+    } else if let Some(b) = ler("__substg1.0_1013001F") {
+        html_em_texto(&utf16(&b))
+    } else if let Some(b) = ler("__substg1.0_10130102") {
+        // O HTML binário costuma vir em UTF-8 mesmo com outra página de código declarada.
+        let html = match std::str::from_utf8(&b) {
+            Ok(t) => t.to_string(),
+            Err(_) => codificacao.decode(&b).0.into_owned(),
+        };
+        html_em_texto(&html)
+    } else {
+        return Err(ERRO_CORPO.into());
+    };
+    let texto = texto.trim_end_matches('\0').to_string();
+    if texto.trim().is_empty() {
+        return Err(ERRO_CORPO.into());
+    }
+    Ok(texto)
+}
+
+/// UTF-16LE do Outlook, sem o terminador nulo.
+fn utf16(bytes: &[u8]) -> String {
+    let unidades: Vec<u16> = bytes
+        .chunks_exact(2)
+        .map(|c| u16::from_le_bytes([c[0], c[1]]))
+        .collect();
+    String::from_utf16_lossy(&unidades).trim_end_matches('\0').to_string()
+}
+
+/// Página de código da mensagem em `__properties_version1.0`: `PR_INTERNET_CPID` (`3FDE`) ou,
+/// sem ela, `PR_MESSAGE_CODEPAGE` (`3FFD`). Cabeçalho de 32 bytes e entradas de 16 bytes
+/// (tag, flags, valor).
+fn pagina_de_codigo(propriedades: &[u8]) -> Option<u32> {
+    let valor = |tag: u32| {
+        propriedades.get(32..)?.chunks_exact(16).find_map(|e| {
+            let t = u32::from_le_bytes(e[0..4].try_into().ok()?);
+            (t == tag).then(|| u32::from_le_bytes(e[8..12].try_into().unwrap_or_default()))
+        })
+    };
+    valor(0x3FDE_0003).or_else(|| valor(0x3FFD_0003))
+}
+
+/// Codificação de uma página de código do Windows; desconhecida vale Windows-1252.
+fn codificacao_da_pagina(pagina: u32) -> &'static encoding_rs::Encoding {
+    match pagina {
+        65001 => encoding_rs::UTF_8,
+        1250 => encoding_rs::WINDOWS_1250,
+        28592 => encoding_rs::ISO_8859_2,
+        28605 => encoding_rs::ISO_8859_15,
+        // 1252, 28591 (ISO-8859-1, que o encoding_rs trata como 1252), 20127 (ASCII) e o resto.
+        _ => encoding_rs::WINDOWS_1252,
+    }
 }
 
 /// HTML em texto, com uma linha por parágrafo, `<div>`, linha de tabela ou item de lista.
@@ -171,6 +254,94 @@ mod testes {
     fn eml_sem_corpo() {
         let bytes = eml("Content-Type: text/plain; charset=UTF-8", "  \r\n");
         assert_eq!(texto_do_email("pedido.eml", &bytes).unwrap_err(), ERRO_CORPO);
+    }
+
+    /// `.msg` fictício: um contêiner CFB com os streams dados (nome sem a barra inicial).
+    fn msg(streams: &[(&str, Vec<u8>)]) -> Vec<u8> {
+        use std::io::{Cursor, Write};
+        let mut cfb = cfb::CompoundFile::create(Cursor::new(Vec::new())).unwrap();
+        for (nome, conteudo) in streams {
+            let mut s = cfb.create_stream(format!("/{nome}")).unwrap();
+            s.write_all(conteudo).unwrap();
+        }
+        cfb.flush().unwrap();
+        cfb.into_inner().into_inner()
+    }
+
+    fn utf16(texto: &str) -> Vec<u8> {
+        texto.encode_utf16().chain([0]).flat_map(u16::to_le_bytes).collect()
+    }
+
+    /// `__properties_version1.0` da mensagem com uma propriedade inteira (tag, valor).
+    fn propriedades(tag: u32, valor: u32) -> Vec<u8> {
+        let mut p = vec![0u8; 32];
+        p.extend(tag.to_le_bytes());
+        p.extend(6u32.to_le_bytes());
+        p.extend(valor.to_le_bytes());
+        p.extend([0u8; 4]);
+        p
+    }
+
+    const CORPO: &str = "Bom dia,\r\n\r\nPACIENTE: João Conceição   CPF: 529.982.247-25\r\nVALOR: R$ 150,00\r\nCIDADE/UF: São José do Rio Preto/SP";
+
+    #[test]
+    fn msg_unicode() {
+        let bytes = msg(&[
+            ("__substg1.0_0037001F", utf16("Notas de outubro")),
+            ("__substg1.0_1000001F", utf16(CORPO)),
+            ("__substg1.0_10090102", vec![1, 2, 3]),
+        ]);
+        let texto = texto_do_email("pedido.msg", &bytes).unwrap();
+        assert_eq!(texto, CORPO.replace("\r\n", "\n"));
+    }
+
+    #[test]
+    fn msg_ansi_na_pagina_de_codigo_declarada() {
+        let (ansi, _, _) = encoding_rs::WINDOWS_1252.encode(CORPO);
+        let bytes = msg(&[
+            ("__properties_version1.0", propriedades(0x3FFD_0003, 1252)),
+            ("__substg1.0_1000001E", ansi.into_owned()),
+        ]);
+        assert_eq!(
+            texto_do_email("PEDIDO.MSG", &bytes).unwrap(),
+            CORPO.replace("\r\n", "\n")
+        );
+        // UTF-8 declarado pelo PR_INTERNET_CPID.
+        let bytes = msg(&[
+            ("__properties_version1.0", propriedades(0x3FDE_0003, 65001)),
+            ("__substg1.0_1000001E", CORPO.as_bytes().to_vec()),
+        ]);
+        assert_eq!(
+            texto_do_email("pedido.msg", &bytes).unwrap(),
+            CORPO.replace("\r\n", "\n")
+        );
+    }
+
+    #[test]
+    fn msg_so_html() {
+        let html = "<html><body><div>PACIENTE: Jos&eacute;</div><div>VALOR: R$ 10,00</div></body></html>";
+        let bytes = msg(&[("__substg1.0_10130102", html.as_bytes().to_vec())]);
+        assert_eq!(
+            texto_do_email("pedido.msg", &bytes).unwrap(),
+            "PACIENTE: José\nVALOR: R$ 10,00"
+        );
+    }
+
+    #[test]
+    fn msg_so_rtf() {
+        let bytes = msg(&[
+            ("__substg1.0_0037001F", utf16("Notas")),
+            ("__substg1.0_10090102", vec![0x10, 0, 0, 0, 0x20]),
+        ]);
+        assert_eq!(texto_do_email("pedido.msg", &bytes).unwrap_err(), ERRO_CORPO);
+    }
+
+    #[test]
+    fn msg_corrompido() {
+        assert_eq!(texto_do_email("pedido.msg", b"nao e um msg").unwrap_err(), ERRO_ABRIR);
+        // CFB válido que não é mensagem (um .doc renomeado, por exemplo).
+        let bytes = msg(&[("WordDocument", vec![0; 16])]);
+        assert_eq!(texto_do_email("pedido.msg", &bytes).unwrap_err(), ERRO_ABRIR);
     }
 
     #[test]
