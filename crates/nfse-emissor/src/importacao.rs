@@ -138,6 +138,75 @@ fn nome_comparavel(texto: &str) -> String {
         .collect()
 }
 
+/// Tomador do cadastro achado por um dos documentos candidatos.
+pub(crate) struct TomadorCadastrado {
+    pub documento: String,
+    pub pessoa_id: i64,
+    pub nome: Option<String>,
+    /// Existe no cadastro, mas ainda não é da empresa (é vinculado ao emitir).
+    pub vincular: bool,
+}
+
+/// O primeiro candidato cadastrado (o cadastrado ganha quando o número pode ser CPF ou CNPJ).
+pub(crate) async fn tomador_cadastrado(
+    banco: &Banco,
+    candidatos: &[String],
+    empresa_id: Option<i64>,
+) -> Result<Option<TomadorCadastrado>, ErroEmissao> {
+    for doc in candidatos {
+        let Some(pessoa_id) = banco.pessoa_por_documento(doc).await? else {
+            continue;
+        };
+        let vincular = match empresa_id {
+            // Só "não vinculado" vira vínculo novo; outro erro do banco interrompe a leitura.
+            Some(e) => match banco.tomador(e, pessoa_id).await {
+                Ok(_) => false,
+                Err(nfse_db::ErroBanco::NaoEncontrado(_)) => true,
+                Err(outro) => return Err(outro.into()),
+            },
+            None => false,
+        };
+        return Ok(Some(TomadorCadastrado {
+            documento: doc.clone(),
+            pessoa_id,
+            nome: banco.nome_pessoa(pessoa_id).await?,
+            vincular,
+        }));
+    }
+    Ok(None)
+}
+
+/// O que identifica o conteúdo de uma linha importada (planilha ou e-mail).
+pub(crate) struct ConteudoDaLinha<'a> {
+    pub empresa_id: Option<i64>,
+    pub documento_tomador: &'a str,
+    pub servico_id: Option<i64>,
+    pub valor: Option<Valor>,
+    /// Descrição final, com o mês aplicado.
+    pub descricao: &'a str,
+    pub mes: NaiveDate,
+    pub informacoes: Option<&'a str>,
+}
+
+/// Chave de conteúdo sem a ocorrência: as linhas com a mesma base têm o mesmo conteúdo.
+pub(crate) fn base_da_chave(c: &ConteudoDaLinha) -> String {
+    [
+        c.empresa_id.map(|id| id.to_string()).unwrap_or_default(),
+        c.documento_tomador.to_owned(),
+        c.servico_id.map(|id| id.to_string()).unwrap_or_default(),
+        c.valor.map(|v| v.centesimos().to_string()).unwrap_or_default(),
+        c.descricao.to_owned(),
+        format!("{}-{:02}", c.mes.year(), c.mes.month()),
+        c.informacoes.unwrap_or_default().to_owned(),
+    ]
+    .join("\u{1f}")
+}
+
+/// Chave gravada na origem da nota: a base e a ocorrência dela no arquivo (1, 2, …).
+pub(crate) fn chave_da_ocorrencia(base: &str, ocorrencia: usize) -> String {
+    format!("{base}\u{1f}#{ocorrencia}")
+}
+
 /// Resolve as linhas da planilha contra o cadastro. `empresa_padrao` vale para as linhas sem a
 /// coluna da empresa; `mes_padrao`, para as sem mês.
 pub async fn resolver(
@@ -173,33 +242,19 @@ pub async fn resolver(
         };
 
         let texto_tomador = l.campo(Coluna::Tomador).unwrap_or_default();
-        // O cadastrado ganha quando o número pode ser CPF ou CNPJ.
         let candidatos = documentos_da_planilha(texto_tomador);
-        let mut cadastrado = None;
-        for doc in &candidatos {
-            if let Some(id) = banco.pessoa_por_documento(doc).await? {
-                cadastrado = Some((doc.clone(), id));
-                break;
-            }
-        }
+        let cadastrado = tomador_cadastrado(banco, &candidatos, empresa.map(|e| e.id)).await?;
         let documento_tomador = match &cadastrado {
-            Some((doc, _)) => doc.clone(),
+            Some(t) => t.documento.clone(),
             None => candidatos.first().cloned().unwrap_or_default(),
         };
         let (mut pessoa_id, mut tomador, mut vincular_tomador) = (None, None, false);
         if documento_tomador.is_empty() {
             erros.push(format!("CNPJ/CPF do tomador inválido: \"{texto_tomador}\""));
-        } else if let Some((_, id)) = cadastrado {
-            pessoa_id = Some(id);
-            tomador = banco.nome_pessoa(id).await?;
-            if let Some(e) = empresa {
-                // Só "não vinculado" vira vínculo novo; outro erro do banco interrompe a leitura.
-                vincular_tomador = match banco.tomador(e.id, id).await {
-                    Ok(_) => false,
-                    Err(nfse_db::ErroBanco::NaoEncontrado(_)) => true,
-                    Err(outro) => return Err(outro.into()),
-                };
-            }
+        } else if let Some(t) = cadastrado {
+            pessoa_id = Some(t.pessoa_id);
+            tomador = t.nome;
+            vincular_tomador = t.vincular;
         } else {
             erros.push(format!("tomador {texto_tomador} não cadastrado"));
         }
@@ -264,19 +319,18 @@ pub async fn resolver(
         let descricao = aplicar_mes_ref(&modelo_descricao, mes);
         let informacoes = l.campo(Coluna::Informacoes).map(str::to_owned);
 
-        let base = [
-            empresa.map(|e| e.id.to_string()).unwrap_or_default(),
-            documento_tomador.clone(),
-            servico.and_then(|s| s.id).map(|id| id.to_string()).unwrap_or_default(),
-            valor.map(|v| v.centesimos().to_string()).unwrap_or_default(),
-            descricao.clone(),
-            format!("{}-{:02}", mes.year(), mes.month()),
-            informacoes.clone().unwrap_or_default(),
-        ]
-        .join("\u{1f}");
+        let base = base_da_chave(&ConteudoDaLinha {
+            empresa_id: empresa.map(|e| e.id),
+            documento_tomador: &documento_tomador,
+            servico_id: servico.and_then(|s| s.id),
+            valor,
+            descricao: &descricao,
+            mes,
+            informacoes: informacoes.as_deref(),
+        });
         let ocorrencia = ocorrencias.entry(base.clone()).or_insert(0);
         *ocorrencia += 1;
-        let chave = format!("{base}\u{1f}#{ocorrencia}");
+        let chave = chave_da_ocorrencia(&base, *ocorrencia);
         let anterior = banco.tentativa_importada(&chave).await?;
 
         itens.push(ItemImportado {

@@ -26,7 +26,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
   - Teste: `pedido_email::testes::texto_corrido_ignora_cnpj_da_prestadora` (CA7, extração), `texto_corrido_pula_dv_invalido` (CA8), `sem_pedido` (CA17)
   - Verificar: `just test -p nfse-emissor pedido_email`
 
-- [ ] **T5** — Refatoração: montagem da chave de conteúdo em função comum
+- [x] **T5** — Refatoração: montagem da chave de conteúdo em função comum
   - Requisitos: R15 (preparação); invariante da planilha
   - Arquivos: `crates/nfse-emissor/src/importacao.rs`
   - Teste: os testes existentes da planilha (`planilha_emite_e_nao_repete_ao_reimportar` e os de `importacao::testes`) continuam verdes, sem mudança
@@ -58,3 +58,4 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
 
 ## Notas de desvio
 <!-- T#: o que mudou em relação ao plano e por quê -->
+- T5: além da chave (`base_da_chave`, `chave_da_ocorrencia`), extraída também a busca do tomador cadastrado (`tomador_cadastrado`), que o e-mail usa igual à planilha.
