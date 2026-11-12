@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.19.0/.schema/devbox.schema.json",
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.20.0/.schema/devbox.schema.json",
   "packages": {
     "rustup": "1.29.2",
     "gnumake": "4.4.1",
