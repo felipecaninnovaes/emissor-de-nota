@@ -10,6 +10,7 @@
 pub mod arquivo;
 pub mod email;
 pub mod importacao;
+pub mod leitura_email;
 pub mod planilha;
 pub mod planilha_servicos;
 pub mod planilha_tomadores;
