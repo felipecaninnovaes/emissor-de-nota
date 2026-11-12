@@ -80,8 +80,8 @@ const MESES: [&str; 12] = [
     "dezembro",
 ];
 
-/// Variáveis aceitas nas descrições, na ordem em que a tela as oferece.
-pub const VARIAVEIS_DESCRICAO: [&str; 9] = [
+/// Variáveis aceitas na descrição e nas informações complementares, na ordem em que a tela as oferece.
+pub const VARIAVEIS_DESCRICAO: [&str; 10] = [
     "mes_ref",
     "mes_ref_extenso",
     "ano_ref",
@@ -91,6 +91,7 @@ pub const VARIAVEIS_DESCRICAO: [&str; 9] = [
     "empresa",
     "valor",
     "valor_liquido",
+    "pix",
 ];
 
 /// Troca as variáveis do mês de referência: `{mes_ref}` (09/2026), `{mes_ref_extenso}` (setembro de
@@ -123,19 +124,34 @@ pub(crate) fn valor_liquido(
     Some(Valor::de_centesimos(valor.centesimos() - retido))
 }
 
-/// Mensagem para a descrição com variáveis que não existem.
-pub fn texto_variaveis_desconhecidas(nomes: &[String]) -> String {
-    if nomes == ["valor_liquido"] {
-        return "{valor_liquido} não pode ser calculado: o ISS é retido e o serviço não tem a alíquota do ISS \
-                (a Sefin é quem calcula). Informe a alíquota no serviço ou tire a variável."
-            .into();
+/// Mensagem para as variáveis que sobraram no texto; `campo` abre a frase ("a descrição tem", "as
+/// informações complementares têm"). As conhecidas que não puderam ser trocadas dizem o motivo.
+pub fn texto_variaveis_desconhecidas(campo: &str, nomes: &[String]) -> String {
+    let mut partes = Vec::new();
+    let mut desconhecidas = Vec::new();
+    for nome in nomes {
+        match nome.as_str() {
+            "valor_liquido" => partes.push(
+                "{valor_liquido} não pode ser calculado: o ISS é retido e o serviço não tem a alíquota do ISS \
+                 (a Sefin é quem calcula). Informe a alíquota no serviço ou tire a variável."
+                    .to_owned(),
+            ),
+            "pix" => partes.push(
+                "{pix}: a empresa não tem chave PIX cadastrada. Informe a chave no cadastro da empresa ou tire \
+                 a variável."
+                    .to_owned(),
+            ),
+            _ => desconhecidas.push(format!("{{{nome}}}")),
+        }
     }
-    let lista: Vec<String> = nomes.iter().map(|n| format!("{{{n}}}")).collect();
-    format!(
-        "a descrição tem variável desconhecida: {} (use {})",
-        lista.join(", "),
-        VARIAVEIS_DESCRICAO.map(|v| format!("{{{v}}}")).join(", ")
-    )
+    if !desconhecidas.is_empty() {
+        partes.push(format!(
+            "{campo} variável desconhecida: {} (use {})",
+            desconhecidas.join(", "),
+            VARIAVEIS_DESCRICAO.map(|v| format!("{{{v}}}")).join(", ")
+        ));
+    }
+    partes.join(" ")
 }
 
 /// Valor no formato brasileiro, sem símbolo: `1.250,00`.
@@ -342,16 +358,25 @@ pub fn montar_dps(
         .unwrap_or_else(|| mes_anterior(emissao.date_naive()));
     let t = &tributacao_da_nota(servico, tomador, pedido.reter);
     let federais = federais_com_escolha(t, pedido.valor, pedido.reter);
-    let mut descricao = aplicar_mes_ref(pedido.descricao.as_deref().unwrap_or(&servico.descricao), mes)
-        .replace("{competencia}", &emissao.format("%m/%Y").to_string())
-        .replace("{data_emissao}", &emissao.format("%d/%m/%Y").to_string())
-        .replace("{tomador}", tomador.map_or("", |t| t.tomador.nome.as_str()))
-        .replace("{empresa}", &empresa.nome)
-        .replace("{valor}", &valor_br(pedido.valor));
-    // Sem como calcular (ISS retido sem alíquota no serviço), a variável fica e a emissão é barrada.
-    if let Some(liquido) = valor_liquido(pedido.valor, &federais, t) {
-        descricao = descricao.replace("{valor_liquido}", &valor_br(liquido));
-    }
+    let liquido = valor_liquido(pedido.valor, &federais, t);
+    let variaveis = |texto: &str| {
+        let mut texto = aplicar_mes_ref(texto, mes)
+            .replace("{competencia}", &emissao.format("%m/%Y").to_string())
+            .replace("{data_emissao}", &emissao.format("%d/%m/%Y").to_string())
+            .replace("{tomador}", tomador.map_or("", |t| t.tomador.nome.as_str()))
+            .replace("{empresa}", &empresa.nome)
+            .replace("{valor}", &valor_br(pedido.valor));
+        // Sem como calcular (ISS retido sem alíquota no serviço) ou sem chave PIX cadastrada, a
+        // variável fica e a emissão é barrada com o motivo.
+        if let Some(liquido) = liquido {
+            texto = texto.replace("{valor_liquido}", &valor_br(liquido));
+        }
+        if let Some(pix) = &empresa.chave_pix {
+            texto = texto.replace("{pix}", pix.as_str());
+        }
+        texto
+    };
+    let descricao = variaveis(pedido.descricao.as_deref().unwrap_or(&servico.descricao));
     Dps {
         ambiente: empresa.ambiente,
         leiaute: LeiauteDps::padrao(empresa.ambiente),
@@ -381,7 +406,7 @@ pub fn montar_dps(
             descricao,
             nbs: servico.nbs.clone(),
             obra: pedido.obra.clone(),
-            informacoes_complementares: pedido.informacoes_complementares.clone(),
+            informacoes_complementares: pedido.informacoes_complementares.as_deref().map(variaveis),
         },
         valores: Valores {
             servico: pedido.valor,

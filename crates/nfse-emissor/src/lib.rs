@@ -337,9 +337,20 @@ impl<C: Conector> Emissor<C> {
                 Err(e) => regras.push(e.to_string()),
             }
         }
-        let desconhecidas = variaveis_desconhecidas(&dps.servico.descricao);
-        if !desconhecidas.is_empty() {
-            regras.push(texto_variaveis_desconhecidas(&desconhecidas));
+        let campos = [
+            ("a descrição tem", Some(&dps.servico.descricao)),
+            (
+                "as informações complementares têm",
+                dps.servico.informacoes_complementares.as_ref(),
+            ),
+        ];
+        for (campo, texto) in campos {
+            let desconhecidas = texto.map(|t| variaveis_desconhecidas(t)).unwrap_or_default();
+            let mensagem = texto_variaveis_desconhecidas(campo, &desconhecidas);
+            // `{pix}` nos dois campos sem chave cadastrada: o motivo aparece uma vez só.
+            if !desconhecidas.is_empty() && !regras.contains(&mensagem) {
+                regras.push(mensagem);
+            }
         }
         if self.banco.certificado_resumo(empresa.id).await?.is_none() {
             regras.push("a empresa não tem certificado digital importado".into());

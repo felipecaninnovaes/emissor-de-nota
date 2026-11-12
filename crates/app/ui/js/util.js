@@ -139,6 +139,7 @@ const VARIAVEIS_DESCRICAO = [
   ["empresa", "Nome da empresa"],
   ["valor", "Valor da nota (1.250,00)"],
   ["valor_liquido", "Valor menos as retenções (ISS retido exige a alíquota no serviço)"],
+  ["pix", "Chave PIX da empresa (do cadastro da empresa)"],
 ];
 
 /** Fileira de etiquetas sob cada descrição; o clique insere `{variável}` onde está o cursor. */

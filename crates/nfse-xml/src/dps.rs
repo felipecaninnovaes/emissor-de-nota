@@ -410,6 +410,10 @@ mod testes {
         iss_retido.valores.issqn.aliquota = percentual("2.00");
         let mut tomador_cpf = exemplo();
         tomador_cpf.tomador.as_mut().unwrap().documento = Documento::Cpf(nfse_core::Cpf::parse("52998224725").unwrap());
+        // Chave PIX trocada pela variável {pix}: telefone com "+" e e-mail com "@" no texto.
+        let mut com_pix = exemplo();
+        com_pix.servico.descricao = "REPASSE 09/2026. PIX: +5517999998888".into();
+        com_pix.servico.informacoes_complementares = Some("Chave PIX financeiro@exemplo.com.br".into());
         let mut descontos = exemplo();
         descontos.valores.desconto_incondicionado = valor(10_000);
         descontos.valores.desconto_condicionado = valor(5_000);
@@ -457,6 +461,7 @@ mod testes {
             pis_cofins_no_simples,
             iss_retido,
             tomador_cpf,
+            com_pix,
             descontos,
             nao_optante,
             nao_optante_com_retencoes,

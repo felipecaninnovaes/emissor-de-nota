@@ -177,6 +177,7 @@
             <div class="c12">
               <label for="info-compl">Informações complementares</label>
               <textarea id="info-compl" rows="2"></textarea>
+              <div class="variaveis" data-alvo="info-compl"></div>
             </div>
           </div>
           <div class="acoes"><button class="botao primario" id="revisar">Revisar</button></div>
@@ -675,7 +676,8 @@
         <div class="c12"><label for="recorrencia-descricao">Descrição</label><textarea id="recorrencia-descricao" name="descricao" rows="3"></textarea>
           <div class="variaveis" data-alvo="recorrencia-descricao"></div>
           <p class="ajuda">Em branco: a descrição do serviço. As variáveis são trocadas a cada nota (o mês é o do lote).</p></div>
-        <div class="c12"><label for="recorrencia-info">Informações complementares</label><textarea id="recorrencia-info" name="info" rows="2"></textarea></div>
+        <div class="c12"><label for="recorrencia-info">Informações complementares</label><textarea id="recorrencia-info" name="info" rows="2"></textarea>
+          <div class="variaveis" data-alvo="recorrencia-info"></div></div>
         <fieldset class="c12 bloco" id="bloco-rec-obra" hidden>
           <legend>Dados da obra</legend>
           <div class="grade">
@@ -962,6 +964,8 @@
         <div class="grade">
           <div class="c4"><label for="empresa-telefone">Telefone</label><input id="empresa-telefone" name="telefone" data-formato="telefone" inputmode="tel"></div>
           <div class="c8"><label for="empresa-email">E-mail</label><input id="empresa-email" name="email" type="email" data-formato="email"></div>
+          <div class="c12"><label for="empresa-chave-pix">Chave PIX</label><input id="empresa-chave-pix" name="chave_pix" autocomplete="off">
+            <p class="ajuda">Vai na nota pela variável <code>{pix}</code>, na descrição ou nas informações complementares. CPF, CNPJ, e-mail, telefone com +55 ou chave aleatória.</p></div>
         </div>
       </fieldset>
       <div class="aviso atencao" data-aviso-cnpj hidden></div>
