@@ -337,6 +337,8 @@ $("#revisar").addEventListener("click", () => {
 let revisaoAtual = 0;
 
 async function revisar() {
+  // Durante o envio, uma revisão nova reabilitaria "Emitir nota" e permitiria mandar o mesmo pedido de novo.
+  if (emissaoEmCurso) return;
   $("#resultado").hidden = true;
   const formulario = $("#formulario-emissao");
   limparErros(formulario);
@@ -485,7 +487,7 @@ $("#voltar-edicao").addEventListener("click", () => {
 $("#confirmar-emissao").addEventListener("click", async () => {
   // O pedido revisado; mudar o formulário durante o envio não troca o que já foi enviado.
   const pedido = estado.pedido;
-  if (!pedido) return;
+  if (!pedido || emissaoEmCurso) return;
   // Reforço: se o formulário mudou sem disparar os eventos que fecham a revisão, ela não vale mais.
   let atual = null;
   try {
@@ -501,6 +503,7 @@ $("#confirmar-emissao").addEventListener("click", async () => {
   emissaoEmCurso = true;
   const botao = $("#confirmar-emissao");
   botao.disabled = true;
+  $("#revisar").disabled = true;
   botao.textContent = "Enviando à Sefin...";
   const res = $("#resultado");
   try {
@@ -573,6 +576,7 @@ $("#confirmar-emissao").addEventListener("click", async () => {
     emissaoEmCurso = false;
     res.hidden = false;
     botao.disabled = false;
+    $("#revisar").disabled = false;
     botao.textContent = "Emitir nota";
   }
 });
