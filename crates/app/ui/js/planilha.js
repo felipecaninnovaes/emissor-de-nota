@@ -19,7 +19,7 @@ export let planilhaEmAndamento = false;
 let leituraAtual = 0;
 // Leitura em curso: as linhas na tela são as da leitura anterior e não podem ser emitidas.
 let lendo = false;
-// Arquivo sendo aberto do disco (soltar, Ler de novo): um arquivo solto nesse meio tempo só recebe
+// Arquivo sendo aberto do disco (Escolher arquivo, Ler de novo, soltar): um arquivo solto nesse meio tempo só recebe
 // "Espere terminar…", como durante a leitura (spec 0002).
 let planilhaLendo = false;
 
@@ -45,7 +45,8 @@ $("#modelo-planilha").addEventListener("click", async () => {
 ligarEscolhaArquivo(
   $("#arquivo-planilha"),
   $("#escolher-planilha"),
-  { titulo: "Escolher planilha ou e-mail", ...FILTRO_PLANILHA_EMAIL },
+  // `ocupado`: um arquivo solto enquanto o escolhido é lido só recebe "Espere terminar…".
+  { titulo: "Escolher planilha ou e-mail", ...FILTRO_PLANILHA_EMAIL, ocupado: (sim) => (planilhaLendo = sim) },
   (a) => {
     planilhaArquivo = a;
     textoColado = null;
@@ -88,11 +89,14 @@ $("#reler-planilha").addEventListener("click", async () => {
     textoColado = $("#texto-email").value;
     return lerPlanilha();
   }
+  planilhaLendo = true;
   try {
     planilhaArquivo = await chamar("reler_arquivo_escolhido", { id: planilhaArquivo.id });
   } catch (e) {
     toast(String(e), true);
     return;
+  } finally {
+    planilhaLendo = false;
   }
   await lerPlanilha();
 });
@@ -102,12 +106,15 @@ $("#reler-planilha").addEventListener("click", async () => {
 const secaoPlanilha = $('section[data-tela="planilha"]');
 const telaPlanilhaAberta = () => !secaoPlanilha.hidden;
 const ouvir = window.__TAURI__.event.listen;
+// Um diálogo aberto (a confirmação da emissão, o cadastro do tomador) bloqueia cliques, mas não o
+// soltar, que vem do sistema: trocar a planilha por baixo dele emitiria com a origem errada.
+const ocupada = () => planilhaEmAndamento || lendo || planilhaLendo || !!document.querySelector("dialog[open]");
 // Sem destaque durante a emissão: soltar ali só avisa.
-ouvir("tauri://drag-enter", () => secaoPlanilha.classList.toggle("soltando", telaPlanilhaAberta() && !planilhaEmAndamento));
+ouvir("tauri://drag-enter", () => secaoPlanilha.classList.toggle("soltando", telaPlanilhaAberta() && !ocupada()));
 for (const fim of ["tauri://drag-leave", "tauri://drag-drop"]) ouvir(fim, () => secaoPlanilha.classList.remove("soltando"));
 ouvir("arquivo-solto", async ({ payload }) => {
   if (!telaPlanilhaAberta()) return;
-  if (planilhaEmAndamento || lendo || planilhaLendo) return toast("Espere terminar…", true);
+  if (ocupada()) return toast("Espere terminar…", true);
   if (payload.erro) return toast(payload.erro, true);
   planilhaLendo = true;
   try {
