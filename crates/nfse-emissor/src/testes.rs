@@ -2419,3 +2419,26 @@ async fn email_origem_guarda_so_arquivo_e_linha() {
         }
     }
 }
+
+#[tokio::test]
+async fn email_tomador_novo_com_outro_documento_e_recusado() {
+    let c = cenario(vec![]).await;
+    let texto = "PACIENTE: Ana Nova\nCPF: 529.982.247-25\nCEP: 15800-000\nVALOR: 10,00";
+    let ceps: importacao_email::CepsConsultados = [("15800000".to_string(), endereco_do_cep("3511102"))].into();
+    let mut itens = resolver_email(&c, texto, Some(c.pedido.servico_id), &ceps).await;
+    // A tela devolve a linha para emitir: o tomador novo não pode ser de outra pessoa.
+    let outro = paciente_cadastrado(&c, "11144477735", "OUTRA PESSOA").await;
+    let antes = c.emissor.banco().pessoa_cadastrada("11144477735").await.unwrap();
+    itens[0].tomador_novo.as_mut().unwrap().documento = Documento::Cpf(nfse_core::Cpf::parse("11144477735").unwrap());
+
+    let erro = c.emissor.emitir_importado(&itens[0], None).await.unwrap_err();
+    assert!(
+        matches!(&erro, ErroEmissao::Regra(m) if m.contains("documento")),
+        "{erro:?}"
+    );
+    let banco = c.emissor.banco();
+    assert_eq!(banco.pessoa_cadastrada("11144477735").await.unwrap(), antes);
+    assert_eq!(banco.pessoa_por_documento("11144477735").await.unwrap(), Some(outro));
+    assert_eq!(banco.pessoa_por_documento("52998224725").await.unwrap(), None);
+    assert!(c.sefin.recebidos().is_empty());
+}

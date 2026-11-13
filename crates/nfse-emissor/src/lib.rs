@@ -42,7 +42,7 @@ use chrono::{Datelike, NaiveDate};
 
 use nfse_cert::CertificadoA1;
 use nfse_core::Valor;
-use nfse_core::modelo::{Ambiente, Obra, Tomador};
+use nfse_core::modelo::{Ambiente, Documento, Obra, Tomador};
 use nfse_db::dps::{NfseGravada, NfseRecebida, RegistroDps};
 use nfse_db::empresas::Empresa;
 use nfse_db::tomadores::TomadorVinculado;
@@ -764,6 +764,18 @@ impl<C: Conector> Emissor<C> {
         novo: &Tomador,
         empresa_id: i64,
     ) -> Result<i64, ErroEmissao> {
+        // A linha volta da tela para emitir: a pessoa gravada tem de ser a da linha, que é a
+        // procurada no cadastro (senão o cadastro de outra pessoa seria sobrescrito).
+        let documento = match &novo.documento {
+            Documento::Cpf(cpf) => cpf.as_str(),
+            Documento::Cnpj(cnpj) => cnpj.as_str(),
+        };
+        if documento != item.documento_tomador {
+            return Err(ErroEmissao::Regra(format!(
+                "linha {}: o documento do tomador novo não é o da linha",
+                item.linha
+            )));
+        }
         if let Some(erro) = self.validar_importado(item).await?.into_iter().next() {
             return Err(ErroEmissao::Regra(format!("linha {}: {erro}", item.linha)));
         }
