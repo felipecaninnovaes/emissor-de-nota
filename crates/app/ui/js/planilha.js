@@ -14,6 +14,11 @@ let textoColado = null;
 const TEXTO_COLADO = "texto colado";
 const eEmail = (nome) => /\.(eml|msg)$/i.test(nome ?? "");
 export let planilhaEmAndamento = false;
+// Número da leitura mais recente: a do e-mail demora (consulta de CEP), e uma leitura antiga que
+// termina depois (o mês ou o serviço mudou no meio) não pode sobrescrever a tabela.
+let leituraAtual = 0;
+// Leitura em curso: as linhas na tela são as da leitura anterior e não podem ser emitidas.
+let lendo = false;
 
 const podeEmitirDaPlanilha = (it) => !it.erros.length && (!it.anterior || it.anterior.libera);
 const selecaoPlanilha = selecaoEmTabela({
@@ -23,7 +28,7 @@ const selecaoPlanilha = selecaoEmTabela({
   rotulo: "Emitir selecionadas",
   todos: "#planilha-todos",
   marcar: "#planilha-marcar",
-  emAndamento: () => planilhaEmAndamento,
+  emAndamento: () => planilhaEmAndamento || lendo,
 });
 
 $("#modelo-planilha").addEventListener("click", async () => {
@@ -92,9 +97,13 @@ $("#reler-planilha").addEventListener("click", async () => {
 async function lerPlanilha() {
   // Durante a emissão a lista mostra o andamento; relê ao terminar.
   if (planilhaEmAndamento) return;
+  const leitura = ++leituraAtual;
   $("#planilha-andamento").innerHTML = "";
+  lendo = true;
+  selecaoPlanilha.atualizar();
+  let lidas;
   try {
-    planilhaLida =
+    lidas =
       textoColado !== null || eEmail(planilhaArquivo?.nome) ? await lerEmail() : await chamar("ler_planilha", {
         nome: planilhaArquivo.nome,
         bytes: planilhaArquivo.bytes,
@@ -102,16 +111,23 @@ async function lerPlanilha() {
         mes: $("#mes-planilha").value,
       });
   } catch (e) {
-    planilhaLida = [];
+    if (leitura !== leituraAtual) return;
+    lendo = false;
+    lidas = [];
     $("#planilha-andamento").innerHTML = `<div class="aviso erro">${esc(e)}</div>`;
   }
+  if (leitura !== leituraAtual) return;
+  lendo = false;
+  planilhaLida = lidas;
   desenharPlanilha();
 }
 
 /** Lê o e-mail (arquivo ou texto colado), mostrando o andamento das consultas de CEP. */
 async function lerEmail() {
+  const leitura = leituraAtual;
   const andamento = $("#planilha-andamento");
   const parar = await window.__TAURI__.event.listen("andamento-email", ({ payload }) => {
+    if (leitura !== leituraAtual) return;
     andamento.innerHTML =
       payload.feito < payload.total
         ? `<div class="aviso">Consultando CEP ${payload.feito + 1} de ${payload.total}…</div>`
@@ -129,7 +145,7 @@ async function lerEmail() {
     });
   } finally {
     parar();
-    andamento.innerHTML = "";
+    if (leitura === leituraAtual) andamento.innerHTML = "";
   }
 }
 
