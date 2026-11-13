@@ -61,7 +61,7 @@ Como `PedidoEmissao.tomador` só aceita pessoa cadastrada (`pessoa_id`), a prév
 - recebe `nome` + `bytes` ou `texto`, além de `empresaId`, `servicoId` e `mes`;
 - consulta os CEPs em sequência, emitindo o evento `andamento-email` (padrão de `comandos/atualizacao.rs:49`);
 - resolve e valida;
-- devolve `ItemPlanilhaDto`, que ganha `avisos` e `tomadorNovo`;
+- devolve `ItemPlanilhaDto`, que ganha `avisos` e `tomador_novo`;
 - nunca registra o corpo.
 
 **Interface:**
@@ -99,7 +99,7 @@ Como `PedidoEmissao.tomador` só aceita pessoa cadastrada (`pessoa_id`), a prév
 - **IPC:**
   - comando novo `ler_email`;
   - evento novo `andamento-email`;
-  - `ItemPlanilhaDto` ganha `avisos` e `tomadorNovo` (opcionais, com `#[serde(default)]`, para o `emitir_planilha` continuar aceitando o item da planilha).
+  - `ItemPlanilhaDto` ganha `avisos` e `tomador_novo` (opcionais, com `#[serde(default)]`, para o `emitir_planilha` continuar aceitando o item da planilha).
 - **Banco:** sem migração e sem coluna nova. `emissao_importada.arquivo` passa a guardar também nomes `.eml`/`.msg` e "texto colado".
 
 ## Estratégia de teste

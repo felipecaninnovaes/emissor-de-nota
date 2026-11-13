@@ -204,6 +204,7 @@ fn main() {
             comandos::recorrencias::desativar_recorrencia,
             comandos::recorrencias::emitir_recorrencia,
             comandos::planilha::ler_planilha,
+            comandos::planilha::ler_email,
             comandos::planilha::emitir_planilha,
             comandos::planilha::salvar_modelo_planilha,
             comandos::email::obter_email,

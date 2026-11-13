@@ -44,7 +44,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
   - Teste: `testes::email_emite_com_cadastro_existente_sem_mudar` (CA12), `email_cadastra_pessoa_nova_ao_emitir` (CA13), `email_origem_guarda_so_arquivo_e_linha` (CA18)
   - Verificar: `just test -p nfse-emissor email_`
 
-- [ ] **T8** — Comando `ler_email` com consulta de CEP e evento de andamento
+- [x] **T8** — Comando `ler_email` com consulta de CEP e evento de andamento
   - Requisitos: R1, R2, R11, R12
   - Arquivos: `crates/app/src/comandos/planilha.rs`, `crates/app/src/main.rs` (`generate_handler!`)
   - Teste: unitário do DTO (`avisos` e `tomadorNovo` com `serde(default)`), em `comandos::planilha::testes`
@@ -61,3 +61,4 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
 - T5: além da chave (`base_da_chave`, `chave_da_ocorrencia`), extraída também a busca do tomador cadastrado (`tomador_cadastrado`), que o e-mail usa igual à planilha.
 - T6: `PedidoEmissao.tomador` só aceita pessoa cadastrada, então a prévia da linha passou para `Emissor::validar_importado` (backend), que confere o tomador novo como vai ser cadastrado e tira o não vinculado; o `ler_planilha` do app passou a usá-la, com o mesmo comportamento. A consulta de CEP devolve também logradouro e bairro (`EnderecoDoCep`), usados quando faltam no e-mail. A repetição só conta entre linhas sem erro, para não esconder o erro de valor. `emitir_importado` recusa a linha com tomador novo até a T7.
 - T7: os testes ficaram `email_cpf_cadastrado_vale_o_cadastro_na_emissao` (CA12), `email_pessoa_nova_cadastrada_so_ao_emitir` (CA13), `email_pessoa_cadastrada_entre_leitura_e_emissao` (pessoa cadastrada entre a leitura e a emissão: só vincula) e `email_origem_guarda_so_arquivo_e_linha` (CA18). `pedido()` não mudou: o tomador novo é cadastrado em `Emissor::cadastrar_tomador_novo`, depois de conferir a linha com `validar_importado`, para não cadastrar a pessoa de uma nota que não sairia. Para o CA18, `Banco::origem_importada` (só com a feature `teste`) lê a origem gravada.
+- T8: os campos novos do DTO ficaram `avisos` e `tomador_novo`, em snake_case como os outros campos do item (só os argumentos de primeiro nível do `invoke` são camelCase). O texto colado chega em `textoColado` (`texto` já é a função de erro do módulo). A conversão de ida e volta do item ficou em `dto_do_item` e `importado_do_dto`, comuns à planilha e ao e-mail; testes `comandos::planilha::testes`.
