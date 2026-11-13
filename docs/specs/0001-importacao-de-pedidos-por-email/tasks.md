@@ -38,7 +38,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
   - Teste: `testes::email_tomador_da_filial_valor_e_mes` (CA7), `email_sem_periodo_usa_mes_da_tela` (CA9), `email_sem_servico` (CA10), `email_descricao_do_bloco_e_padrao` (CA11), `email_pessoa_nova_sem_municipio` (CA14), `email_valor_invalido_igual_planilha` (CA15), `email_reimportado_ja_emitido` (CA16), `email_bloco_repetido`, `email_aviso_dados_diferentes`
   - Verificar: `just test -p nfse-emissor email_`
 
-- [ ] **T7** — Emissão com tomador novo e origem do e-mail
+- [x] **T7** — Emissão com tomador novo e origem do e-mail
   - Requisitos: R10, R11, R17
   - Arquivos: `crates/nfse-emissor/src/lib.rs` (`emitir_importado`), `crates/nfse-emissor/src/importacao.rs` (`pedido()`), `crates/nfse-emissor/src/testes.rs`
   - Teste: `testes::email_emite_com_cadastro_existente_sem_mudar` (CA12), `email_cadastra_pessoa_nova_ao_emitir` (CA13), `email_origem_guarda_so_arquivo_e_linha` (CA18)
@@ -60,3 +60,4 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
 <!-- T#: o que mudou em relação ao plano e por quê -->
 - T5: além da chave (`base_da_chave`, `chave_da_ocorrencia`), extraída também a busca do tomador cadastrado (`tomador_cadastrado`), que o e-mail usa igual à planilha.
 - T6: `PedidoEmissao.tomador` só aceita pessoa cadastrada, então a prévia da linha passou para `Emissor::validar_importado` (backend), que confere o tomador novo como vai ser cadastrado e tira o não vinculado; o `ler_planilha` do app passou a usá-la, com o mesmo comportamento. A consulta de CEP devolve também logradouro e bairro (`EnderecoDoCep`), usados quando faltam no e-mail. A repetição só conta entre linhas sem erro, para não esconder o erro de valor. `emitir_importado` recusa a linha com tomador novo até a T7.
+- T7: os testes ficaram `email_cpf_cadastrado_vale_o_cadastro_na_emissao` (CA12), `email_pessoa_nova_cadastrada_so_ao_emitir` (CA13), `email_pessoa_cadastrada_entre_leitura_e_emissao` (pessoa cadastrada entre a leitura e a emissão: só vincula) e `email_origem_guarda_so_arquivo_e_linha` (CA18). `pedido()` não mudou: o tomador novo é cadastrado em `Emissor::cadastrar_tomador_novo`, depois de conferir a linha com `validar_importado`, para não cadastrar a pessoa de uma nota que não sairia. Para o CA18, `Banco::origem_importada` (só com a feature `teste`) lê a origem gravada.

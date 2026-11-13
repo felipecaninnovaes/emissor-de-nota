@@ -2272,3 +2272,150 @@ async fn email_reimportado_ja_emitido() {
     assert!(c.emissor.emitir_importado(&de_novo[0], None).await.is_err());
     assert_eq!(c.sefin.recebidos().len(), 1);
 }
+
+/// Pessoa física cadastrada pela empresa do cenário, com endereço em Catanduva.
+async fn paciente_cadastrado(c: &Cenario, cpf: &str, nome: &str) -> i64 {
+    c.emissor
+        .banco()
+        .salvar_tomador(
+            c.pedido.empresa_id,
+            &Tomador {
+                documento: Documento::Cpf(nfse_core::Cpf::parse(cpf).unwrap()),
+                inscricao_municipal: None,
+                nome: nome.into(),
+                endereco: Some(EnderecoNacional {
+                    municipio: "3511102".into(),
+                    cep: "15800000".into(),
+                    logradouro: "RUA VELHA".into(),
+                    numero: "1".into(),
+                    complemento: None,
+                    bairro: "CENTRO".into(),
+                }),
+                telefone: None,
+                email: None,
+            },
+            "manual",
+        )
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn email_cpf_cadastrado_vale_o_cadastro_na_emissao() {
+    let c = cenario(vec![Resposta::Emitir(Ok(nfse_autorizada()))]).await;
+    paciente_cadastrado(&c, "52998224725", "ANA ANTIGA").await;
+    let antes = c.emissor.banco().pessoa_cadastrada("52998224725").await.unwrap();
+    let texto = "PACIENTE: Ana Antiga\nCPF: 529.982.247-25\nENDEREÇO: Rua Nova, 5\nCEP: 01001-000\nVALOR: 10,00";
+    let itens = resolver_email(&c, texto, Some(c.pedido.servico_id), &Default::default()).await;
+    assert!(itens[0].emitivel(), "{:?}", itens[0].erros);
+    assert!(itens[0].tomador_novo.is_none());
+    assert_eq!(itens[0].avisos.len(), 1, "{:?}", itens[0].avisos);
+
+    assert!(matches!(
+        c.emissor.emitir_importado(&itens[0], Some("pedido.eml")).await.unwrap(),
+        ResultadoEmissao::Autorizada { .. }
+    ));
+    let enviado = &c.sefin.recebidos()[0];
+    assert!(enviado.contains("<xLgr>RUA VELHA</xLgr>"), "{enviado}");
+    assert!(!enviado.contains("Rua Nova"));
+    assert_eq!(c.emissor.banco().pessoa_cadastrada("52998224725").await.unwrap(), antes);
+}
+
+#[tokio::test]
+async fn email_pessoa_nova_cadastrada_so_ao_emitir() {
+    let c = cenario(vec![Resposta::Emitir(Ok(nfse_autorizada()))]).await;
+    let texto = "PACIENTE: Ana Nova\nCPF: 529.982.247-25\nENDEREÇO: Rua das Flores, 100\nBAIRRO: Centro\n\
+                 CEP: 15800-000\nVALOR: 10,00";
+    let ceps: importacao_email::CepsConsultados = [("15800000".to_string(), endereco_do_cep("3511102"))].into();
+    let itens = resolver_email(&c, texto, Some(c.pedido.servico_id), &ceps).await;
+    assert!(itens[0].emitivel(), "{:?}", itens[0].erros);
+    let banco = c.emissor.banco();
+    assert_eq!(banco.pessoa_por_documento("52998224725").await.unwrap(), None);
+
+    assert!(matches!(
+        c.emissor.emitir_importado(&itens[0], Some("pedido.eml")).await.unwrap(),
+        ResultadoEmissao::Autorizada { .. }
+    ));
+    let pessoa = banco
+        .pessoa_por_documento("52998224725")
+        .await
+        .unwrap()
+        .expect("cadastrada");
+    let gravado = banco.pessoa_cadastrada("52998224725").await.unwrap().unwrap();
+    assert_eq!(gravado.nome, "Ana Nova");
+    let end = gravado.endereco.unwrap();
+    assert_eq!(
+        (
+            end.municipio.as_str(),
+            end.cep.as_str(),
+            end.logradouro.as_str(),
+            end.numero.as_str(),
+            end.bairro.as_str()
+        ),
+        ("3511102", "15800000", "Rua das Flores", "100", "Centro")
+    );
+    assert!(
+        banco.tomador(c.pedido.empresa_id, pessoa).await.is_ok(),
+        "vinculada à empresa"
+    );
+    let enviado = &c.sefin.recebidos()[0];
+    assert!(enviado.contains("<CPF>52998224725</CPF>"), "{enviado}");
+    assert!(enviado.contains("<xNome>Ana Nova</xNome>"));
+}
+
+#[tokio::test]
+async fn email_pessoa_cadastrada_entre_leitura_e_emissao() {
+    let c = cenario(vec![Resposta::Emitir(Ok(nfse_autorizada()))]).await;
+    let texto = "PACIENTE: Ana Nova\nCPF: 529.982.247-25\nCEP: 15800-000\nVALOR: 10,00";
+    let ceps: importacao_email::CepsConsultados = [("15800000".to_string(), endereco_do_cep("3511102"))].into();
+    let itens = resolver_email(&c, texto, Some(c.pedido.servico_id), &ceps).await;
+    assert!(itens[0].tomador_novo.is_some());
+    // Alguém cadastrou a pessoa pela tela depois da leitura: o cadastro dela não é sobrescrito.
+    let pessoa = paciente_cadastrado(&c, "52998224725", "ANA DO CADASTRO").await;
+    let antes = c.emissor.banco().pessoa_cadastrada("52998224725").await.unwrap();
+
+    assert!(matches!(
+        c.emissor.emitir_importado(&itens[0], None).await.unwrap(),
+        ResultadoEmissao::Autorizada { .. }
+    ));
+    let banco = c.emissor.banco();
+    assert_eq!(banco.pessoa_cadastrada("52998224725").await.unwrap(), antes);
+    assert_eq!(banco.pessoa_por_documento("52998224725").await.unwrap(), Some(pessoa));
+    assert!(c.sefin.recebidos()[0].contains("<xNome>ANA DO CADASTRO</xNome>"));
+}
+
+#[tokio::test]
+async fn email_origem_guarda_so_arquivo_e_linha() {
+    let c = cenario(vec![Resposta::Emitir(Ok(nfse_autorizada()))]).await;
+    let sigilo = "TRECHO-QUE-NAO-PODE-SER-GUARDADO";
+    let texto = format!(
+        "Bom dia, {sigilo}.\n\nPACIENTE: Ana\nCPF: 12ABC34501DE35\nVALOR: 10,00\n\n\
+         PACIENTE: Bia\nCPF: 12ABC34501DE35\nVALOR: 20,00\n\nAtenciosamente, {sigilo}"
+    );
+    let itens = resolver_email(&c, &texto, Some(c.pedido.servico_id), &Default::default()).await;
+    let ResultadoEmissao::Autorizada { nfse, .. } =
+        c.emissor.emitir_importado(&itens[1], Some("pedido.eml")).await.unwrap()
+    else {
+        panic!("não autorizada");
+    };
+    let banco = c.emissor.banco();
+    assert_eq!(
+        banco.origem_importada(nfse.dps_id).await.unwrap(),
+        [(itens[1].chave.clone(), Some("pedido.eml".to_string()), Some(2))]
+    );
+    assert!(!itens[1].chave.contains(sigilo));
+    for (_, _, _, detalhe) in banco.auditoria(100).await.unwrap() {
+        assert!(!detalhe.unwrap_or_default().contains(sigilo));
+    }
+    assert!(!c.sefin.recebidos()[0].contains(sigilo));
+    // O caminho do e-mail não registra nada em log: o corpo não tem como chegar lá.
+    for fonte in [
+        include_str!("leitura_email.rs"),
+        include_str!("pedido_email.rs"),
+        include_str!("importacao_email.rs"),
+    ] {
+        for proibido in ["tracing::", "log::", "println!", "eprintln!", "dbg!"] {
+            assert!(!fonte.contains(proibido), "{proibido} no caminho do e-mail");
+        }
+    }
+}
