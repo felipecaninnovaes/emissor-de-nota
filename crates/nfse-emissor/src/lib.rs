@@ -42,7 +42,7 @@ use chrono::{Datelike, NaiveDate};
 
 use nfse_cert::CertificadoA1;
 use nfse_core::Valor;
-use nfse_core::modelo::{Ambiente, Obra};
+use nfse_core::modelo::{Ambiente, Obra, Tomador};
 use nfse_db::dps::{NfseGravada, NfseRecebida, RegistroDps};
 use nfse_db::empresas::Empresa;
 use nfse_db::tomadores::TomadorVinculado;
@@ -728,7 +728,8 @@ impl<C: Conector> Emissor<C> {
         .await
     }
 
-    /// Emite uma linha de planilha já resolvida (vincula o tomador à empresa, se preciso).
+    /// Emite uma linha de planilha ou de e-mail já resolvida (vincula o tomador à empresa, ou
+    /// cadastra o tomador novo do e-mail, se preciso).
     pub async fn emitir_importado(
         &self,
         item: &importacao::ItemImportado,
@@ -737,17 +738,12 @@ impl<C: Conector> Emissor<C> {
         if let Some(erro) = item.erros.first() {
             return Err(ErroEmissao::Regra(format!("linha {}: {erro}", item.linha)));
         }
-        if item.tomador_novo.is_some() {
-            // O cadastro do tomador novo na emissão vem na etapa seguinte (spec 0001, T7).
-            return Err(ErroEmissao::Regra(format!(
-                "linha {}: cadastre o tomador antes de emitir",
-                item.linha
-            )));
-        }
-        let pedido = item
+        let mut pedido = item
             .pedido(arquivo)
             .ok_or_else(|| ErroEmissao::Regra(format!("linha {} incompleta", item.linha)))?;
-        if item.vincular_tomador
+        if let Some(novo) = &item.tomador_novo {
+            pedido.tomador = Some(self.cadastrar_tomador_novo(item, novo, pedido.empresa_id).await?);
+        } else if item.vincular_tomador
             && let Some(pessoa) = item.pessoa_id
         {
             // Herda a retenção e o tipo do vínculo de outra empresa, como o vínculo feito na tela.
@@ -756,6 +752,28 @@ impl<C: Conector> Emissor<C> {
                 .await?;
         }
         self.emitir(&pedido).await
+    }
+
+    /// Pessoa da linha com tomador novo (e-mail, spec 0001), cadastrada e vinculada à empresa só
+    /// agora, na emissão. A linha é conferida antes, para não cadastrar a pessoa de uma nota que
+    /// não sairia. Se a pessoa foi cadastrada depois da leitura, vale o cadastro dela, que não
+    /// muda (o `salvar_tomador` sobrescreveria): só é vinculada.
+    async fn cadastrar_tomador_novo(
+        &self,
+        item: &importacao::ItemImportado,
+        novo: &Tomador,
+        empresa_id: i64,
+    ) -> Result<i64, ErroEmissao> {
+        if let Some(erro) = self.validar_importado(item).await?.into_iter().next() {
+            return Err(ErroEmissao::Regra(format!("linha {}: {erro}", item.linha)));
+        }
+        match self.banco.pessoa_por_documento(&item.documento_tomador).await? {
+            Some(pessoa) => {
+                self.banco.vincular_tomador_cadastrado(empresa_id, pessoa).await?;
+                Ok(pessoa)
+            }
+            None => Ok(self.banco.salvar_tomador(empresa_id, novo, "email").await?),
+        }
     }
 }
 

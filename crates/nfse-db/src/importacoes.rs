@@ -67,6 +67,21 @@ impl Banco {
         Ok(())
     }
 
+    /// Origem gravada da DPS importada: as colunas de [`Banco::registrar_emissao_importada`]
+    /// (chave, arquivo, linha), para os testes conferirem que nada além disso é guardado.
+    #[cfg(any(test, feature = "teste"))]
+    pub async fn origem_importada(&self, dps_id: i64) -> Resultado<Vec<(String, Option<String>, Option<i64>)>> {
+        Ok(
+            sqlx::query("SELECT chave, arquivo, linha FROM emissao_importada WHERE dps_id = ?")
+                .bind(dps_id)
+                .fetch_all(self.pool())
+                .await?
+                .iter()
+                .map(|r| (r.get(0), r.get(1), r.get(2)))
+                .collect(),
+        )
+    }
+
     /// Nome da pessoa (tomador) pelo id, cadastrada por qualquer empresa.
     pub async fn nome_pessoa(&self, pessoa_id: i64) -> Resultado<Option<String>> {
         Ok(sqlx::query("SELECT nome FROM pessoa WHERE id = ?")
