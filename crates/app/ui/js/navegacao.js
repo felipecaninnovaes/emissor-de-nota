@@ -5,7 +5,7 @@ import { descartarRevisao, limparEmissao, renderizarServicosEmitir } from "./emi
 import { carregarNotas } from "./notas.js";
 import { carregarRecorrencias } from "./recorrentes.js";
 import { carregarLote } from "./lote.js";
-import { desenharPlanilha } from "./planilha.js";
+import { desenharPlanilha, renderizarServicosPlanilha } from "./planilha.js";
 import { carregarTomadores } from "./tomadores.js";
 import { carregarServicos } from "./servicos.js";
 import { renderizarEmpresas } from "./empresas.js";
@@ -26,7 +26,10 @@ export function irPara(tela, focar = false) {
     notas: carregarNotas,
     lote: carregarLote,
     recorrentes: carregarRecorrencias,
-    planilha: async () => desenharPlanilha(),
+    planilha: async () => {
+      renderizarServicosPlanilha();
+      desenharPlanilha();
+    },
     tomadores: carregarTomadores,
     servicos: carregarServicos,
     empresas: renderizarEmpresas,

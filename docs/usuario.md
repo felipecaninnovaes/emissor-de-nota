@@ -69,6 +69,19 @@ Filtro por mês, situação de cada nota, contagem e total. A ação principal d
 
 Aceita XLSX, XLS, ODS e CSV, uma nota por linha; escolha o arquivo em **Escolher arquivo…** (o seletor do sistema). **Baixar modelo** dá o formato. **Ler de novo** refaz a leitura; **Marcar prontas** e **Emitir selecionadas** emitem. Reimportar a mesma planilha não repete notas já autorizadas. Se o tomador não existe, dá para cadastrá-lo direto da linha. CNPJ ou CPF digitado como número perde os zeros à esquerda; o sistema completa e, quando o número serve como CPF e como CNPJ, usa o que estiver cadastrado. Valor com mais de duas casas decimais é recusado (não é arredondado). Durante a emissão, o mês e o "Ler de novo" ficam travados.
 
+### Pedidos por e-mail
+
+A mesma tela lê pedidos de nota recebidos por e-mail: escolha o arquivo `.eml` ou `.msg` (salvo do Outlook ou do webmail) em **Escolher arquivo…**, ou cole o texto em **Ou cole o texto do e-mail** e use **Ler texto colado**. Escolha o **Serviço** (com um só serviço na empresa, ele já vem escolhido); sem serviço, as linhas ficam com "escolha o serviço".
+
+- **Pedidos em blocos:** cada **PACIENTE** abre uma linha, com **CPF** (ou CNPJ), **ENDEREÇO**, **BAIRRO**, **CEP**, **CIDADE**, **VALOR** e **colocar no corpo da nota** (vira a descrição, mesmo escrito "PS. Colocar no corpo da nota" e com o texto no parágrafo de baixo; sem ele, vale a descrição padrão do serviço). Maiúsculas, acentos, espaços e um ponto antes dos dois-pontos (`CEP.:`) não importam; "VALOR R$ 100,00" vale sem os dois-pontos.
+- **Texto corrido:** sem PACIENTE, o tomador é o primeiro CNPJ ou CPF válido do texto que não seja de uma empresa cadastrada, o valor é o primeiro "R$" e o mês é o primeiro MM/AAAA.
+- **Mês:** o MM/AAAA do e-mail vale para todas as linhas; sem ele, vale o mês padrão.
+- **Tomador:** o já cadastrado é usado como está, e a linha avisa ("Pronta, confira") se o nome ou o CEP do e-mail são diferentes. O paciente (CPF) sem cadastro é cadastrado nesta empresa só quando a linha é emitida, com o município tirado da consulta do CEP (ViaCEP; o andamento aparece na tela). Sem CEP, ou com CEP não encontrado, a linha fica com "endereço sem município: confira o CEP". CNPJ sem cadastro usa **Cadastrar tomador**, como na planilha.
+- **Repetidos:** um bloco igual a outro do mesmo e-mail (o histórico citado numa resposta) fica como "repetido" e não emite. Reimportar o e-mail mostra as notas já emitidas.
+- **Ler de novo:** abre o arquivo outra vez; no texto colado, relê o campo.
+
+O texto do e-mail não é guardado: a nota registra só o nome do arquivo (ou "texto colado") e o número da linha.
+
 ## Configurações
 
 - **Aparência**: tamanho do texto e densidade.

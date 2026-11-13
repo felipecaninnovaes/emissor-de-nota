@@ -1,13 +1,18 @@
-// Importar planilha: lê, confere e emite notas a partir de uma planilha.
+// Importar planilha: lê, confere e emite notas a partir de uma planilha ou de um e-mail com
+// pedidos de nota (.eml, .msg ou texto colado; spec 0001).
 
 import { $, $$, NOME_SITUACAO, chamar, esc, estado, invoke, moeda, somarValores, toast } from "./util.js";
 import { detalheLinha, selecaoEmTabela } from "./tabela.js";
 import { ambienteDe, celulaEmpresa, confirmarEmissao, emitirTravando } from "./lote.js";
 import { editarTomador } from "./tomadores.js";
-import { FILTRO_PLANILHA, ligarEscolhaArquivo } from "./componentes.js";
+import { FILTRO_PLANILHA_EMAIL, ligarEscolhaArquivo } from "./componentes.js";
 
 let planilhaLida = [];
 let planilhaArquivo = null; // { id, nome, bytes }
+// Texto colado lido por último (no lugar do arquivo); "Ler de novo" relê o campo.
+let textoColado = null;
+const TEXTO_COLADO = "texto colado";
+const eEmail = (nome) => /\.(eml|msg)$/i.test(nome ?? "");
 export let planilhaEmAndamento = false;
 
 const podeEmitirDaPlanilha = (it) => !it.erros.length && (!it.anterior || it.anterior.libera);
@@ -29,15 +34,52 @@ $("#modelo-planilha").addEventListener("click", async () => {
   }
 });
 
-ligarEscolhaArquivo($("#arquivo-planilha"), $("#escolher-planilha"), { titulo: "Escolher planilha", ...FILTRO_PLANILHA }, (a) => {
-  planilhaArquivo = a;
+ligarEscolhaArquivo(
+  $("#arquivo-planilha"),
+  $("#escolher-planilha"),
+  { titulo: "Escolher planilha ou e-mail", ...FILTRO_PLANILHA_EMAIL },
+  (a) => {
+    planilhaArquivo = a;
+    textoColado = null;
+    return lerPlanilha();
+  },
+);
+
+const temOrigem = () => planilhaArquivo || textoColado !== null;
+$("#mes-planilha").addEventListener("change", () => temOrigem() && lerPlanilha());
+// O serviço só vale para o e-mail; a planilha traz o dela na coluna.
+$("#servico-planilha").addEventListener("change", () => (textoColado !== null || eEmail(planilhaArquivo?.nome)) && lerPlanilha());
+
+$("#texto-email").addEventListener("input", () => {
+  $("#ler-texto-email").disabled = !$("#texto-email").value.trim() || planilhaEmAndamento;
+});
+$("#ler-texto-email").addEventListener("click", () => {
+  const texto = $("#texto-email").value;
+  if (!texto.trim() || planilhaEmAndamento) return;
+  textoColado = texto;
+  planilhaArquivo = null;
+  $("#arquivo-planilha").value = "";
   return lerPlanilha();
 });
 
-$("#mes-planilha").addEventListener("change", () => planilhaArquivo && lerPlanilha());
+/** Serviços da empresa para o e-mail; com um só, já vem escolhido. */
+export function renderizarServicosPlanilha() {
+  const sel = $("#servico-planilha");
+  const anterior = sel.value;
+  const servicos = estado.servicos ?? [];
+  sel.innerHTML =
+    (servicos.length === 1 ? "" : `<option value="">Escolha o serviço</option>`) +
+    servicos.map((s) => `<option value="${s.id}">${esc(s.nome)}</option>`).join("");
+  if (servicos.some((s) => String(s.id) === anterior)) sel.value = anterior;
+}
 // Abre o arquivo de novo do disco: o operador pode ter corrigido a planilha depois de escolhê-la.
 $("#reler-planilha").addEventListener("click", async () => {
-  if (!planilhaArquivo || planilhaEmAndamento) return;
+  if (!temOrigem() || planilhaEmAndamento) return;
+  if (textoColado !== null) {
+    // O texto colado é relido do campo: o operador pode tê-lo corrigido.
+    textoColado = $("#texto-email").value;
+    return lerPlanilha();
+  }
   try {
     planilhaArquivo = await chamar("reler_arquivo_escolhido", { id: planilhaArquivo.id });
   } catch (e) {
@@ -52,17 +94,43 @@ async function lerPlanilha() {
   if (planilhaEmAndamento) return;
   $("#planilha-andamento").innerHTML = "";
   try {
-    planilhaLida = await chamar("ler_planilha", {
-      nome: planilhaArquivo.nome,
-      bytes: planilhaArquivo.bytes,
-      empresaId: estado.empresa?.id ?? null,
-      mes: $("#mes-planilha").value,
-    });
+    planilhaLida =
+      textoColado !== null || eEmail(planilhaArquivo?.nome) ? await lerEmail() : await chamar("ler_planilha", {
+        nome: planilhaArquivo.nome,
+        bytes: planilhaArquivo.bytes,
+        empresaId: estado.empresa?.id ?? null,
+        mes: $("#mes-planilha").value,
+      });
   } catch (e) {
     planilhaLida = [];
     $("#planilha-andamento").innerHTML = `<div class="aviso erro">${esc(e)}</div>`;
   }
   desenharPlanilha();
+}
+
+/** Lê o e-mail (arquivo ou texto colado), mostrando o andamento das consultas de CEP. */
+async function lerEmail() {
+  const andamento = $("#planilha-andamento");
+  const parar = await window.__TAURI__.event.listen("andamento-email", ({ payload }) => {
+    andamento.innerHTML =
+      payload.feito < payload.total
+        ? `<div class="aviso">Consultando CEP ${payload.feito + 1} de ${payload.total}…</div>`
+        : "";
+  });
+  try {
+    const servico = $("#servico-planilha").value;
+    return await chamar("ler_email", {
+      nome: textoColado === null ? planilhaArquivo.nome : null,
+      bytes: textoColado === null ? planilhaArquivo.bytes : null,
+      textoColado,
+      empresaId: estado.empresa?.id ?? null,
+      servicoId: servico ? Number(servico) : null,
+      mes: $("#mes-planilha").value,
+    });
+  } finally {
+    parar();
+    andamento.innerHTML = "";
+  }
 }
 
 /** Carimbo da situação da linha da planilha e o motivo (vai para o detalhe da linha). */
@@ -85,9 +153,18 @@ function situacaoPlanilha(it) {
       erro: true,
     };
   }
-  const aviso = it.vincular_tomador ? `<p>O tomador será vinculado a esta empresa.</p>` : "";
+  const aviso = it.tomador_novo
+    ? `<p>O tomador será cadastrado nesta empresa ao emitir.</p>`
+    : it.vincular_tomador
+      ? `<p>O tomador será vinculado a esta empresa.</p>`
+      : "";
+  const avisos = it.avisos?.length ? `<p>${it.avisos.map(esc).join("<br>")}</p>` : "";
   const antes = t ? `<p>Antes: ${esc(NOME_SITUACAO[t.situacao] ?? t.situacao)} — ${esc(t.erro ?? "")}</p>` : "";
-  return { selo: `<span class="selo pendente">Pronta</span>`, motivo: aviso + antes };
+  return {
+    selo: `<span class="selo ${avisos ? "incerta" : "pendente"}">${avisos ? "Pronta, confira" : "Pronta"}</span>`,
+    motivo: avisos + aviso + antes,
+    avisos: !!avisos,
+  };
 }
 
 export function desenharPlanilha() {
@@ -95,7 +172,9 @@ export function desenharPlanilha() {
   $("#planilha-todos").checked = false;
   if (!planilhaLida.length) {
     corpo.innerHTML = `<tr><td colspan="8" class="vazio">${
-      planilhaArquivo ? "Nenhuma linha com dados na planilha." : "Escolha a planilha (.xlsx, .xls, .ods ou .csv)."
+      temOrigem()
+        ? "Nenhuma linha para emitir."
+        : "Escolha a planilha (.xlsx, .xls, .ods ou .csv) ou o e-mail (.eml ou .msg), ou cole o texto do e-mail."
     }</td></tr>`;
     $("#planilha-resumo").textContent = "";
     selecaoPlanilha.atualizar();
@@ -117,7 +196,7 @@ export function desenharPlanilha() {
         ],
         motivo: s.motivo ?? "",
         erro: !!s.erro,
-        aberta: !!s.erro,
+        aberta: !!s.erro || !!s.avisos,
       });
       return `<tr data-i="${i}">
         <td><input type="checkbox" data-i="${i}" ${podeEmitirDaPlanilha(it) ? "" : "disabled"} aria-label="${esc(`Marcar ${alvo}`)}"></td>
@@ -162,14 +241,16 @@ $("#planilha-emitir").addEventListener("click", async () => {
     planilhaEmAndamento = sim;
     selecaoPlanilha.atualizar();
   };
-  const controles = ["#mes-planilha", "#reler-planilha", "#escolher-planilha"];
+  const controles = ["#mes-planilha", "#reler-planilha", "#escolher-planilha", "#servico-planilha", "#ler-texto-email"];
   const resumo = await emitirTravando(controles, andamento, {
     itens,
     andamento: $("#planilha-andamento"),
     celulaDe: (it) => $(`#lista-planilha tr[data-i="${planilhaLida.indexOf(it)}"] [data-situacao]`),
     descrever: (it) => `linha ${it.linha}: ${it.tomador ?? it.documento_tomador}`,
-    emitirUm: (it) => invoke("emitir_planilha", { item: it, arquivo: planilhaArquivo?.nome ?? null }),
+    emitirUm: (it) => invoke("emitir_planilha", { item: it, arquivo: textoColado !== null ? TEXTO_COLADO : (planilhaArquivo?.nome ?? null) }),
   });
   await lerPlanilha();
+  // A trava reabilita os controles; o botão do texto só vale com texto no campo.
+  $("#ler-texto-email").disabled = !$("#texto-email").value.trim();
   $("#planilha-andamento").innerHTML = resumo;
 });

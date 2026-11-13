@@ -13,7 +13,7 @@ Workspace Cargo (`Cargo.toml`, membros `crates/*`). O núcleo fiscal não depend
 | `nfse-xml` | DPS e eventos na ordem do XSD, C14N inclusivo e exclusivo, assinatura e verificação XMLDSIG, leitura da NFS-e |
 | `nfse-nacional` | Cliente mTLS da Sefin Nacional (trait `Sefin`), GZip + Base64, orientações por código de rejeição (`mensagens.rs`) |
 | `nfse-db` | SQLite (sqlx): cofre, cadastros, numeração, DPS/NFS-e, recorrências, importações, e-mail |
-| `nfse-emissor` | Orquestra emissão confiável, reconciliação, cancelamento, arquivamento, planilhas e e-mail |
+| `nfse-emissor` | Orquestra emissão confiável, reconciliação, cancelamento, arquivamento, planilhas, pedidos por e-mail e envio de e-mail |
 | `nfse-pdf` | DANFSe v2.0 (NT 008/2026) com `krilla` e `qrcode` |
 | `nfse-poc` | CLI de diagnóstico; ver [desenvolvimento.md](desenvolvimento.md#cli-nfse-poc) |
 | `app` (`emissor-nfse`) | Aplicativo Tauri 2; interface em `crates/app/ui/` |
@@ -34,7 +34,7 @@ nfse-poc      → cert, core, emissor, nacional, pdf, xml
 
 ## Fluxo de emissão
 
-Implementado em `Emissor::emitir` (`crates/nfse-emissor/src/lib.rs`). Os demais fluxos do `Emissor` ficam em submódulos do mesmo crate: `montagem.rs` (DPS a partir dos cadastros), `reconciliacao.rs`, `cancelamento.rs`, `copia.rs` (refazer/copiar/substituir), `substituicao.rs` (grupo `subst` e PDF da nota substituída) e `envio_email.rs`. A Sefin fica atrás dos traits `Conector` e `Sefin`, que os testes substituem por um simulado.
+Implementado em `Emissor::emitir` (`crates/nfse-emissor/src/lib.rs`). Os demais fluxos do `Emissor` ficam em submódulos do mesmo crate: `montagem.rs` (DPS a partir dos cadastros), `reconciliacao.rs`, `cancelamento.rs`, `copia.rs` (refazer/copiar/substituir), `substituicao.rs` (grupo `subst` e PDF da nota substituída) e `envio_email.rs`. A importação de pedidos por e-mail (spec 0001) passa por `leitura_email.rs` (`.eml` com o crate `mail-parser`, `.msg` com o `cfb`: bytes → texto), `pedido_email.rs` (texto → pedidos) e `importacao_email.rs` (pedidos → `ItemImportado`, o mesmo da planilha); a consulta do CEP fica no app (`ler_email`), que passa o resultado ao núcleo, e o tomador novo é cadastrado em `emitir_importado`. O corpo do e-mail não é gravado nem registrado em log. A Sefin fica atrás dos traits `Conector` e `Sefin`, que os testes substituem por um simulado.
 
 1. Recorrência e planilha: se o item já tem nota autorizada ou em andamento, não emite de novo.
 2. Monta e **valida a DPS antes de reservar número**: DPS inválida não gasta numeração. A conferência é `Emissor::validar`, a mesma das prévias do app (Emitir, planilha e lote); a nota já emitida no mês ou na linha da planilha é conferida só na emissão.
@@ -69,7 +69,7 @@ Um SQLite (SQLCipher) por máquina (`emissor.db` em `app_data_dir()`), em modo W
 | `nfse` | Documento fiscal: chave, número, XML autorizado e SHA-256, valor, competência |
 | `evento` | Eventos da NFS-e (cancelamento) |
 | `recorrencia`, `emissao_recorrente` | Modelo da mensalidade e a DPS de cada mês |
-| `emissao_importada` | Chave de conteúdo da linha da planilha e a DPS; reimportar não duplica |
+| `emissao_importada` | Chave de conteúdo da linha da planilha ou do pedido do e-mail, o nome do arquivo (ou "texto colado"), a linha e a DPS; reimportar não duplica |
 | `envio_email` | Registro de cada envio |
 | `configuracao`, `auditoria` | Chaves da aplicação ([configuracao.md](configuracao.md)) e log de ações |
 
