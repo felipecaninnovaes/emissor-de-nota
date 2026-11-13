@@ -214,6 +214,13 @@ fn achar_rotulos(normal: &[char]) -> Vec<(Rotulo, usize, usize)> {
     let mut i = 0;
     while i < normal.len() {
         let inicio_de_palavra = i == 0 || !normal[i - 1].is_alphanumeric();
+        // A descrição é texto livre ("no valor R$ 50,00"): dentro dela, só um rótulo no começo
+        // da linha a encerra.
+        let na_descricao = achados.last().is_some_and(|&(r, _, _)| r == Rotulo::Descricao);
+        if na_descricao && !comeco_de_linha(normal, i) {
+            i += 1;
+            continue;
+        }
         let achado = inicio_de_palavra
             .then(|| {
                 ROTULOS
@@ -286,12 +293,7 @@ fn rotulo_qualquer(normal: &[char], i: usize) -> Option<usize> {
     if !normal[i].is_alphabetic() {
         return None;
     }
-    let comeco_de_linha = normal[..i]
-        .iter()
-        .rev()
-        .take_while(|&&c| c != '\n')
-        .all(|c| c.is_whitespace());
-    let (limite, aceita): (usize, fn(char) -> bool) = if comeco_de_linha {
+    let (limite, aceita): (usize, fn(char) -> bool) = if comeco_de_linha(normal, i) {
         (31, |c| c.is_alphabetic() || matches!(c, ' ' | '/' | '-' | '\t'))
     } else if i >= 2 && normal[i - 2..i].iter().all(|&c| c == ' ' || c == '\t') {
         (16, char::is_alphabetic)
@@ -300,6 +302,15 @@ fn rotulo_qualquer(normal: &[char], i: usize) -> Option<usize> {
     };
     let fim = normal[i..].iter().take(limite).position(|&c| !aceita(c))?;
     (normal.get(i + fim) == Some(&':')).then_some(i + fim + 1)
+}
+
+/// Antes de `i`, na mesma linha, só há espaços.
+fn comeco_de_linha(normal: &[char], i: usize) -> bool {
+    normal[..i]
+        .iter()
+        .rev()
+        .take_while(|&&c| c != '\n')
+        .all(|c| c.is_whitespace())
 }
 
 fn pular_espacos(normal: &[char], mut j: usize) -> usize {
@@ -604,6 +615,26 @@ colocar no corpo da nota: o valor de 20 fica fora",
         .unwrap();
         assert_eq!(p[0].valor, s("10,00"));
         assert_eq!(p[0].descricao, s("o valor de 20 fica fora"));
+    }
+
+    #[test]
+    fn rotulo_dentro_da_descricao_nao_conta() {
+        // Na mesma linha da descrição, "valor R$" e "bairro:" são texto da nota.
+        let depois = "PACIENTE: Ana
+CPF: 52998224725
+VALOR: R$ 200,00
+                      colocar no corpo da nota: 4 sessões no valor R$ 50,00 cada, bairro: Centro";
+        let p = &extrair(depois, &[]).unwrap()[0];
+        assert_eq!(p.valor, s("R$ 200,00"));
+        assert_eq!(p.bairro, None);
+        assert_eq!(p.descricao, s("4 sessões no valor R$ 50,00 cada, bairro: Centro"));
+        let antes = "PACIENTE: Ana
+CPF: 52998224725
+                     colocar no corpo da nota: 4 sessões no valor R$ 50,00 cada
+VALOR: R$ 200,00";
+        let p = &extrair(antes, &[]).unwrap()[0];
+        assert_eq!(p.valor, s("R$ 200,00"));
+        assert_eq!(p.descricao, s("4 sessões no valor R$ 50,00 cada"));
     }
 
     #[test]
