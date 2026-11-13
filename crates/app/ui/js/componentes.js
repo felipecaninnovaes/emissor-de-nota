@@ -181,10 +181,12 @@ export const FILTRO_PLANILHA_EMAIL = {
  * `<input type="file">` do WebKitGTK abre o diálogo do GTK). O `campo` (somente leitura) mostra o
  * nome; o botão, o clique ou Enter no campo abrem o seletor. `aoEscolher({ nome, bytes })` recebe o
  * conteúdo; com `caminho`, o campo mostra e `aoEscolher` recebe só o caminho (quem usa lê o
- * arquivo). Cancelar não muda nada.
+ * arquivo). Cancelar não muda nada. `ocupado(sim)`, se houver, marca o início e o fim da escolha
+ * e da leitura (inclusive `aoEscolher`).
  */
-export function ligarEscolhaArquivo(campo, botao, { titulo, filtro, extensoes, caminho = false }, aoEscolher) {
+export function ligarEscolhaArquivo(campo, botao, { titulo, filtro, extensoes, caminho = false, ocupado = () => {} }, aoEscolher) {
   const escolher = async () => {
+    ocupado(true);
     try {
       const arquivo = caminho
         ? await invoke("escolher_arquivo", { titulo, filtro, extensoes, inicial: campo.value })
@@ -195,6 +197,8 @@ export function ligarEscolhaArquivo(campo, botao, { titulo, filtro, extensoes, c
       await aoEscolher(arquivo);
     } catch (e) {
       toast(String(e), true);
+    } finally {
+      ocupado(false);
     }
   };
   botao.addEventListener("click", escolher);

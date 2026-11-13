@@ -16,3 +16,4 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
 
 ## Notas de desvio
 <!-- T#: o que mudou em relação ao plano e por quê -->
+- T2 (revisão): soltar com um `<dialog>` aberto (confirmação da emissão, cadastro do tomador) também recebe "Espere terminar…", porque o diálogo bloqueia cliques mas não o evento de soltar do sistema, e trocar a planilha ali gravaria a origem errada na emissão. A trava de leitura passou a cobrir o **Escolher arquivo…** (opção `ocupado` de `ligarEscolhaArquivo`) e o **Ler de novo** desde o clique.
