@@ -278,11 +278,15 @@
         <h1 tabindex="-1">Importar planilha</h1>
         <div class="cartao">
           <div class="grade">
-            <div class="c5"><label for="arquivo-planilha">Planilha (.xlsx, .xls, .ods ou .csv)</label>
-              <div class="com-botao"><input id="arquivo-planilha" readonly data-arquivo placeholder="Nenhuma planilha escolhida">
+            <div class="c5"><label for="arquivo-planilha">Planilha ou e-mail (.xlsx, .xls, .ods, .csv, .eml ou .msg)</label>
+              <div class="com-botao"><input id="arquivo-planilha" readonly data-arquivo placeholder="Nenhum arquivo escolhido">
                 <button type="button" class="botao" id="escolher-planilha">Escolher arquivo…</button></div></div>
             <div class="c3"><label for="mes-planilha">Mês padrão</label><input id="mes-planilha" type="month"></div>
-            <div class="c4 celula-botoes">
+            <div class="c4"><label for="servico-planilha">Serviço (pedidos por e-mail)</label><select id="servico-planilha"></select></div>
+            <div class="c12"><label for="texto-email">Ou cole o texto do e-mail</label>
+              <textarea id="texto-email" rows="4" placeholder="PACIENTE: ...&#10;CPF: ...&#10;VALOR: ..."></textarea></div>
+            <div class="c12 celula-botoes">
+              <button type="button" class="botao" id="ler-texto-email" disabled>Ler texto colado</button>
               <button class="botao" id="reler-planilha" title="Ler de novo (depois de cadastrar um tomador, por exemplo)">Ler de novo</button>
               <button class="botao" id="modelo-planilha">Baixar modelo</button>
             </div>
@@ -291,6 +295,9 @@
             Servico (nome ou código), Descricao (aceita variáveis como <code>{mes_ref}</code> e <code>{tomador}</code>), Mes referencia e Informacoes complementares.
             Sem a coluna da empresa, vale a empresa selecionada no topo; sem mês, o mês padrão.
             Reimportar a mesma planilha não emite de novo as linhas já autorizadas.</p>
+          <p class="ajuda">No e-mail, cada pedido com <b>PACIENTE</b> (com CPF, CEP, endereço, valor e "colocar no corpo da nota") vira uma linha;
+            sem esses rótulos, vale o primeiro CNPJ/CPF, o primeiro valor em R$ e o primeiro mês (MM/AAAA) do texto. O serviço é o escolhido acima.
+            Paciente sem cadastro é cadastrado ao emitir, com o município do CEP. O texto do e-mail não é guardado.</p>
         </div>
         <div class="cartao barra">
           <span id="planilha-resumo" class="ajuda barra-texto" aria-live="polite"></span>

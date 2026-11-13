@@ -167,6 +167,11 @@ export function anunciar(texto) {
 }
 
 export const FILTRO_PLANILHA = { filtro: "Planilha", extensoes: ["xlsx", "xlsm", "xls", "ods", "csv"] };
+/** A importação de notas aceita também e-mail (spec 0001); as outras telas só planilha. */
+export const FILTRO_PLANILHA_EMAIL = {
+  filtro: "Planilha ou e-mail",
+  extensoes: [...FILTRO_PLANILHA.extensoes, "eml", "msg"],
+};
 
 /**
  * Campo de arquivo com o seletor nativo do sistema (no Linux, pelo xdg-desktop-portal; o
