@@ -167,7 +167,10 @@ export function anunciar(texto) {
 }
 
 export const FILTRO_PLANILHA = { filtro: "Planilha", extensoes: ["xlsx", "xlsm", "xls", "ods", "csv"] };
-/** A importação de notas aceita também e-mail (spec 0001); as outras telas só planilha. */
+/**
+ * A importação de notas aceita também e-mail (spec 0001); as outras telas só planilha. As mesmas
+ * extensões do `EXTENSOES_SOLTAR` de `comandos/dialogo.rs`, que vale para o arquivo solto.
+ */
 export const FILTRO_PLANILHA_EMAIL = {
   filtro: "Planilha ou e-mail",
   extensoes: [...FILTRO_PLANILHA.extensoes, "eml", "msg"],
