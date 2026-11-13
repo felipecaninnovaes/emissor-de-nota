@@ -1,11 +1,12 @@
 //! Extração dos pedidos de nota do texto de um e-mail.
 //!
 //! **Blocos com rótulos:** cada bloco começa no rótulo PACIENTE e traz CPF, ENDEREÇO, BAIRRO, CEP,
-//! CIDADE (ou CIDADE/UF), VALOR e "colocar no corpo da nota". Os rótulos terminam em `:` e são
-//! reconhecidos sem acento, sem diferença de maiúsculas e com qualquer espaço em volta; pode haver
-//! vários na mesma linha. O valor de um rótulo vai até o próximo rótulo, uma linha em branco ou
-//! uma linha que começa com outro rótulo qualquer (`TELEFONE:`, por exemplo), e pode continuar na
-//! linha seguinte.
+//! CIDADE (ou CIDADE/UF), VALOR e "colocar no corpo da nota". Os rótulos terminam em `:` (com ou
+//! sem ponto antes: `CEP.:`) e são reconhecidos sem acento, sem diferença de maiúsculas e com
+//! qualquer espaço em volta; pode haver vários na mesma linha. Sem `:`, só "colocar no corpo da
+//! nota" (cujo texto pode vir no parágrafo de baixo) e VALOR seguido de "R$". O valor de um rótulo
+//! vai até o próximo rótulo, uma linha em branco ou outro rótulo qualquer (`TELEFONE:`) no começo
+//! da linha ou depois de dois espaços, e pode continuar na linha seguinte.
 //!
 //! **Texto corrido** (sem rótulo PACIENTE): um pedido só, com o primeiro CNPJ ou CPF de dígito
 //! verificador válido que não seja de uma empresa cadastrada, o primeiro valor após "R$" e o
@@ -161,7 +162,7 @@ fn blocos(texto: &str) -> Vec<PedidoEmail> {
     let mut pedidos: Vec<PedidoEmail> = Vec::new();
     for (k, &(rotulo, _, valor_inicio)) in achados.iter().enumerate() {
         let fim = achados.get(k + 1).map_or(original.len(), |&(_, inicio, _)| inicio);
-        let valor = valor_do_rotulo(&original[valor_inicio..fim]);
+        let valor = valor_do_rotulo(&original[valor_inicio..fim], rotulo == Rotulo::Descricao);
         if rotulo == Rotulo::Paciente {
             pedidos.push(PedidoEmail {
                 numero: pedidos.len() + 1,
@@ -217,7 +218,7 @@ fn achar_rotulos(normal: &[char]) -> Vec<(Rotulo, usize, usize)> {
             .then(|| {
                 ROTULOS
                     .iter()
-                    .find_map(|&(padrao, rotulo)| casar_rotulo(normal, i, padrao).map(|fim| (rotulo, fim)))
+                    .find_map(|&(padrao, rotulo)| casar_rotulo(normal, i, padrao, rotulo).map(|fim| (rotulo, fim)))
             })
             .flatten()
             .or_else(|| rotulo_qualquer(normal, i).map(|fim| (Rotulo::Outro, fim)));
@@ -232,8 +233,10 @@ fn achar_rotulos(normal: &[char]) -> Vec<(Rotulo, usize, usize)> {
     achados
 }
 
-/// Se `padrao` seguido de `:` começa em `i`, a posição logo depois do `:`.
-fn casar_rotulo(normal: &[char], i: usize, padrao: &str) -> Option<usize> {
+/// Se `padrao` seguido de `:` (pode haver ponto antes: `CEP.:`) começa em `i`, a posição logo
+/// depois do `:`. Sem `:`, vale a frase da descrição (o valor começa logo depois dela) e o VALOR
+/// seguido de "R$" (o valor começa no "R$").
+fn casar_rotulo(normal: &[char], i: usize, padrao: &str, rotulo: Rotulo) -> Option<usize> {
     let mut j = i;
     for p in padrao.chars() {
         match p {
@@ -259,24 +262,43 @@ fn casar_rotulo(normal: &[char], i: usize, padrao: &str) -> Option<usize> {
     if normal.get(j).is_some_and(|c| c.is_alphanumeric()) {
         return None;
     }
-    j = pular_espacos_na_linha(normal, j);
-    (normal.get(j) == Some(&':')).then_some(j + 1)
+    let depois_do_nome = j;
+    while normal.get(j).is_some_and(|&c| matches!(c, '.' | ' ' | '\t')) {
+        j += 1;
+    }
+    if normal.get(j) == Some(&':') {
+        return Some(j + 1);
+    }
+    match rotulo {
+        Rotulo::Descricao => Some(depois_do_nome),
+        Rotulo::Valor => {
+            let k = pular_espacos_na_linha(normal, depois_do_nome);
+            (normal.get(k) == Some(&'r') && normal.get(k + 1) == Some(&'$')).then_some(k)
+        }
+        _ => None,
+    }
 }
 
-/// Rótulo fora da lista no começo de uma linha: até 30 letras, espaços ou `/` antes de `:`.
+/// Rótulo fora da lista: no começo de uma linha, até 30 letras, espaços, `/` ou `-` antes de `:`
+/// (`E-MAIL:`); no meio da linha, depois de dois espaços, uma palavra de até 15 letras colada no
+/// `:` (`DN:`).
 fn rotulo_qualquer(normal: &[char], i: usize) -> Option<usize> {
+    if !normal[i].is_alphabetic() {
+        return None;
+    }
     let comeco_de_linha = normal[..i]
         .iter()
         .rev()
         .take_while(|&&c| c != '\n')
         .all(|c| c.is_whitespace());
-    if !comeco_de_linha || !normal[i].is_alphabetic() {
+    let (limite, aceita): (usize, fn(char) -> bool) = if comeco_de_linha {
+        (31, |c| c.is_alphabetic() || matches!(c, ' ' | '/' | '-' | '\t'))
+    } else if i >= 2 && normal[i - 2..i].iter().all(|&c| c == ' ' || c == '\t') {
+        (16, char::is_alphabetic)
+    } else {
         return None;
-    }
-    let fim = normal[i..]
-        .iter()
-        .take(31)
-        .position(|&c| !(c.is_alphabetic() || c == ' ' || c == '/' || c == '\t'))?;
+    };
+    let fim = normal[i..].iter().take(limite).position(|&c| !aceita(c))?;
     (normal.get(i + fim) == Some(&':')).then_some(i + fim + 1)
 }
 
@@ -295,12 +317,17 @@ fn pular_espacos_na_linha(normal: &[char], mut j: usize) -> usize {
 }
 
 /// Valor até a primeira linha em branco, com espaços e quebras de linha reduzidos a um espaço.
-fn valor_do_rotulo(trecho: &[char]) -> String {
+/// `paragrafo_abaixo`: sem texto na linha do rótulo, vale o parágrafo seguinte, mesmo depois de
+/// linhas em branco (a descrição costuma vir assim).
+fn valor_do_rotulo(trecho: &[char], paragrafo_abaixo: bool) -> String {
     let texto: String = trecho.iter().collect();
-    let mut linhas = Vec::new();
+    let mut linhas: Vec<&str> = Vec::new();
     for (k, linha) in texto.lines().enumerate() {
-        if linha.trim().is_empty() && k > 0 {
-            break;
+        if linha.trim().is_empty() {
+            if linhas.iter().any(|l| !l.trim().is_empty()) || (k > 0 && !paragrafo_abaixo) {
+                break;
+            }
+            continue;
         }
         linhas.push(linha);
     }
@@ -496,6 +523,87 @@ Fulana";
             corrido("Obrigado. Clínica Fictícia - CNPJ 11.222.333/0001-81 - R$ 10,00").unwrap_err(),
             NENHUM_PEDIDO
         );
+    }
+
+    /// Leiaute de um pedido real (dados fictícios): "CEP.:", "VALOR R$" sem dois-pontos, "PS. Colocar
+    /// no corpo da nota" com o texto no parágrafo de baixo e outro rótulo no meio da linha.
+    const ROTULOS_SOLTOS: &str = "Boa tarde,
+
+Segue dados para emissão de nota fiscal:
+
+PACIENTE: ANA EXEMPLO DE SOUZA
+
+ENDEREÇO: RUA DAS FLORES, 100
+
+BAIRRO: CENTRO                            CEP.:    15.800-000
+CIDADE: CATANDUVA/SP
+
+CPF:       529.982.247-25
+
+FONE: (17) 99999-0000
+
+VALOR R$ 1.234,56
+
+E-MAIL:
+
+PS. Colocar no corpo da nota
+
+Serviço de apoio ao paciente (primeira
+linha e continuação)
+
+PACIENTE:  BRUNO EXEMPLO
+
+ENDEREÇO: AV. BRASIL, 26
+
+CEP.:  15.015-500      CIDADE:  SÃO JOSÉ DO RIO PRETO/SP
+
+CPF:  111.444.777-35         DN:  15/11/1946
+
+VALOR R$  80,00
+
+PS. Colocar no corpo da nota
+
+Serviço de apoio
+
+Att,
+
+Fulana";
+
+    #[test]
+    fn rotulos_com_ponto_sem_dois_pontos_e_texto_abaixo() {
+        let p = extrair(ROTULOS_SOLTOS, &[]).unwrap();
+        assert_eq!(p.len(), 2);
+        assert_eq!(p[0].nome, s("ANA EXEMPLO DE SOUZA"));
+        assert_eq!(p[0].bairro, s("CENTRO"));
+        assert_eq!(p[0].cep, s("15.800-000"));
+        assert_eq!(p[0].cidade, s("CATANDUVA/SP"));
+        assert_eq!(p[0].documento, s("529.982.247-25"));
+        assert_eq!(p[0].valor, s("R$ 1.234,56"));
+        assert_eq!(
+            p[0].descricao,
+            s("Serviço de apoio ao paciente (primeira linha e continuação)")
+        );
+        assert_eq!(p[1].cep, s("15.015-500"));
+        assert_eq!(p[1].cidade, s("SÃO JOSÉ DO RIO PRETO/SP"));
+        assert_eq!(p[1].documento, s("111.444.777-35"));
+        assert_eq!(p[1].valor, s("R$ 80,00"));
+        assert_eq!(p[1].descricao, s("Serviço de apoio"));
+        // A data de nascimento (DD/MM/AAAA) não é o período.
+        assert_eq!(p[0].mes, None);
+    }
+
+    #[test]
+    fn valor_sem_dois_pontos_so_com_cifrao() {
+        let p = extrair(
+            "PACIENTE: Ana
+CPF: 52998224725
+VALOR: 10,00
+colocar no corpo da nota: o valor de 20 fica fora",
+            &[],
+        )
+        .unwrap();
+        assert_eq!(p[0].valor, s("10,00"));
+        assert_eq!(p[0].descricao, s("o valor de 20 fica fora"));
     }
 
     #[test]
