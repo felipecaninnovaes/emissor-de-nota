@@ -406,6 +406,10 @@ tbody tr.detalhe:hover { background: var(--papel); }
 .aviso.atencao { background: var(--amarelo-claro); color: var(--amarelo); }
 .aviso.ok { background: var(--verde-claro); color: var(--verde); }
 .aviso ul { margin: 0.375rem 0 0; padding-left: calc(1.125rem * var(--densidade)); }
+/* Arquivo arrastado sobre a tela Importar planilha (spec 0002). */
+.soltar-aqui { display: none; }
+section.soltando { outline: 2px dashed var(--caneta); outline-offset: -2px; background: var(--caneta-claro); }
+section.soltando .soltar-aqui { display: block; padding: var(--espaco-3); margin-bottom: var(--espaco-3); border-radius: var(--raio-fino); background: var(--caneta); color: var(--sobre-tinta); font-weight: 600; text-align: center; }
 
 /* ---------- busca de tomador ---------- */
 .busca { position: relative; }

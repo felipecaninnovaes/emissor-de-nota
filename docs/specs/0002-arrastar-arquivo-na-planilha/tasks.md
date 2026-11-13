@@ -8,7 +8,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
   - Teste: `comandos::dialogo::testes::solto_um_arquivo_e_registrado` (CA1), `solto_recusa_dois_pasta_e_pdf` (CA3), `solto_aceita_extensao_maiuscula` (CA4); CA2 fica com `reler_le_o_conteudo_atual_do_arquivo`
   - Verificar: `just test -p emissor-nfse dialogo`
 
-- [ ] **T2** — Interface (destaque, avisos, leitura), CHANGELOG e docs
+- [x] **T2** — Interface (destaque, avisos, leitura), CHANGELOG e docs
   - Requisitos: R1, R2, R4, R5, R6, R7
   - Arquivos: `crates/app/ui/js/planilha.js`, `crates/app/ui/index.html`, `crates/app/ui/estilo.css`, `CHANGELOG.md`, `docs/usuario.md`, `docs/arquitetura.md` (se couber)
   - Teste: manual no app (`just run`): CA5 a CA7, arrastar `.xlsx`/`.eml`, **Ler de novo**, dois arquivos, pasta, `.pdf`, `PEDIDOS.CSV`, Outlook clássico

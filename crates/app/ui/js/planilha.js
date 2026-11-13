@@ -19,6 +19,9 @@ export let planilhaEmAndamento = false;
 let leituraAtual = 0;
 // Leitura em curso: as linhas na tela são as da leitura anterior e não podem ser emitidas.
 let lendo = false;
+// Arquivo sendo aberto do disco (soltar, Ler de novo): um arquivo solto nesse meio tempo só recebe
+// "Espere terminar…", como durante a leitura (spec 0002).
+let planilhaLendo = false;
 
 const podeEmitirDaPlanilha = (it) => !it.erros.length && (!it.anterior || it.anterior.libera);
 const selecaoPlanilha = selecaoEmTabela({
@@ -91,6 +94,32 @@ $("#reler-planilha").addEventListener("click", async () => {
     toast(String(e), true);
     return;
   }
+  await lerPlanilha();
+});
+
+// Arquivo solto na janela (spec 0002). O backend recebe o caminho do sistema, registra e manda só
+// { id, nome } ou { erro }; aqui só se decide se vale e o conteúdo vem por `reler_arquivo_escolhido`.
+const secaoPlanilha = $('section[data-tela="planilha"]');
+const telaPlanilhaAberta = () => !secaoPlanilha.hidden;
+const ouvir = window.__TAURI__.event.listen;
+// Sem destaque durante a emissão: soltar ali só avisa.
+ouvir("tauri://drag-enter", () => secaoPlanilha.classList.toggle("soltando", telaPlanilhaAberta() && !planilhaEmAndamento));
+for (const fim of ["tauri://drag-leave", "tauri://drag-drop"]) ouvir(fim, () => secaoPlanilha.classList.remove("soltando"));
+ouvir("arquivo-solto", async ({ payload }) => {
+  if (!telaPlanilhaAberta()) return;
+  if (planilhaEmAndamento || lendo || planilhaLendo) return toast("Espere terminar…", true);
+  if (payload.erro) return toast(payload.erro, true);
+  planilhaLendo = true;
+  try {
+    planilhaArquivo = await chamar("reler_arquivo_escolhido", { id: payload.id });
+  } catch (e) {
+    toast(String(e), true);
+    return;
+  } finally {
+    planilhaLendo = false;
+  }
+  $("#arquivo-planilha").value = planilhaArquivo.nome;
+  textoColado = null;
   await lerPlanilha();
 });
 
