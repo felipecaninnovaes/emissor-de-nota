@@ -27,8 +27,8 @@ pub struct Estado {
     banco: std::sync::RwLock<Option<Banco>>,
     /// Preenchido depois que o operador abre o cofre com a senha mestra.
     pub emissor: RwLock<Option<Emissor<ConectorSefin>>>,
-    /// Arquivos que o operador escolheu no diálogo nesta sessão, para "Ler de novo" abrir o mesmo
-    /// arquivo do disco sem a interface mandar um caminho qualquer.
+    /// Arquivos que o operador escolheu no diálogo ou soltou na janela nesta sessão, para "Ler de
+    /// novo" abrir o mesmo arquivo do disco sem a interface mandar um caminho qualquer.
     pub arquivos_escolhidos: std::sync::Mutex<Vec<PathBuf>>,
 }
 
@@ -120,6 +120,14 @@ fn main() {
                 arquivos_escolhidos: Default::default(),
             });
             Ok(())
+        })
+        // Arrastar arquivo para a janela (spec 0002): o caminho vem do sistema, não da interface.
+        .on_window_event(|janela, evento| {
+            if let tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) = evento
+                && janela.label() == "main"
+            {
+                comandos::dialogo::ao_soltar(janela, paths);
+            }
         })
         .invoke_handler(tauri::generate_handler![
             comandos::cofre::situacao_cofre,

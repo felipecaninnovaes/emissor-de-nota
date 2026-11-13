@@ -135,12 +135,79 @@ pub async fn ler_arquivo_escolhido(
     abrir(id, &caminho).await.map(Some)
 }
 
-/// Lê de novo, do disco, um arquivo já escolhido em `ler_arquivo_escolhido` (o "Ler de novo" da
-/// planilha, depois de o operador corrigir o arquivo). Só aceita arquivos escolhidos no diálogo.
+/// Lê de novo, do disco, um arquivo já escolhido em `ler_arquivo_escolhido` ou solto na janela
+/// (`ao_soltar`): o "Ler de novo" da planilha, depois de o operador corrigir o arquivo. Só aceita
+/// arquivos registrados pelo diálogo ou pelo evento de soltar do sistema.
 #[tauri::command]
 pub async fn reler_arquivo_escolhido(estado: tauri::State<'_, Estado>, id: usize) -> R<ArquivoAberto> {
     let caminho = escolhido(&estado.arquivos_escolhidos, id)?;
     abrir(id, &caminho).await
+}
+
+/// Extensões aceitas ao soltar um arquivo na tela Importar planilha (spec 0002). As mesmas do
+/// `FILTRO_PLANILHA_EMAIL` de `ui/js/componentes.js`, que vale para o diálogo.
+const EXTENSOES_SOLTAR: [&str; 7] = ["xlsx", "xlsm", "xls", "ods", "csv", "eml", "msg"];
+
+/// O arquivo solto, se for um só, existir como arquivo e tiver extensão aceita (sem diferenciar
+/// maiúsculas); senão, o aviso para o operador.
+fn arquivo_solto(caminhos: &[PathBuf]) -> R<PathBuf> {
+    let [caminho] = caminhos else {
+        return Err("Solte um arquivo só.".into());
+    };
+    if !caminho.is_file() {
+        return Err("Solte um arquivo só.".into());
+    }
+    let aceita = caminho
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| EXTENSOES_SOLTAR.contains(&e.to_lowercase().as_str()));
+    if !aceita {
+        let nome = caminho
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        return Err(format!("Tipo de arquivo não aceito: {nome}"));
+    }
+    Ok(caminho.clone())
+}
+
+/// O que a interface recebe no evento `arquivo-solto`: o número do arquivo registrado e o nome,
+/// ou o aviso de recusa. Nunca o caminho nem o conteúdo (que ela lê por `reler_arquivo_escolhido`).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(untagged)]
+enum ArquivoSolto {
+    Registrado { id: usize, nome: String },
+    Recusado { erro: String },
+}
+
+/// Escolhe e registra o arquivo solto, na mesma lista dos escolhidos no diálogo.
+fn registrar_solto(escolhidos: &Mutex<Vec<PathBuf>>, caminhos: &[PathBuf]) -> ArquivoSolto {
+    match arquivo_solto(caminhos) {
+        Ok(caminho) => {
+            let nome = caminho
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            ArquivoSolto::Registrado {
+                id: registrar(escolhidos, caminho),
+                nome,
+            }
+        }
+        Err(erro) => ArquivoSolto::Recusado { erro },
+    }
+}
+
+/// Arquivo solto na janela (evento do sistema, não da interface): registra e avisa a interface,
+/// que decide se a tela aberta o usa (só a Importar planilha, fora da emissão).
+pub fn ao_soltar<Rt: tauri::Runtime>(janela: &tauri::Window<Rt>, caminhos: &[PathBuf]) {
+    use tauri::{Emitter, Manager};
+    let Some(estado) = janela.try_state::<Estado>() else {
+        return;
+    };
+    let solto = registrar_solto(&estado.arquivos_escolhidos, caminhos);
+    if let Err(e) = janela.emit("arquivo-solto", solto) {
+        tracing::warn!("não foi possível avisar a interface do arquivo solto: {e}");
+    }
 }
 
 #[cfg(test)]
@@ -172,6 +239,76 @@ mod testes {
     fn reler_recusa_arquivo_nao_escolhido() {
         let escolhidos = Mutex::default();
         assert!(escolhido(&escolhidos, 0).is_err());
+    }
+
+    /// Pasta temporária própria do teste, com os arquivos pedidos (conteúdo = nome).
+    fn pasta_com(teste: &str, nomes: &[&str]) -> PathBuf {
+        let pasta = std::env::temp_dir().join(format!("emissor-solto-{teste}-{}", std::process::id()));
+        std::fs::create_dir_all(&pasta).unwrap();
+        for nome in nomes {
+            std::fs::write(pasta.join(nome), nome).unwrap();
+        }
+        pasta
+    }
+
+    #[tokio::test]
+    async fn solto_um_arquivo_e_registrado() {
+        let pasta = pasta_com("um", &["pedidos.xlsx", "pedido.eml"]);
+        let escolhidos = Mutex::default();
+        for (esperado, nome) in ["pedidos.xlsx", "pedido.eml"].into_iter().enumerate() {
+            let caminho = pasta.join(nome);
+            let solto = registrar_solto(&escolhidos, std::slice::from_ref(&caminho));
+            assert_eq!(
+                solto,
+                ArquivoSolto::Registrado {
+                    id: esperado,
+                    nome: nome.into()
+                }
+            );
+            assert_eq!(escolhido(&escolhidos, esperado).unwrap(), caminho);
+            let aberto = abrir(esperado, &caminho).await.unwrap();
+            assert_eq!(aberto.bytes, nome.as_bytes());
+        }
+        assert_eq!(
+            serde_json::to_value(registrar_solto(&escolhidos, &[pasta.join("pedidos.xlsx")])).unwrap(),
+            serde_json::json!({ "id": 2, "nome": "pedidos.xlsx" })
+        );
+        // Limpeza do temporário; se falhar, só sobra um arquivo na pasta temporária.
+        let _ = std::fs::remove_dir_all(&pasta);
+    }
+
+    #[test]
+    fn solto_recusa_dois_pasta_e_pdf() {
+        let pasta = pasta_com("recusa", &["a.csv", "b.csv", "nota.pdf"]);
+        let escolhidos = Mutex::default();
+        let casos = [
+            (vec![pasta.join("a.csv"), pasta.join("b.csv")], "Solte um arquivo só."),
+            (vec![pasta.clone()], "Solte um arquivo só."),
+            (vec![], "Solte um arquivo só."),
+            (vec![pasta.join("nota.pdf")], "Tipo de arquivo não aceito: nota.pdf"),
+        ];
+        for (caminhos, aviso) in casos {
+            assert_eq!(
+                registrar_solto(&escolhidos, &caminhos),
+                ArquivoSolto::Recusado { erro: aviso.into() }
+            );
+        }
+        assert!(escolhidos.lock().unwrap().is_empty());
+        assert_eq!(
+            serde_json::to_value(registrar_solto(&escolhidos, &[pasta.join("nota.pdf")])).unwrap(),
+            serde_json::json!({ "erro": "Tipo de arquivo não aceito: nota.pdf" })
+        );
+        // Limpeza do temporário; se falhar, só sobra um arquivo na pasta temporária.
+        let _ = std::fs::remove_dir_all(&pasta);
+    }
+
+    #[test]
+    fn solto_aceita_extensao_maiuscula() {
+        let pasta = pasta_com("maiuscula", &["PEDIDOS.CSV"]);
+        let caminho = pasta.join("PEDIDOS.CSV");
+        assert_eq!(arquivo_solto(std::slice::from_ref(&caminho)).unwrap(), caminho);
+        // Limpeza do temporário; se falhar, só sobra um arquivo na pasta temporária.
+        let _ = std::fs::remove_dir_all(&pasta);
     }
 }
 
