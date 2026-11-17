@@ -72,7 +72,7 @@ export const FORMATOS = {
     },
     valida: (v) => soDigitos(v).length === 8 || "CEP com 8 dígitos.",
   },
-  ibge: exatoDigitos(7, "Código IBGE com 7 dígitos (ex.: 3511102)."),
+  ibge: codigoDeLista(7, "Código IBGE com 7 dígitos (ex.: 3511102): digite o código ou escolha um município na lista."),
   ctn: codigoDeLista(6, "6 dígitos (ex.: 170101): digite o código ou escolha um na lista."),
   nbs: codigoDeLista(9, "NBS com 9 dígitos: digite o código ou escolha um na lista."),
   ctm: exatoDigitos(3, "Código municipal com 3 dígitos."),

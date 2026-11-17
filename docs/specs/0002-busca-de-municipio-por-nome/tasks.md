@@ -23,7 +23,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
   - Teste: `comandos::municipios::testes::busca_pelo_codigo_devolve_fonte_e_itens`
   - Verificar: `just test -p emissor-nfse municipios`
 
-- [ ] **T4** — Interface dos três campos, CHANGELOG e docs
+- [x] **T4** — Interface dos três campos, CHANGELOG e docs
   - Requisitos: R3, R4, R5, R6, R7
   - Arquivos: `crates/app/ui/index.html`, `crates/app/ui/js/formularios.js`, `componentes.js`, `servicos.js`, `consultas.js`, `emitir.js`, `notas.js`, `tomadores.js`, `empresas.js`, `CHANGELOG.md`, `docs/usuario.md`
   - Teste: manual no app (`just run`):

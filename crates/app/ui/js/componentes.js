@@ -1,6 +1,7 @@
-// Componentes: combobox de busca, escolha de tomador (emissão e recorrência) e campo de arquivo.
+// Componentes: combobox de busca, campo de código de tabela embutida (serviço e município), escolha de tomador (emissão e recorrência) e campo de arquivo.
 
-import { $, esc, estado, formatarDocumento, invoke, toast } from "./util.js";
+import { $, esc, estado, formatarDocumento, invoke, soDigitos, toast } from "./util.js";
+import { limparErro } from "./formularios.js";
 
 /**
  * Alterna entre a busca de tomador e o cartão do escolhido (com "Trocar"). `texto` vazio volta para a
@@ -208,4 +209,99 @@ export function ligarEscolhaArquivo(campo, botao, { titulo, filtro, extensoes, c
     ev.preventDefault();
     escolher();
   });
+}
+
+/**
+ * Campo de código com busca numa tabela oficial embutida (Lista de Serviços Nacional, NBS,
+ * municípios...): o operador digita os dígitos ou parte do nome e escolhe na lista; a descrição
+ * oficial do código aparece abaixo do campo. Devolve a função que atualiza essa descrição (usada
+ * quando o código é posto no campo sem digitação, como ao abrir o diálogo).
+ * `detalhar(item)` troca o texto da descrição, `ajudaDe(codigo, item)` o texto inteiro abaixo do
+ * campo e `opcao(item)` o HTML de cada opção da lista; `aoEscolher(item)` roda ao escolher na lista
+ * ou ao digitar um código da tabela (o diálogo ao abrir não dispara: o que está gravado não é alterado).
+ */
+export function ligarCampoDeCodigo({
+  campo,
+  caixa,
+  ajuda,
+  digitos,
+  comando,
+  nomeLista,
+  pontuar,
+  rotulo,
+  ajudaPadrao,
+  detalhar = (i) => i.descricao,
+  ajudaDe = (codigo, i) => `${pontuar(codigo)} · ${detalhar(i)}`,
+  opcao = (i) => `${esc(i.descricao)}<small>${pontuar(i.codigo)}${i.grupo ? ` · ${esc(i.grupo)}` : ""}</small>`,
+  vazio = `Nenhum código da ${nomeLista} encontrado.`,
+  contagem = (n) => `${n} código(s) encontrado(s).`,
+  aoEscolher: aoEscolherItem,
+}) {
+  async function descrever(aoDigitar = false) {
+    const codigo = soDigitos(campo.value);
+    if (codigo.length !== digitos) {
+      ajuda.textContent = ajudaPadrao;
+      return;
+    }
+    try {
+      const { fonte, itens } = await invoke(comando, { termo: codigo });
+      if (soDigitos(campo.value) !== codigo) return; // o usuário já mudou o código
+      if (aoDigitar && itens.length) aoEscolherItem?.(itens[0]);
+      ajuda.textContent = itens.length
+        ? ajudaDe(codigo, itens[0])
+        : `O código ${codigo} não está na ${nomeLista} embutida (${fonte}); confira antes de emitir.`;
+    } catch (e) {
+      toast(String(e), true);
+    }
+  }
+
+  campo.addEventListener("input", () => descrever(true));
+  ligarCombobox(campo, caixa, {
+    rotulo,
+    vazio,
+    contagem,
+    buscar: async (termo) => (await invoke(comando, { termo })).itens,
+    opcao,
+    aoEscolher(i) {
+      campo.value = i.codigo;
+      caixa.hidden = true;
+      // o código escolhido é válido: tira a marca de erro, se havia
+      if (campo.getAttribute("aria-invalid") === "true") limparErro(campo);
+      aoEscolherItem?.(i);
+      descrever();
+    },
+  });
+  return descrever;
+}
+
+/** Função que mostra o nome do município abaixo de cada campo ligado por `ligarCampoMunicipio`. */
+const descricoesMunicipio = new Map();
+
+/**
+ * Campo de município (local da prestação, tomador, empresa): aceita o código IBGE ou busca pelo
+ * nome ("ribeirao preto sp") na tabela embutida, e mostra "Nome/UF" do código em `ajuda`. O valor
+ * do campo continua sendo o código; a caixa da lista é a `.resultados` ao lado do campo.
+ */
+export function ligarCampoMunicipio(campo, ajuda) {
+  const descrever = ligarCampoDeCodigo({
+    campo,
+    caixa: campo.parentElement.querySelector(".resultados"),
+    ajuda,
+    digitos: 7,
+    comando: "buscar_municipios",
+    nomeLista: "tabela de municípios",
+    pontuar: (c) => c,
+    rotulo: "Municípios",
+    ajudaPadrao: "",
+    ajudaDe: (_, m) => `${m.nome}/${m.uf}`,
+    opcao: (m) => `${esc(m.nome)} · ${esc(m.uf)}<small>${esc(m.codigo)}</small>`,
+    vazio: "Nenhum município encontrado.",
+    contagem: (n) => `${n} município(s) encontrado(s).`,
+  });
+  descricoesMunicipio.set(campo, descrever);
+}
+
+/** Atualiza o nome do município abaixo do campo depois de pôr um código nele sem digitação. */
+export function descreverMunicipio(campo) {
+  descricoesMunicipio.get(campo)?.();
 }

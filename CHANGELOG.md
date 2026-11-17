@@ -4,6 +4,8 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 
 ## Não publicado
 
+- Emitir, Tomadores e Empresas: o município (local da prestação, município do tomador e município emissor) pode ser buscado pelo nome, sem saber o código IBGE nem o CEP: digite parte do nome, com ou sem acento e com a UF no fim se quiser ("ribeirao preto sp"), e escolha na lista. O nome e a UF do município aparecem abaixo do campo, venha o código da busca, do CEP ou do cadastro; código fora da tabela de municípios embutida (DTB 2025 do IBGE) só gera aviso. A nota continua levando só o código IBGE.
+
 ## 1.19.0
 
 Pedidos de nota por e-mail (.eml, .msg ou texto colado) e arrastar o arquivo na tela Importar planilha, chave PIX no cadastro da empresa e emissão mais protegida contra nota repetida e resposta incerta da Sefin. Muda o esquema do banco: migração 0010 (coluna `chave_pix` na tabela `empresa`) e coluna `chave_recebida` na tabela `dps`, criada ao abrir o banco.

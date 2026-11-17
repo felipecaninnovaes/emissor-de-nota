@@ -16,7 +16,7 @@ import {
   vazio,
 } from "./util.js";
 import { ErroCampo, FORMATOS, atualizarContador, limparErros, mostrarErros, validarCampos } from "./formularios.js";
-import { anunciar, ligarBuscaTomador, mostrarTomadorEscolhido } from "./componentes.js";
+import { anunciar, descreverMunicipio, ligarBuscaTomador, ligarCampoMunicipio, mostrarTomadorEscolhido } from "./componentes.js";
 import { enviarEmailNota } from "./notas.js";
 import { editarRecorrencia } from "./recorrentes.js";
 import { editarTomador } from "./tomadores.js";
@@ -192,6 +192,8 @@ function limparLocalPrestacao() {
   $("#local-cidade").textContent = "";
 }
 
+ligarCampoMunicipio($("#local-prestacao"), $("#local-cidade"));
+
 /** Código IBGE digitado, ou `null` se vazio ou igual ao município da empresa. */
 function localPrestacao() {
   const codigo = soDigitos($("#local-prestacao").value);
@@ -231,7 +233,7 @@ $("#local-do-tomador").addEventListener("click", () => {
   const endereco = estado.tomador?.tomador.endereco;
   if (!endereco) return;
   $("#local-prestacao").value = endereco.municipio;
-  $("#local-cidade").textContent = "";
+  descreverMunicipio($("#local-prestacao"));
   const cep = $("#local-cep");
   cep.value = FORMATOS.cep.mascara(endereco.cep);
   cep.dispatchEvent(new Event("change", { bubbles: true }));
