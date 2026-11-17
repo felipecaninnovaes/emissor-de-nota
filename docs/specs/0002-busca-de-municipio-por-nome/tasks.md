@@ -17,7 +17,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
   - Teste: `municipios::testes::*` — CA3 ("ribeirao preto" → 3543402 primeiro), CA4 (com e sem acento/maiúscula), CA5 (código), CA6 ("bom jesus" com várias UFs; "bom jesus rs" com o do RS primeiro), CA7 (vazio e sem correspondência), "sao paulo" → São Paulo/SP primeiro, "embu guacu", termo de uma letra respeita o limite
   - Verificar: `just test -p nfse-core municipios`
 
-- [ ] **T3** — Comando `buscar_municipios`
+- [x] **T3** — Comando `buscar_municipios`
   - Requisitos: R2, R3
   - Arquivos: `crates/app/src/comandos/municipios.rs`, `crates/app/src/comandos/mod.rs`, `crates/app/src/main.rs`
   - Teste: `comandos::municipios::testes::busca_pelo_codigo_devolve_fonte_e_itens`
