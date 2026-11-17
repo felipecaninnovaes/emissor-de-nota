@@ -6,6 +6,7 @@ pub mod dps;
 pub mod ind_operacao;
 pub mod lista_servicos;
 pub mod modelo;
+pub mod municipios;
 pub mod nbs;
 pub mod pix;
 pub mod tabela_codigos;

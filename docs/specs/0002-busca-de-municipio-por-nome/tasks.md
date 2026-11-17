@@ -4,7 +4,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
 
 - [ ] ~~**T0** — `uf_do_ibge` desce para `nfse_core::municipios`~~ — retirada: o `nfse-pdf` continua independente do `nfse-core`; `municipios` tem a sua própria `uf_do_ibge` (T1).
 
-- [ ] **T1** — Tabela de municípios embutida e gerador
+- [x] **T1** — Tabela de municípios embutida e gerador
   - Requisitos: R1
   - Arquivos: `crates/nfse-core/examples/gerar_municipios.rs`, `crates/nfse-core/dados/municipios.tsv`, `crates/nfse-core/src/municipios.rs`, `docs/desenvolvimento.md`
   - Gerar: `cargo run -p nfse-core --example gerar_municipios -- D:\USUARIO\Downloads\RELATORIO_DTB_BRASIL_2025_MUNICIPIOS.xls`
