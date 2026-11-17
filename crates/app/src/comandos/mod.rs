@@ -13,6 +13,7 @@ pub(crate) mod dialogo;
 pub(crate) mod email;
 pub(crate) mod emissao;
 pub(crate) mod empresas;
+pub(crate) mod municipios;
 pub(crate) mod notas;
 pub(crate) mod nuvem;
 pub(crate) mod planilha;
