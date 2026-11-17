@@ -118,6 +118,19 @@ cargo test -p nfse-core -- class_trib ind_operacao
 
 A primeira linha de cada TSV guarda a origem e a data da geração. Os geradores falham se o portal mudar de formato, se um código não tiver 6 dígitos, se o CST de um código diferir do grupo dele ou se houver código repetido (e, no `cIndOp`, se uma linha tiver número de colunas diferente ou vigência encerrada).
 
+## Municípios do IBGE
+
+A tabela de municípios (código IBGE de 7 dígitos, nome e UF) fica embutida em `crates/nfse-core/dados/municipios.tsv` (módulo `nfse_core::municipios`) e vem da planilha de municípios da [DTB](https://www.ibge.gov.br/geociencias/organizacao-do-territorio/estrutura-territorial/23701-divisao-territorial-brasileira.html) (Divisão Territorial Brasileira) do IBGE, `RELATORIO_DTB_BRASIL_AAAA_MUNICIPIOS.xls`. A UF sai dos dois primeiros dígitos do código (`municipios::uf_do_ibge`; o `nfse-pdf` tem uma cópia, porque não depende do `nfse-core`). A nota continua recebendo só o código: a tabela serve para buscar o município pelo nome e mostrar o nome do código digitado.
+
+Quando sair uma DTB nova, baixe a planilha **sem renomear** (o nome indica a versão) e regenere:
+
+```bash
+cargo run -p nfse-core --example gerar_municipios -- caminho/RELATORIO_DTB_BRASIL_AAAA_MUNICIPIOS.xls
+cargo test -p nfse-core -- municipios
+```
+
+O gerador acha o cabeçalho pelas colunas `Código Município Completo` e `Nome_Município` e falha se elas sumirem, se um código não tiver 7 dígitos, se a UF for desconhecida ou se houver código repetido. Depois de gerar, ajuste `TOTAL_DA_DTB` nos testes de `municipios` para o total que o gerador imprimiu. Código fora da tabela só gera aviso: a Sefin é quem decide.
+
 ## CLI `nfse-poc`
 
 Diagnóstico direto na Sefin, sem o app. Subcomandos: `cert-info`, `gerar-dps`, `assinar`, `danfse`, `verificar`, `cancelar`, `consultar-dps`, `consultar-eventos`, `emitir`. A senha do certificado vem da variável `NFSE_PFX_SENHA` ou é pedida no terminal.
