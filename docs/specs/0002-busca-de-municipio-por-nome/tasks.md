@@ -11,7 +11,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
   - Teste: `municipios::testes::sao_paulo_pelo_codigo_e_fonte` (CA1), `municipios::testes::tabela_embutida_e_valida` (CA2: 7 dígitos, ordem sem repetição, total igual ao impresso pelo gerador)
   - Verificar: `just test -p nfse-core municipios`
 
-- [ ] **T2** — Busca por nome, nome + UF e código
+- [x] **T2** — Busca por nome, nome + UF e código
   - Requisitos: R2, R7
   - Arquivos: `crates/nfse-core/src/municipios.rs`
   - Teste: `municipios::testes::*` — CA3 ("ribeirao preto" → 3543402 primeiro), CA4 (com e sem acento/maiúscula), CA5 (código), CA6 ("bom jesus" com várias UFs; "bom jesus rs" com o do RS primeiro), CA7 (vazio e sem correspondência), "sao paulo" → São Paulo/SP primeiro, "embu guacu", termo de uma letra respeita o limite
