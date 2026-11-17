@@ -167,12 +167,15 @@
               <button type="button" class="botao pequeno" id="local-do-tomador" hidden>Usar o endereço do tomador</button>
             </div>
             <div class="c3">
-              <label for="local-prestacao">Município da prestação (IBGE)</label>
-              <input id="local-prestacao" maxlength="7" data-formato="ibge" inputmode="numeric" autocomplete="off">
+              <label for="local-prestacao">Município da prestação</label>
+              <div class="busca">
+                <input id="local-prestacao" data-formato="ibge" autocomplete="off" placeholder="Nome ou código IBGE" aria-describedby="local-cidade">
+                <div class="resultados" id="local-prestacao-resultados" hidden></div>
+              </div>
               <p class="ajuda" id="local-cidade" aria-live="polite"></p>
             </div>
             <div class="c6">
-              <p class="ajuda">Só para serviço prestado fora do município da empresa: informe o CEP do local ou o código IBGE do município. Em branco, vale o município da empresa.</p>
+              <p class="ajuda">Só para serviço prestado fora do município da empresa: informe o CEP do local ou busque o município pelo nome ou pelo código IBGE. Em branco, vale o município da empresa.</p>
             </div>
             <div class="c12">
               <label for="info-compl">Informações complementares</label>
@@ -617,8 +620,12 @@
         <div class="grade">
           <div class="c3"><label for="tomador-cep">CEP</label><input id="tomador-cep" name="cep" maxlength="9" data-formato="cep" inputmode="numeric">
             <button type="button" class="botao pequeno" data-buscar-cep="tomador-cep">Não sei o CEP</button></div>
-          <div class="c3"><label for="tomador-municipio">Município (IBGE)</label><input id="tomador-municipio" name="municipio" maxlength="7" placeholder="3511102" data-formato="ibge" inputmode="numeric">
-            <p class="ajuda" data-municipio-nome></p></div>
+          <div class="c3"><label for="tomador-municipio">Município</label>
+            <div class="busca">
+              <input id="tomador-municipio" name="municipio" placeholder="Nome ou código IBGE" data-formato="ibge" autocomplete="off" aria-describedby="tomador-municipio-nome">
+              <div class="resultados" id="tomador-municipio-resultados" hidden></div>
+            </div>
+            <p class="ajuda" id="tomador-municipio-nome" aria-live="polite"></p></div>
           <div class="c6"><label for="tomador-logradouro">Logradouro</label><input id="tomador-logradouro" name="logradouro"></div>
           <div class="c2"><label for="tomador-numero">Número</label><input id="tomador-numero" name="numero"></div>
           <div class="c4"><label for="tomador-complemento">Complemento</label><input id="tomador-complemento" name="complemento"></div>
@@ -943,7 +950,12 @@
         <div class="c7"><label for="empresa-nome">Razão social</label><input id="empresa-nome" name="nome" required></div>
         <div class="c4"><label for="empresa-im">Inscrição municipal</label><input id="empresa-im" name="im" required maxlength="15">
           <label class="linha-check"><input type="checkbox" id="empresa-sem-im" name="sem_im"> Sem inscrição municipal (não vai na nota)</label></div>
-        <div class="c4"><label for="empresa-municipio">Município emissor (IBGE)</label><input id="empresa-municipio" name="municipio" value="3511102" maxlength="7" required data-formato="ibge" inputmode="numeric"></div>
+        <div class="c4"><label for="empresa-municipio">Município emissor</label>
+          <div class="busca">
+            <input id="empresa-municipio" name="municipio" value="3511102" required placeholder="Nome ou código IBGE" data-formato="ibge" autocomplete="off" aria-describedby="empresa-municipio-nome">
+            <div class="resultados" id="empresa-municipio-resultados" hidden></div>
+          </div>
+          <p class="ajuda" id="empresa-municipio-nome" aria-live="polite"></p></div>
         <div class="c4"><label for="empresa-serie">Série da DPS</label><input id="empresa-serie" name="serie" value="1" required maxlength="5" data-formato="serie" inputmode="numeric">
           <p class="ajuda">1 a 49999; 70000 é do Emissor Web.</p></div>
       </div>

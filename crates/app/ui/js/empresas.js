@@ -17,7 +17,7 @@ import {
 import { acoesLinha, linhaVazia, selecaoEmTabela } from "./tabela.js";
 import { ErroCampo, abrirDialogo, confirmar, lerForm, mostrarErros, preencherForm } from "./formularios.js";
 import { carregarEmpresas } from "./navegacao.js";
-import { ligarEscolhaArquivo } from "./componentes.js";
+import { descreverMunicipio, ligarCampoMunicipio, ligarEscolhaArquivo } from "./componentes.js";
 
 let pfxEscolhido = null; // bytes do certificado escolhido no diálogo
 ligarEscolhaArquivo(
@@ -104,6 +104,8 @@ function semInscricao(im) {
   return !/[1-9A-Za-z]/.test(im ?? "");
 }
 
+ligarCampoMunicipio($("#empresa-municipio"), $("#empresa-municipio-nome"));
+
 /** Cadastro (`empresa` nulo) ou edição de empresa no mesmo diálogo. */
 export function editarEmpresa(empresa) {
   const dlg = $("#dlg-empresa");
@@ -139,6 +141,7 @@ export function editarEmpresa(empresa) {
     });
   }
   sincronizarIm();
+  descreverMunicipio(form.elements.municipio);
   abrirDialogo(dlg, $("#erro-empresa"), async (d) => {
     if (d.simples === "me_epp" && !d.apuracao) throw new ErroCampo("apuracao", "Para ME/EPP optante, escolha a forma de apuração.");
     const regime = { simples: d.simples, regime_especial: Number(d.regime_especial) };

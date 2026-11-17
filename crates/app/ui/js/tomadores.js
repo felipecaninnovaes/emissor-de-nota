@@ -3,7 +3,7 @@
 import { $, $$, chamar, esc, estado, formatarDocumento, invoke, soDigitos, toast, vazio } from "./util.js";
 import { acoesLinha, linhaVazia, selecaoEmTabela } from "./tabela.js";
 import { ErroCampo, abrirDialogo, preencherForm } from "./formularios.js";
-import { FILTRO_PLANILHA, ligarEscolhaArquivo, vincularTomador } from "./componentes.js";
+import { FILTRO_PLANILHA, descreverMunicipio, ligarCampoMunicipio, ligarEscolhaArquivo, vincularTomador } from "./componentes.js";
 
 let tomadoresCarregados = [];
 
@@ -97,13 +97,14 @@ $("#lista-tomadores").addEventListener("click", (ev) => {
 
 $("#novo-tomador").addEventListener("click", () => editarTomador(null, () => carregarTomadores()));
 
+ligarCampoMunicipio($("#tomador-municipio"), $("#tomador-municipio-nome"));
+
 /** Abre o diálogo de tomador; `depois(tomadorDto)` recebe o tomador gravado. */
 export function editarTomador(dto, depois, { empresaId = estado.empresa?.id, documento = null } = {}) {
   if (!empresaId) return toast("Escolha a empresa.", true);
   const dlg = $("#dlg-tomador");
   const form = $("form", dlg);
   form.reset();
-  $("[data-municipio-nome]", dlg).textContent = "";
   $("[data-aviso-cnpj]", dlg).hidden = true;
   if (dto) {
     const t = dto.tomador;
@@ -127,6 +128,7 @@ export function editarTomador(dto, depois, { empresaId = estado.empresa?.id, doc
       tipo_tomador: dto.tipo,
     });
   }
+  descreverMunicipio(form.elements.municipio);
   abrirDialogo(dlg, $("#erro-tomador"), async (d) => {
     const documento = d.tipo === "cpf" ? soDigitos(d.documento) : d.documento.replace(/[^0-9A-Za-z]/g, "").toUpperCase();
     const tomador = {

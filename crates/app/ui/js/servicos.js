@@ -16,7 +16,7 @@ import {
 } from "./util.js";
 import { acoesLinha, linhaVazia, selecaoEmTabela } from "./tabela.js";
 import { ErroCampo, abrirDialogo, confirmar, limparErro, preencherForm } from "./formularios.js";
-import { FILTRO_PLANILHA, ligarCombobox, ligarEscolhaArquivo } from "./componentes.js";
+import { FILTRO_PLANILHA, ligarCampoDeCodigo, ligarEscolhaArquivo } from "./componentes.js";
 import { renderizarServicosEmitir } from "./emitir.js";
 
 const NOME_RETENCAO = { irrf: "IRRF", csll: "CSLL", cp: "INSS", pis: "PIS", cofins: "COFINS" };
@@ -76,63 +76,6 @@ $("#novo-servico").addEventListener("click", () => editarServico(null));
 
 const pontuarCtn = (c) => `${c.slice(0, 2)}.${c.slice(2, 4)}.${c.slice(4)}`;
 const pontuarNbs = (c) => `${c.slice(0, 1)}.${c.slice(1, 5)}.${c.slice(5, 7)}.${c.slice(7)}`;
-
-/**
- * Campo de código com busca na tabela oficial embutida (Lista de Serviços Nacional ou NBS): o
- * operador digita os dígitos ou parte do nome e escolhe na lista; a descrição oficial do código
- * aparece abaixo do campo. Devolve a função que atualiza essa descrição (usada ao abrir o diálogo).
- * `detalhar(item)` troca o texto da descrição e `aoEscolher(item)` roda ao escolher na lista ou ao
- * digitar um código da tabela (o diálogo ao abrir não dispara: o que está gravado não é alterado).
- */
-function ligarCampoDeCodigo({
-  campo,
-  caixa,
-  ajuda,
-  digitos,
-  comando,
-  nomeLista,
-  pontuar,
-  rotulo,
-  ajudaPadrao,
-  detalhar = (i) => i.descricao,
-  aoEscolher: aoEscolherItem,
-}) {
-  async function descrever(aoDigitar = false) {
-    const codigo = soDigitos(campo.value);
-    if (codigo.length !== digitos) {
-      ajuda.textContent = ajudaPadrao;
-      return;
-    }
-    try {
-      const { fonte, itens } = await invoke(comando, { termo: codigo });
-      if (soDigitos(campo.value) !== codigo) return; // o usuário já mudou o código
-      if (aoDigitar && itens.length) aoEscolherItem?.(itens[0]);
-      ajuda.textContent = itens.length
-        ? `${pontuar(codigo)} · ${detalhar(itens[0])}`
-        : `O código ${codigo} não está na ${nomeLista} embutida (${fonte}); confira antes de emitir.`;
-    } catch (e) {
-      toast(String(e), true);
-    }
-  }
-
-  campo.addEventListener("input", () => descrever(true));
-  ligarCombobox(campo, caixa, {
-    rotulo,
-    vazio: `Nenhum código da ${nomeLista} encontrado.`,
-    contagem: (n) => `${n} código(s) encontrado(s).`,
-    buscar: async (termo) => (await invoke(comando, { termo })).itens,
-    opcao: (i) => `${esc(i.descricao)}<small>${pontuar(i.codigo)}${i.grupo ? ` · ${esc(i.grupo)}` : ""}</small>`,
-    aoEscolher(i) {
-      campo.value = i.codigo;
-      caixa.hidden = true;
-      // o código escolhido é válido: tira a marca de erro, se havia
-      if (campo.getAttribute("aria-invalid") === "true") limparErro(campo);
-      aoEscolherItem?.(i);
-      descrever();
-    },
-  });
-  return descrever;
-}
 
 const descreverCtn = ligarCampoDeCodigo({
   campo: $("#servico-codigo-trib-nac"),

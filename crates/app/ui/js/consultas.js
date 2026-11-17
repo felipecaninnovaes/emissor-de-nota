@@ -1,6 +1,7 @@
 // Consulta de CNPJ e de CEP para preencher cadastros.
 
 import { $, chamar, soDigitos, toast, vazio } from "./util.js";
+import { descreverMunicipio } from "./componentes.js";
 
 /**
  * Liga o botão "Consultar" (e a saída do campo, quando o nome ainda está vazio) à consulta
@@ -61,7 +62,7 @@ ligarConsultaCnpj(
       ["telefone", d.telefone],
       ["email", d.email],
     ]);
-    $("[data-municipio-nome]", form).textContent = d.municipio_nome ? `${d.municipio_nome}/${d.uf ?? ""}` : "";
+    descreverMunicipio(form.elements.municipio);
   },
 );
 
@@ -109,17 +110,11 @@ for (const p of ["obra", "rec-obra"]) {
   );
 }
 
-// Local da prestação (emissão): o CEP preenche o município.
-ligarConsultaCep(
-  $("#local-cep"),
-  (d) => {
-    if (d.municipio) $("#local-prestacao").value = d.municipio;
-  },
-  $("#local-cidade"),
-);
-
-$("#local-prestacao").addEventListener("input", () => {
-  $("#local-cidade").textContent = "";
+// Local da prestação (emissão): o CEP preenche o município, cujo nome aparece abaixo do campo dele.
+ligarConsultaCep($("#local-cep"), (d) => {
+  if (!d.municipio) return;
+  $("#local-prestacao").value = d.municipio;
+  descreverMunicipio($("#local-prestacao"));
 });
 
 ligarConsultaCep(
@@ -132,14 +127,10 @@ ligarConsultaCep(
       ["complemento", d.complemento],
       ["bairro", d.bairro],
     ]);
+    descreverMunicipio(form.elements.municipio);
     form.elements[d.logradouro ? "numero" : "logradouro"].focus();
   },
-  $("#dlg-tomador [data-municipio-nome]"),
 );
-
-$("#form-tomador").elements.municipio.addEventListener("input", () => {
-  $("#dlg-tomador [data-municipio-nome]").textContent = "";
-});
 
 ligarConsultaCnpj(
   $("#dlg-empresa"),
@@ -152,10 +143,10 @@ ligarConsultaCnpj(
       ["telefone", d.telefone],
       ["email", d.email],
     ]);
+    descreverMunicipio(form.elements.municipio);
     if (d.mei) form.elements.simples.value = "mei";
     else if (d.optante_simples === true) form.elements.simples.value = "me_epp";
     else if (d.optante_simples === false) form.elements.simples.value = "nao_optante";
-    if (d.municipio_nome) toast(`Município: ${d.municipio_nome}/${d.uf ?? ""}`);
   },
 );
 
