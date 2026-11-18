@@ -45,6 +45,13 @@ ignore = [
     { id = "RUSTSEC-2026-0368", reason = "zip do updater; pacote assinado antes de extrair" },
     { id = "RUSTSEC-2026-0369", reason = "zip do updater; pacote assinado antes de extrair" },
     { id = "RUSTSEC-2026-0429", reason = "zip do updater; pacote assinado antes de extrair" },
+    # Estes dois não chegam a ser usados: o updater 2.12 traz o zip sem `aes-crypto`
+    # (`default-features = false`) e só usa `ZipArchive::extract`, não o `ZipStreamReader`.
+    { id = "RUSTSEC-2026-0545", reason = "zip do updater sem aes-crypto; nada cifrado é aberto" },
+    { id = "RUSTSEC-2026-0548", reason = "zip do updater usa ZipArchive, não ZipStreamReader" },
+    # chrono sem manutenção, sem versão corrigida; é dependência direta de quase todos os crates
+    # (e do sqlx, do calamine e do servidor). Não há falha conhecida; a troca pelo jiff fica para depois.
+    { id = "RUSTSEC-2026-0543", reason = "chrono sem manutenção, sem falha conhecida; troca pelo jiff pendente" },
     # ttf-parser sem manutenção e sem substituto direto (o krilla ainda usa o mesmo crate). O
     # nfse-pdf só lê as fontes do sistema operacional; a troca pelo skrifa fica para depois.
     { id = "RUSTSEC-2026-0192", reason = "só lê fontes do sistema; troca pelo skrifa pendente" },
