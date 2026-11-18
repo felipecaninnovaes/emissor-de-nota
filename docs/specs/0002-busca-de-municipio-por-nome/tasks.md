@@ -36,7 +36,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
     - R4: CEP, consulta de CNPJ e "Usar o endereço do tomador" atualizam o nome abaixo
   - Verificar: `just check`
 
-- [ ] **T5** — Fechamento da spec
+- [x] **T5** — Fechamento da spec
   - Requisitos: —
   - Arquivos: `docs/specs/0002-busca-de-municipio-por-nome/spec.md` (status `implementada`, questão em aberto fechada com a DTB 2025, histórico), `docs/arquitetura.md` só se couber
   - Verificar: `just check`
@@ -44,3 +44,4 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
 ## Notas de desvio
 <!-- T#: o que mudou em relação ao plano e por quê -->
 - T0: retirada antes de começar; mover a função criaria a dependência `nfse-pdf` → `nfse-core`, e o PDF é independente por desenho.
+- Revisão: busca só com pontuação ("-", ".") devolve lista vazia; a revisão da emissão não repete o aviso de código fora da tabela; o CEP do local e do tomador volta a mostrar "Consultando o CEP..." e, depois, o nome do código que ficou no campo de município.

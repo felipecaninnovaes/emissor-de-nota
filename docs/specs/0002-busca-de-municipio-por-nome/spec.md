@@ -1,6 +1,6 @@
 # 0002 — Busca de município por nome
 
-- **Status:** aprovada <!-- rascunho | aprovada | implementada | abandonada -->
+- **Status:** implementada <!-- rascunho | aprovada | implementada | abandonada -->
 - **Autor:** Felipe CN
 - **Data:** 2026-11-17
 - **ADRs relacionados:** [0001](../../decisoes/0001-interface-sem-bundler.md) (interface sem bundler)
@@ -72,9 +72,10 @@ Cada critério vira pelo menos um teste.
 - Interface sem bundler e sem estilo em linha; reaproveitar a caixa de busca existente (`ligarCombobox`).
 
 ## Questões em aberto
-- [ ] Qual versão da DTB do IBGE embutir (a mais recente publicada na data da implementação).
+- [x] Qual versão da DTB do IBGE embutir: DTB 2025 (`RELATORIO_DTB_BRASIL_2025_MUNICIPIOS.xls`, 5.571 municípios).
 
 ## Histórico de mudanças
 | Data | Mudança | Motivo |
 |---|---|---|
 | 2026-11-17 | Criação | Operador não consegue informar o local da prestação sabendo só a cidade |
+| 2026-11-17 | Status `implementada`; questão em aberto fechada com a DTB 2025 | Implementação concluída (tarefas T1 a T4) |
