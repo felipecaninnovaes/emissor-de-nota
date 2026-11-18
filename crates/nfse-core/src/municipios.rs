@@ -80,7 +80,8 @@ pub fn por_codigo(codigo: &str) -> Option<&'static Municipio> {
 pub fn buscar(termo: &str, limite: usize) -> Vec<&'static Municipio> {
     let tabela = tabela();
     let termo = termo.trim();
-    if !termo.is_empty()
+    // só pontuação ("-", ".") não é código: cai no texto, que fica vazio
+    if termo.chars().any(|c| c.is_ascii_digit())
         && termo
             .chars()
             .all(|c| c.is_ascii_digit() || c == '.' || c == '-' || c == ' ')
@@ -234,6 +235,10 @@ mod testes {
         assert!(buscar("   ", 30).is_empty());
         assert!(buscar("xyzwq", 30).is_empty());
         assert!(buscar("-'", 30).is_empty());
+        // pontuação de código sem nenhum dígito não lista a tabela inteira
+        for termo in ["-", ".", " - ", "..-"] {
+            assert!(buscar(termo, 30).is_empty(), "{termo:?}");
+        }
         assert_eq!(buscar("a", 30).len(), 30);
     }
 

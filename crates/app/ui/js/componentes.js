@@ -241,6 +241,7 @@ export function ligarCampoDeCodigo({
     const codigo = soDigitos(campo.value);
     if (codigo.length !== digitos) {
       ajuda.textContent = ajudaPadrao;
+      delete ajuda.dataset.foraDaTabela;
       return;
     }
     try {
@@ -250,6 +251,9 @@ export function ligarCampoDeCodigo({
       ajuda.textContent = itens.length
         ? ajudaDe(codigo, itens[0])
         : `O código ${codigo} não está na ${nomeLista} embutida (${fonte}); confira antes de emitir.`;
+      // quem lê a ajuda como descrição (a revisão da emissão) sabe que ela é um aviso
+      if (itens.length) delete ajuda.dataset.foraDaTabela;
+      else ajuda.dataset.foraDaTabela = "";
     } catch (e) {
       toast(String(e), true);
     }

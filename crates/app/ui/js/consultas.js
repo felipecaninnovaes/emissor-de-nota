@@ -70,27 +70,36 @@ ligarConsultaCnpj(
 
 /**
  * Ao sair do campo de CEP com 8 dígitos, consulta o CEP e chama `preencher(dados)`.
- * `aviso` (opcional) mostra a cidade encontrada ou "consultando...".
+ * `aviso` (opcional) mostra "consultando..." e depois a cidade encontrada. Com `municipio` (o campo
+ * de município ligado por `ligarCampoMunicipio`, cuja ajuda é o `aviso`), a cidade mostrada depois
+ * da consulta, com ou sem erro, é a do código que ficou no campo de município.
  */
-function ligarConsultaCep(campo, preencher, aviso) {
+function ligarConsultaCep(campo, preencher, aviso, municipio) {
+  const terminar = (texto) => {
+    if (municipio) descreverMunicipio(municipio);
+    else if (aviso) aviso.textContent = texto;
+  };
   campo.addEventListener("change", async () => {
     const cep = soDigitos(campo.value);
     if (cep.length !== 8) return;
     if (aviso) aviso.textContent = "Consultando o CEP...";
     try {
       const d = await chamar("consultar_cep", { cep });
-      if (soDigitos(campo.value) !== cep) return; // o operador já trocou o CEP
+      if (soDigitos(campo.value) !== cep) return terminar(""); // o operador já trocou o CEP
       preencher(d);
-      if (aviso) aviso.textContent = d.municipio_nome ? `${d.municipio_nome}/${d.uf ?? ""}` : "";
+      terminar(d.municipio_nome ? `${d.municipio_nome}/${d.uf ?? ""}` : "");
       if (!d.logradouro) toast("CEP geral da cidade: preencha logradouro e bairro.");
     } catch (e) {
-      if (aviso) aviso.textContent = "";
+      terminar("");
       toast(String(e), true);
     }
   });
-  campo.addEventListener("input", () => {
-    if (aviso) aviso.textContent = "";
-  });
+  // o nome abaixo do campo de município é o do código dele, não do CEP: digitar o CEP não o apaga
+  if (!municipio) {
+    campo.addEventListener("input", () => {
+      if (aviso) aviso.textContent = "";
+    });
+  }
 }
 
 for (const p of ["obra", "rec-obra"]) {
@@ -111,11 +120,14 @@ for (const p of ["obra", "rec-obra"]) {
 }
 
 // Local da prestação (emissão): o CEP preenche o município, cujo nome aparece abaixo do campo dele.
-ligarConsultaCep($("#local-cep"), (d) => {
-  if (!d.municipio) return;
-  $("#local-prestacao").value = d.municipio;
-  descreverMunicipio($("#local-prestacao"));
-});
+ligarConsultaCep(
+  $("#local-cep"),
+  (d) => {
+    if (d.municipio) $("#local-prestacao").value = d.municipio;
+  },
+  $("#local-cidade"),
+  $("#local-prestacao"),
+);
 
 ligarConsultaCep(
   $("#form-tomador").elements.cep,
@@ -127,9 +139,10 @@ ligarConsultaCep(
       ["complemento", d.complemento],
       ["bairro", d.bairro],
     ]);
-    descreverMunicipio(form.elements.municipio);
     form.elements[d.logradouro ? "numero" : "logradouro"].focus();
   },
+  $("#tomador-municipio-nome"),
+  $("#form-tomador").elements.municipio,
 );
 
 ligarConsultaCnpj(
