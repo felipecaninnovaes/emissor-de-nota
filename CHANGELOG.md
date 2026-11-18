@@ -1,8 +1,12 @@
 # Changelog
 
-Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0, a 1.2.0, a 1.3.0 e a 1.4.0, em 18/10/2026, a 1.5.0 e a 1.6.0, em 19/10/2026, a 1.7.0 e a 1.7.1, em 20/10/2026, a 1.8.0 e a 1.8.1, em 22/10/2026, a 1.9.0, em 22/10/2026, a 1.10.0, em 23/10/2026, a 1.11.0 e a 1.11.1, em 26/10/2026, a 1.12.0, em 27/10/2026, a 1.13.0 e a 1.14.0, em 28/10/2026, a 1.15.0 e a 1.15.1, em 29/10/2026, a 1.16.0, em 07/11/2026, a 1.17.0 e a 1.17.1, em 08/11/2026, a 1.18.0, em 10/11/2026, e a 1.19.0, em 13/11/2026; a versão vem de `crates/app/Cargo.toml`. A seção **Não publicado** junta o que já está na `main` e ainda não saiu em versão.
+Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0, a 1.2.0, a 1.3.0 e a 1.4.0, em 18/10/2026, a 1.5.0 e a 1.6.0, em 19/10/2026, a 1.7.0 e a 1.7.1, em 20/10/2026, a 1.8.0 e a 1.8.1, em 22/10/2026, a 1.9.0, em 22/10/2026, a 1.10.0, em 23/10/2026, a 1.11.0 e a 1.11.1, em 26/10/2026, a 1.12.0, em 27/10/2026, a 1.13.0 e a 1.14.0, em 28/10/2026, a 1.15.0 e a 1.15.1, em 29/10/2026, a 1.16.0, em 07/11/2026, a 1.17.0 e a 1.17.1, em 08/11/2026, a 1.18.0, em 10/11/2026, a 1.19.0, em 13/11/2026, e a 1.20.0, em 17/11/2026; a versão vem de `crates/app/Cargo.toml`. A seção **Não publicado** junta o que já está na `main` e ainda não saiu em versão.
 
 ## Não publicado
+
+## 1.20.0
+
+Busca do município pelo nome em Emitir, Tomadores e Empresas, com a tabela de municípios do IBGE embutida. Sem nova migração nem mudança no esquema do banco.
 
 - Emitir, Tomadores e Empresas: o município (local da prestação, município do tomador e município emissor) pode ser buscado pelo nome, sem saber o código IBGE nem o CEP: digite parte do nome, com ou sem acento e com a UF no fim se quiser ("ribeirao preto sp"), e escolha na lista. O nome e a UF do município aparecem abaixo do campo, venha o código da busca, do CEP ou do cadastro; código fora da tabela de municípios embutida (DTB 2025 do IBGE) só gera aviso. A nota continua levando só o código IBGE.
 
