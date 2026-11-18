@@ -393,7 +393,9 @@ async function revisar() {
   const tecnicos = [["Série da DPS", previa.serie]];
   if (pedido.obra) linhas.push(["Obra", descreverObra(pedido.obra)]);
   if (pedido.local_prestacao) {
-    const cidade = $("#local-cidade").textContent;
+    // o aviso de código fora da tabela fica junto do campo, não no resumo
+    const ajuda = $("#local-cidade");
+    const cidade = "foraDaTabela" in ajuda.dataset ? "" : ajuda.textContent;
     linhas.push(["Local da prestação", `${pedido.local_prestacao}${cidade ? ` (${cidade})` : ""}`]);
   }
   if (pedido.informacoes_complementares) linhas.push(["Inf. complementares", pedido.informacoes_complementares]);
