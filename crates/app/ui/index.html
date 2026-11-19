@@ -232,13 +232,15 @@
           <div class="barra-acoes">
             <button class="botao" id="conferir-cancelamentos" title="Consulta na Sefin se alguma nota autorizada da lista foi cancelada no portal nacional">Conferir cancelamentos</button>
             <button class="botao" id="abrir-pasta-mes">Abrir pasta</button>
+            <button class="botao perigo" id="notas-cancelar-lote" hidden>Cancelar selecionadas</button>
           </div>
         </div>
         <div class="cartao tabela">
           <div class="rolagem">
           <table>
             <caption class="sr">Notas emitidas da empresa selecionada</caption>
-            <thead><tr><th scope="col" class="w-detalhe"><span class="sr">Detalhes</span></th><th scope="col" class="w-nfse">NFS-e</th><th scope="col" class="w-dps sec-2">DPS</th><th scope="col">Tomador</th><th scope="col" class="sec-1">Descrição</th>
+            <thead><tr><th scope="col" class="w-check"><input type="checkbox" id="notas-todas" title="Marcar todas as autorizadas" aria-label="Marcar todas as autorizadas"></th>
+              <th scope="col" class="w-detalhe"><span class="sr">Detalhes</span></th><th scope="col" class="w-nfse">NFS-e</th><th scope="col" class="w-dps sec-2">DPS</th><th scope="col">Tomador</th><th scope="col" class="sec-1">Descrição</th>
               <th scope="col" class="w-valor num">Valor</th><th scope="col" class="w-situacao">Situação</th><th scope="col" class="w-acoes mais-larga"><span class="sr">Ações</span></th></tr></thead>
             <tbody id="lista-notas"></tbody>
             <tfoot id="rodape-notas"></tfoot>
@@ -565,6 +567,10 @@
                 exigem uma "senha de app" em vez da senha normal da conta.</p></div>
             <div class="c12"><label class="linha-check"><input type="checkbox" name="enviar_ao_emitir">
               Enviar automaticamente depois de cada emissão autorizada (também no lote e na planilha)</label></div>
+            <div class="c12"><label for="email-assunto-cancelamento">Assunto da nota cancelada</label><input id="email-assunto-cancelamento" name="assunto_cancelamento"></div>
+            <div class="c12"><label for="email-corpo-cancelamento">Mensagem da nota cancelada</label><textarea id="email-corpo-cancelamento" name="corpo_cancelamento" rows="7"></textarea>
+              <p class="ajuda">Vai no cancelamento com "Avisar o tomador" e no reenvio de nota cancelada. Aceita as mesmas variáveis e também
+                <code>{motivo}</code> e <code>{justificativa}</code> do cancelamento.</p></div>
           </form>
           <div class="acoes entre">
             <div class="com-botao teste-email"><input id="email-teste" type="email" placeholder="enviar teste para..." required data-formato="email" aria-label="Enviar teste para">
@@ -1140,11 +1146,56 @@
         <div class="c12"><label for="cancelar-motivo">Motivo</label><select id="cancelar-motivo" name="motivo">
           <option value="erro_na_emissao">Erro na emissão</option><option value="servico_nao_prestado">Serviço não prestado</option><option value="outros">Outros</option></select></div>
         <div class="c12"><label for="cancelar-justificativa">Justificativa</label><textarea id="cancelar-justificativa" name="justificativa" required minlength="15" maxlength="255" data-contador></textarea>
-          <p class="ajuda">De 15 a 255 caracteres.</p></div>
+          <p class="ajuda">De 15 a 255 caracteres, numa linha só.</p></div>
+        <div class="c12"><label class="linha-check"><input type="checkbox" name="avisar" data-avisar> Avisar o tomador por e-mail</label>
+          <p class="ajuda" data-sem-email hidden>Para avisar por e-mail, configure o envio em Configurações &gt; E-mail das notas.</p></div>
       </div>
       <div id="erro-cancelar" class="aviso erro" role="alert" hidden></div>
     </div>
     <div class="acoes"><span class="nota-obrigatorio" aria-hidden="true">* obrigatório</span><button class="botao" value="cancelar" formnovalidate>Voltar</button><button class="botao primario perigo" value="salvar">Cancelar nota</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-cancelar-lote" aria-labelledby="titulo-dlg-cancelar-lote">
+  <form method="dialog" id="form-cancelar-lote" novalidate>
+    <header class="dialogo-topo">
+      <h2 id="titulo-dlg-cancelar-lote">Cancelar notas selecionadas</h2>
+      <p class="ajuda" data-empresa-dialogo></p>
+    </header>
+    <div class="dialogo-corpo">
+      <div class="cartao tabela">
+        <div class="rolagem">
+        <table>
+          <caption class="sr">Notas a cancelar</caption>
+          <thead><tr><th scope="col" class="w-nfse">NFS-e</th><th scope="col">Tomador</th><th scope="col" class="w-valor num">Valor</th></tr></thead>
+          <tbody id="lista-cancelar-lote"></tbody>
+          <tfoot id="rodape-cancelar-lote"></tfoot>
+        </table>
+        </div>
+      </div>
+      <div id="aviso-cancelar-lote" class="aviso atencao" hidden></div>
+      <div class="grade">
+        <div class="c12"><label for="cancelar-lote-motivo">Motivo</label><select id="cancelar-lote-motivo" name="motivo">
+          <option value="erro_na_emissao">Erro na emissão</option><option value="servico_nao_prestado">Serviço não prestado</option><option value="outros">Outros</option></select></div>
+        <div class="c12"><label for="cancelar-lote-justificativa">Justificativa</label><textarea id="cancelar-lote-justificativa" name="justificativa" required minlength="15" maxlength="255" data-contador></textarea>
+          <p class="ajuda">A mesma para todas as notas. De 15 a 255 caracteres, numa linha só.</p></div>
+        <div class="c12"><label class="linha-check"><input type="checkbox" name="avisar" data-avisar> Avisar o tomador por e-mail</label>
+          <p class="ajuda" data-sem-email hidden>Para avisar por e-mail, configure o envio em Configurações &gt; E-mail das notas.</p></div>
+      </div>
+      <p class="ajuda" id="cancelar-lote-andamento" aria-live="polite" hidden></p>
+      <div id="erro-cancelar-lote" class="aviso erro" role="alert" hidden></div>
+    </div>
+    <div class="acoes"><span class="nota-obrigatorio" aria-hidden="true">* obrigatório</span><button class="botao" value="cancelar" formnovalidate>Voltar</button><button class="botao primario perigo" value="salvar" id="cancelar-lote-ok">Cancelar notas</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-resumo-cancelamento" aria-labelledby="titulo-dlg-resumo-cancelamento">
+  <form method="dialog">
+    <header class="dialogo-topo">
+      <h2 id="titulo-dlg-resumo-cancelamento">Resultado do cancelamento</h2>
+    </header>
+    <div class="dialogo-corpo" id="resumo-cancelamento"></div>
+    <div class="acoes"><button class="botao primario" value="fechar">Fechar</button></div>
   </form>
 </dialog>
 

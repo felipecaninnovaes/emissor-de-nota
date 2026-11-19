@@ -93,6 +93,8 @@ function lerConfigEmail() {
       assunto: d.assunto,
       corpo: d.corpo,
       enviar_ao_emitir: d.enviar_ao_emitir,
+      assunto_cancelamento: d.assunto_cancelamento,
+      corpo_cancelamento: d.corpo_cancelamento,
     },
     senha: d.senha || null,
   };
