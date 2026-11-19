@@ -2,7 +2,7 @@
 
 Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
 
-- [ ] **T1** — Justificativa e motivo do evento no `nfse-xml`
+- [x] **T1** — Justificativa e motivo do evento no `nfse-xml`
   - Requisitos: R2, R8
   - Arquivos: `crates/nfse-xml/src/evento.rs`, `crates/nfse-xml/src/lib.rs`
   - Teste: `evento::testes::justificativa_*` (CA4: 14 caracteres, quebra de linha, caractere fora do `TSString`), `evento::testes::motivo_do_cancelamento_*` (evento correto, sem `xMotivo`, ilegível); testes XSD do pedido continuam verdes

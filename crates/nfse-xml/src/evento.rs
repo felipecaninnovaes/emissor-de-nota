@@ -24,6 +24,25 @@ impl MotivoCancelamento {
             MotivoCancelamento::Outros => "9",
         }
     }
+
+    /// Motivo pelo `cMotivo` do evento.
+    pub fn de_codigo(codigo: &str) -> Option<Self> {
+        match codigo.trim() {
+            "1" => Some(MotivoCancelamento::ErroNaEmissao),
+            "2" => Some(MotivoCancelamento::ServicoNaoPrestado),
+            "9" => Some(MotivoCancelamento::Outros),
+            _ => None,
+        }
+    }
+
+    /// Nome do motivo para quem lê (o mesmo da tela de cancelamento).
+    pub fn nome(self) -> &'static str {
+        match self {
+            MotivoCancelamento::ErroNaEmissao => "Erro na emissão",
+            MotivoCancelamento::ServicoNaoPrestado => "Serviço não prestado",
+            MotivoCancelamento::Outros => "Outros",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,17 +68,24 @@ pub enum PedidoInvalido {
     Caractere(String),
 }
 
+/// Confere a justificativa (`xMotivo`) como o pedido a envia: aparada, de 15 a 255 caracteres e
+/// só com os caracteres do `TSString`. Serve para conferir um lote antes do primeiro envio.
+pub fn conferir_justificativa(justificativa: &str) -> Result<(), PedidoInvalido> {
+    let texto = justificativa.trim();
+    let n = texto.chars().count();
+    if !(15..=255).contains(&n) {
+        return Err(PedidoInvalido::Descricao(n));
+    }
+    nfse_core::modelo::conferir_tsstring(texto).map_err(PedidoInvalido::Caractere)
+}
+
 /// Gera o pedido de cancelamento sem assinatura. Devolve o XML e o Id de `infPedReg`.
 pub fn gerar_pedido_cancelamento(p: &PedidoCancelamento) -> Result<(String, String), PedidoInvalido> {
     if !nfse_core::dps::chave_de_acesso_valida(&p.chave) {
         return Err(PedidoInvalido::Chave(p.chave.len()));
     }
+    conferir_justificativa(&p.descricao)?;
     let descricao = p.descricao.trim();
-    let n = descricao.chars().count();
-    if !(15..=255).contains(&n) {
-        return Err(PedidoInvalido::Descricao(n));
-    }
-    nfse_core::modelo::conferir_tsstring(descricao).map_err(PedidoInvalido::Caractere)?;
     let id = format!("PRE{}101101", p.chave);
     let mut x = Xml::raiz("pedRegEvento", "infPedReg", &id, 768);
     x.campo("tpAmb", p.ambiente.codigo());
@@ -94,6 +120,26 @@ pub fn e_cancelamento_da_nfse(xml: &str, chave: &str) -> bool {
         n.tag_name().namespace() == Some(NS_NFSE) && n.tag_name().name() == "chNFSe" && n.text() == Some(chave)
     });
     tem("infEvento") && tem("e101101") && chave_confere
+}
+
+/// Motivo (`cMotivo`, `None` se o código não for conhecido) e justificativa (`xMotivo`, vazia se
+/// faltar) do evento de cancelamento gravado. `None` se o XML não abre ou não tem o `e101101`.
+pub fn motivo_do_cancelamento(xml_evento: &str) -> Option<(Option<MotivoCancelamento>, String)> {
+    let doc = roxmltree::Document::parse(xml_evento).ok()?;
+    let e101101 = doc
+        .descendants()
+        .find(|n| n.tag_name().namespace() == Some(NS_NFSE) && n.tag_name().name() == "e101101")?;
+    let texto = |nome: &str| {
+        e101101
+            .children()
+            .find(|n| n.tag_name().namespace() == Some(NS_NFSE) && n.tag_name().name() == nome)
+            .and_then(|n| n.text())
+            .map(str::trim)
+    };
+    Some((
+        texto("cMotivo").and_then(MotivoCancelamento::de_codigo),
+        texto("xMotivo").unwrap_or_default().to_owned(),
+    ))
 }
 
 #[cfg(test)]
@@ -190,5 +236,77 @@ pub(crate) mod testes {
             gerar_pedido_cancelamento(&p),
             Err(PedidoInvalido::Caractere(_))
         ));
+    }
+
+    #[test]
+    fn justificativa_fora_das_regras() {
+        assert_eq!(
+            conferir_justificativa("Catorze caract"),
+            Err(PedidoInvalido::Descricao(14))
+        );
+        assert_eq!(
+            conferir_justificativa(&"a".repeat(256)),
+            Err(PedidoInvalido::Descricao(256))
+        );
+        assert!(matches!(
+            conferir_justificativa("Valor errado\nna emissão da nota"),
+            Err(PedidoInvalido::Caractere(_))
+        ));
+        assert!(matches!(
+            conferir_justificativa("Valor errado — na emissão da nota"),
+            Err(PedidoInvalido::Caractere(_))
+        ));
+    }
+
+    #[test]
+    fn justificativa_valida() {
+        assert_eq!(conferir_justificativa("Quinze caracter"), Ok(()));
+        // Os espaços das pontas não contam (o pedido leva o texto aparado).
+        assert_eq!(conferir_justificativa("  Valor errado na emissão  "), Ok(()));
+    }
+
+    fn evento_com(e101101: &str) -> String {
+        format!(
+            r#"<evento xmlns="{NS_NFSE}" versao="1.01"><infEvento Id="EVT1"><pedRegEvento versao="1.01"><infPedReg Id="PRE1"><e101101>{e101101}</e101101></infPedReg></pedRegEvento></infEvento></evento>"#
+        )
+    }
+
+    #[test]
+    fn motivo_do_cancelamento_lido_do_evento() {
+        let evento = evento_com(
+            "<xDesc>Cancelamento de NFS-e</xDesc><cMotivo>2</cMotivo><xMotivo>Serviço A &amp; B não prestado</xMotivo>",
+        );
+        assert_eq!(
+            motivo_do_cancelamento(&evento),
+            Some((
+                Some(MotivoCancelamento::ServicoNaoPrestado),
+                "Serviço A & B não prestado".into()
+            ))
+        );
+        assert_eq!(MotivoCancelamento::ServicoNaoPrestado.nome(), "Serviço não prestado");
+        for m in [
+            MotivoCancelamento::ErroNaEmissao,
+            MotivoCancelamento::ServicoNaoPrestado,
+            MotivoCancelamento::Outros,
+        ] {
+            assert_eq!(MotivoCancelamento::de_codigo(m.codigo()), Some(m));
+        }
+        assert_eq!(MotivoCancelamento::de_codigo("7"), None);
+    }
+
+    #[test]
+    fn motivo_do_cancelamento_sem_xmotivo_ou_ilegivel() {
+        assert_eq!(
+            motivo_do_cancelamento(&evento_com("<cMotivo>9</cMotivo>")),
+            Some((Some(MotivoCancelamento::Outros), String::new()))
+        );
+        assert_eq!(
+            motivo_do_cancelamento(&evento_com(
+                "<cMotivo>5</cMotivo><xMotivo>Outro texto qualquer</xMotivo>"
+            )),
+            Some((None, "Outro texto qualquer".into()))
+        );
+        assert_eq!(motivo_do_cancelamento("<evento"), None);
+        assert_eq!(motivo_do_cancelamento(&format!(r#"<evento xmlns="{NS_NFSE}"/>"#)), None);
     }
 }
