@@ -232,6 +232,8 @@
           <div class="barra-acoes">
             <button class="botao" id="conferir-cancelamentos" title="Consulta na Sefin se alguma nota autorizada da lista foi cancelada no portal nacional">Conferir cancelamentos</button>
             <button class="botao" id="abrir-pasta-mes">Abrir pasta</button>
+            <span class="ajuda" id="notas-email-sem-config" hidden>Para enviar e-mail, configure em Configurações &gt; E-mail das notas.</span>
+            <button class="botao" id="notas-email-lote" hidden>Enviar e-mail</button>
             <button class="botao perigo" id="notas-cancelar-lote" hidden>Cancelar selecionadas</button>
           </div>
         </div>
@@ -239,7 +241,7 @@
           <div class="rolagem">
           <table>
             <caption class="sr">Notas emitidas da empresa selecionada</caption>
-            <thead><tr><th scope="col" class="w-check"><input type="checkbox" id="notas-todas" title="Marcar todas as autorizadas" aria-label="Marcar todas as autorizadas"></th>
+            <thead><tr><th scope="col" class="w-check"><input type="checkbox" id="notas-todas" title="Marcar todas as autorizadas e canceladas" aria-label="Marcar todas as autorizadas e canceladas"></th>
               <th scope="col" class="w-detalhe"><span class="sr">Detalhes</span></th><th scope="col" class="w-nfse">NFS-e</th><th scope="col" class="w-dps sec-2">DPS</th><th scope="col">Tomador</th><th scope="col" class="sec-1">Descrição</th>
               <th scope="col" class="w-valor num">Valor</th><th scope="col" class="w-situacao">Situação</th><th scope="col" class="w-acoes mais-larga"><span class="sr">Ações</span></th></tr></thead>
             <tbody id="lista-notas"></tbody>
@@ -1186,6 +1188,32 @@
       <div id="erro-cancelar-lote" class="aviso erro" role="alert" hidden></div>
     </div>
     <div class="acoes"><span class="nota-obrigatorio" aria-hidden="true">* obrigatório</span><button class="botao" value="cancelar" formnovalidate>Voltar</button><button class="botao primario perigo" value="salvar" id="cancelar-lote-ok">Cancelar notas</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-email-lote" aria-labelledby="titulo-dlg-email-lote">
+  <form method="dialog" id="form-email-lote" novalidate>
+    <header class="dialogo-topo">
+      <h2 id="titulo-dlg-email-lote">Enviar e-mail das notas selecionadas</h2>
+      <p class="ajuda" data-empresa-dialogo></p>
+    </header>
+    <div class="dialogo-corpo">
+      <div class="cartao tabela">
+        <div class="rolagem">
+        <table>
+          <caption class="sr">Notas cujo e-mail será enviado</caption>
+          <thead><tr><th scope="col" class="w-nfse">NFS-e</th><th scope="col">Tomador</th><th scope="col" class="w-situacao">Situação</th><th scope="col">Para</th><th scope="col">Último envio</th></tr></thead>
+          <tbody id="lista-email-lote"></tbody>
+          <tfoot id="rodape-email-lote"></tfoot>
+        </table>
+        </div>
+      </div>
+      <div id="aviso-email-lote" class="aviso atencao" hidden></div>
+      <p class="ajuda">Cada nota vai para os e-mails cadastrados do seu tomador; a nota cancelada vai com o e-mail de cancelamento. Para outro destinatário, use a ação "E-mail" da nota.</p>
+      <p class="ajuda" id="email-lote-andamento" aria-live="polite" hidden></p>
+      <div id="erro-email-lote" class="aviso erro" role="alert" hidden></div>
+    </div>
+    <div class="acoes"><button class="botao" value="cancelar" formnovalidate>Voltar</button><button class="botao primario" value="salvar" id="email-lote-ok">Enviar e-mails</button></div>
   </form>
 </dialog>
 
