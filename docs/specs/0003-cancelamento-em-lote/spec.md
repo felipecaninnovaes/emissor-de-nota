@@ -1,6 +1,6 @@
 # 0003 — Cancelamento em lote com aviso por e-mail
 
-- **Status:** aprovada <!-- rascunho | aprovada | implementada | abandonada -->
+- **Status:** implementada <!-- rascunho | aprovada | implementada | abandonada -->
 - **Autor:** Felipe CN
 - **Data:** 2026-11-19
 - **ADRs relacionados:** —
@@ -78,10 +78,11 @@ Cada critério vira pelo menos um teste.
 - **Validação:** a justificativa é conferida no backend antes do primeiro envio do lote (mesmas regras do `TSString`), não só em JS.
 
 ## Questões em aberto
-- [ ] Limite de notas por lote: a lista já mostra no máximo 500. Vale um limite menor, ou um aviso acima de certo número?
+- [x] Limite de notas por lote: a lista já mostra no máximo 500. Vale um limite menor, ou um aviso acima de certo número? **Resolvido:** sem limite extra (vale o teto de 500 da lista); acima de 20 notas o diálogo mostra um aviso a mais.
 
 ## Histórico de mudanças
 | Data | Mudança | Motivo |
 |---|---|---|
 | 2026-11-19 | Rascunho | Pedido de cancelamento em lote com aviso por e-mail |
 | 2026-11-19 | Aprovada | Revisão do usuário |
+| 2026-11-19 | Implementada | Questão do limite fechada (sem limite extra, aviso acima de 20 notas); tarefas T1 a T6 concluídas |
