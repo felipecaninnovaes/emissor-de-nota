@@ -32,7 +32,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
   - Teste: `comandos::notas::testes::classifica_resultado_do_cancelamento` (cancelada, recusada com a mensagem da Sefin, sem confirmação, e-mail não enviado), `comandos::notas::testes::confere_justificativa` (CA4)
   - Verificar: `just test -p emissor-nfse notas`
 
-- [ ] **T6** — Interface: seleção, diálogo do lote, aviso no individual e modelo em Configurações; CHANGELOG e docs
+- [x] **T6** — Interface: seleção, diálogo do lote, aviso no individual e modelo em Configurações; CHANGELOG e docs
   - Requisitos: R1, R2, R3, R4, R5, R6, R7
   - Arquivos: `crates/app/ui/index.html`, `crates/app/ui/js/notas.js`, `crates/app/ui/js/configuracoes.js`, `CHANGELOG.md`, `docs/usuario.md`, `docs/fiscal.md`
   - Teste: manual no app (`just run`; cancelamento real só pelo usuário):
@@ -55,3 +55,4 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
 - T3: `envio_email.rs` não precisou mudar (a troca do modelo é toda em `email::montar`). A linha do CHANGELOG sobre o e-mail de nota cancelada entrou aqui, no commit que muda o comportamento, e não na T6.
 - T4: no CA9, o registro da falha em `envio_email` é conferido pelo efeito visível (a lista não mostra "E-mail enviado em" para a nota cuja entrega falhou), já que o `nfse-db` não tem leitura dos envios com erro; a gravação é a mesma de `enviar_email`. O SMTP que falha só na primeira nota é simulado com dois carteiros, um por chamada.
 - T5: `notas.js` (diálogo individual) mudou já aqui, com `avisar: false` e a recusa vinda no resultado, porque o comando passou a devolver `Ok` também para a nota recusada; sem isso o diálogo diria "cancelada" para uma recusa até a T6.
+- T6: roteiro conferido numa cópia da interface com o backend do Tauri simulado (CA5, CA4 no lote, andamento, resumo nos quatro grupos, recarga limpando as marcações, R5 sem e-mail configurado, aviso de e-mail não enviado no individual); o teste no app real fica com o usuário. O andamento passou a aparecer também no botão de confirmação, porque o parágrafo podia ficar fora da área visível do diálogo. `estilo.css` ganhou `.aviso p` para o resumo.
