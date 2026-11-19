@@ -67,6 +67,10 @@ pub enum ErroEmissao {
     Regra(String),
     #[error("rejeitada pela Sefin: {mensagem}")]
     Rejeitada { dps_id: Option<i64>, mensagem: String },
+    /// A Sefin não confirmou o cancelamento e a consulta não achou o evento: a nota continua
+    /// autorizada aqui, e repetir o pedido é seguro (não duplica).
+    #[error("{0}")]
+    CancelamentoIncerto(String),
     #[error("não foi possível falar com a Sefin ({motivo}); nada foi emitido, pode tentar de novo")]
     SemConexao { motivo: String },
     #[error("Sefin: {0}")]
