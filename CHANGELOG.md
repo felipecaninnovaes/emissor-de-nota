@@ -1,14 +1,17 @@
 # Changelog
 
-Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0, a 1.2.0, a 1.3.0 e a 1.4.0, em 18/10/2026, a 1.5.0 e a 1.6.0, em 19/10/2026, a 1.7.0 e a 1.7.1, em 20/10/2026, a 1.8.0 e a 1.8.1, em 22/10/2026, a 1.9.0, em 22/10/2026, a 1.10.0, em 23/10/2026, a 1.11.0 e a 1.11.1, em 26/10/2026, a 1.12.0, em 27/10/2026, a 1.13.0 e a 1.14.0, em 28/10/2026, a 1.15.0 e a 1.15.1, em 29/10/2026, a 1.16.0, em 07/11/2026, a 1.17.0 e a 1.17.1, em 08/11/2026, a 1.18.0, em 10/11/2026, a 1.19.0, em 13/11/2026, e a 1.20.0, em 17/11/2026; a versão vem de `crates/app/Cargo.toml`. A seção **Não publicado** junta o que já está na `main` e ainda não saiu em versão.
+Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir das tags e dos commits. Para quem acompanha o que mudou entre instalações. As versões até a 0.2.9 saíram em 17/10/2026; a 1.0.0, a 1.1.0, a 1.2.0, a 1.3.0 e a 1.4.0, em 18/10/2026, a 1.5.0 e a 1.6.0, em 19/10/2026, a 1.7.0 e a 1.7.1, em 20/10/2026, a 1.8.0 e a 1.8.1, em 22/10/2026, a 1.9.0, em 22/10/2026, a 1.10.0, em 23/10/2026, a 1.11.0 e a 1.11.1, em 26/10/2026, a 1.12.0, em 27/10/2026, a 1.13.0 e a 1.14.0, em 28/10/2026, a 1.15.0 e a 1.15.1, em 29/10/2026, a 1.16.0, em 07/11/2026, a 1.17.0 e a 1.17.1, em 08/11/2026, a 1.18.0, em 10/11/2026, a 1.19.0, em 13/11/2026, a 1.20.0, em 17/11/2026, e a 1.21.0, em 19/11/2026; a versão vem de `crates/app/Cargo.toml`. A seção **Não publicado** junta o que já está na `main` e ainda não saiu em versão.
 
 ## Não publicado
+
+## 1.21.0
+
+Cancelamento em lote e envio do e-mail de várias notas de uma vez em Notas emitidas, com aviso ao tomador por e-mail no cancelamento e texto próprio para o e-mail da nota cancelada. Sem nova migração nem mudança no esquema do banco.
 
 - Notas emitidas: cancelamento em lote. Marque as notas autorizadas e use **Cancelar selecionadas (N)**: um motivo e uma justificativa para todas, cancelamento uma nota por vez com o andamento e, no fim, um resumo com as canceladas, as não canceladas (com a mensagem da Sefin) e as sem confirmação (repetir é seguro). A justificativa é conferida antes de qualquer envio.
 - Cancelamento (individual e em lote): opção **Avisar o tomador por e-mail**, marcada por padrão quando o e-mail está configurado. A falha no e-mail não desfaz o cancelamento e aparece no aviso ou no resumo.
 - Configurações > E-mail das notas: assunto e mensagem próprios da nota cancelada, editáveis.
 - Notas emitidas: envio do e-mail de várias notas de uma vez. Marque as notas (autorizadas ou canceladas) e use **Enviar e-mail (N)**: o diálogo mostra para quem vai cada nota e quais já tinham sido enviadas, os e-mails saem um de cada vez com o andamento e, no fim, um resumo mostra as enviadas e as não enviadas, com o motivo. A caixa de marcação passa a valer também para notas canceladas; **Cancelar selecionadas** continua agindo só nas autorizadas.
-
 - E-mail de nota cancelada: passa a ter texto próprio, com o motivo e a justificativa do cancelamento (variáveis `{motivo}` e `{justificativa}`, lidas do evento gravado, inclusive na nota cancelada no portal nacional), no lugar do texto da emissão com "CANCELADA -" no assunto. Os anexos continuam o PDF com a marca d'água de cancelada e o XML.
 
 ## 1.20.0
