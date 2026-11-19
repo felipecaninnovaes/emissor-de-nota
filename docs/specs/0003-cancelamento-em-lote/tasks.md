@@ -20,7 +20,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
   - Teste: `email::testes::cancelada_usa_modelo_de_cancelamento` (CA7), `testes::reenvio_de_nota_cancelada_usa_modelo_de_cancelamento` (CA7), `testes::email_de_nota_cancelada_no_portal_traz_motivo` (CA8)
   - Verificar: `just test -p nfse-emissor email`
 
-- [ ] **T4** — `CancelamentoIncerto` e `cancelar_e_avisar`
+- [x] **T4** — `CancelamentoIncerto` e `cancelar_e_avisar`
   - Requisitos: R3, R5, R9, R10
   - Arquivos: `crates/nfse-emissor/src/lib.rs`, `crates/nfse-emissor/src/cancelamento.rs`, `crates/nfse-emissor/src/testes.rs`
   - Teste: CA1 (três notas, mesmo `cMotivo`/`xMotivo`), CA2 (recusa da segunda), CA3 (sem resposta → `CancelamentoIncerto`; consulta acha o evento → cancelada), CA6 (e-mail com motivo e justificativa), CA9 (SMTP falha na primeira, segunda recebe), CA10 (tomador sem e-mail), CA11 (`avisar = false`)
@@ -53,3 +53,4 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
 ## Notas de desvio
 <!-- T#: o que mudou em relação ao plano e por quê -->
 - T3: `envio_email.rs` não precisou mudar (a troca do modelo é toda em `email::montar`). A linha do CHANGELOG sobre o e-mail de nota cancelada entrou aqui, no commit que muda o comportamento, e não na T6.
+- T4: no CA9, o registro da falha em `envio_email` é conferido pelo efeito visível (a lista não mostra "E-mail enviado em" para a nota cuja entrega falhou), já que o `nfse-db` não tem leitura dos envios com erro; a gravação é a mesma de `enviar_email`. O SMTP que falha só na primeira nota é simulado com dois carteiros, um por chamada.

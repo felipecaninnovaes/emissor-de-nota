@@ -1554,7 +1554,7 @@ async fn cancelamento_sem_resposta_mantem_autorizada() {
     let ResultadoEmissao::Autorizada { nfse, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
         panic!()
     };
-    let Err(ErroEmissao::Regra(mensagem)) = c
+    let Err(ErroEmissao::CancelamentoIncerto(mensagem)) = c
         .emissor
         .cancelar(
             nfse.id,
@@ -1680,6 +1680,307 @@ async fn email_de_nota_cancelada_no_portal_traz_motivo() {
     let corpo = email::testes::corpo(&carteiro.enviadas.lock().unwrap()[0]);
     assert!(corpo.contains("Motivo: Erro na emissão"), "{corpo}");
     assert!(corpo.contains("Justificativa: Cancelada no portal nacional"), "{corpo}");
+}
+
+/// Chave da n-ª nota de um lote (a do cenário com o último dígito trocado).
+fn chave_n(n: usize) -> String {
+    format!("{}{n}", &CHAVE[..49])
+}
+
+/// Evento de cancelamento homologado para `chave`, com o motivo e a justificativa dados.
+fn evento_da(chave: &str, c_motivo: &str, x_motivo: &str) -> String {
+    evento_cancelamento()
+        .replace(CHAVE, chave)
+        .replace("<cMotivo>1</cMotivo>", &format!("<cMotivo>{c_motivo}</cMotivo>"))
+        .replace("Cancelada no portal nacional", x_motivo)
+}
+
+/// Roteiro que autoriza `n` notas (chaves `chave_n(1..=n)`) seguido de `depois`.
+async fn cenario_com_notas(n: usize, depois: Vec<Resposta>) -> (Cenario, Vec<nfse_db::dps::NfseGravada>) {
+    let mut roteiro: Vec<Resposta> = (1..=n)
+        .map(|i| Resposta::Emitir(Ok(nfse_com_chave(&chave_n(i), i as u32))))
+        .collect();
+    roteiro.extend(depois);
+    let c = cenario(roteiro).await;
+    let mut notas = Vec::new();
+    for _ in 0..n {
+        let ResultadoEmissao::Autorizada { nfse, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+            panic!("esperava autorizada")
+        };
+        notas.push(nfse);
+    }
+    (c, notas)
+}
+
+const JUSTIFICATIVA: &str = "Notas emitidas em duplicidade";
+
+async fn situacao(c: &Cenario, nfse: &nfse_db::dps::NfseGravada) -> SituacaoDps {
+    c.emissor.banco().dps(nfse.dps_id).await.unwrap().situacao
+}
+
+/// CA1: o lote cancela as três, cada uma com o seu evento, todas com o mesmo motivo.
+#[tokio::test]
+async fn lote_cancela_todas_com_o_mesmo_motivo() {
+    let (c, notas) = cenario_com_notas(
+        3,
+        (1..=3)
+            .map(|i| Resposta::Evento(Ok(evento_da(&chave_n(i), "1", JUSTIFICATIVA))))
+            .collect(),
+    )
+    .await;
+    let carteiro = CarteiroTeste::default();
+    for n in &notas {
+        let aviso = c
+            .emissor
+            .cancelar_e_avisar(n.id, MotivoCancelamento::ErroNaEmissao, JUSTIFICATIVA, false, &carteiro)
+            .await
+            .unwrap();
+        assert_eq!(aviso, None);
+    }
+    for (i, n) in notas.iter().enumerate() {
+        assert_eq!(situacao(&c, n).await, SituacaoDps::Cancelada);
+        let evento = c.emissor.banco().dados_email_nfse(n.id).await.unwrap().xml_cancelamento;
+        assert_eq!(evento, Some(evento_da(&chave_n(i + 1), "1", JUSTIFICATIVA)));
+    }
+    let pedidos = &c.sefin.recebidos()[3..];
+    assert_eq!(pedidos.len(), 3);
+    for (i, p) in pedidos.iter().enumerate() {
+        assert!(p.contains(&format!("<chNFSe>{}</chNFSe>", chave_n(i + 1))), "{p}");
+        assert!(
+            p.contains(&format!("<cMotivo>1</cMotivo><xMotivo>{JUSTIFICATIVA}</xMotivo>")),
+            "{p}"
+        );
+    }
+}
+
+/// CA2: a recusa da segunda não interrompe as outras e traz a mensagem da Sefin.
+#[tokio::test]
+async fn lote_continua_depois_de_uma_recusa() {
+    let (c, notas) = cenario_com_notas(
+        3,
+        vec![
+            Resposta::Evento(Ok(evento_da(&chave_n(1), "1", JUSTIFICATIVA))),
+            Resposta::Evento(Err(rejeicao("E0840"))),
+            Resposta::ConsultarEvento(Ok(None)),
+            Resposta::Evento(Ok(evento_da(&chave_n(3), "1", JUSTIFICATIVA))),
+        ],
+    )
+    .await;
+    let carteiro = CarteiroTeste::default();
+    let mut resultados = Vec::new();
+    for n in &notas {
+        resultados.push(
+            c.emissor
+                .cancelar_e_avisar(n.id, MotivoCancelamento::ErroNaEmissao, JUSTIFICATIVA, false, &carteiro)
+                .await,
+        );
+    }
+    assert!(resultados[0].is_ok() && resultados[2].is_ok());
+    let Err(ErroEmissao::Rejeitada { mensagem, .. }) = &resultados[1] else {
+        panic!("esperava a recusa da Sefin: {:?}", resultados[1])
+    };
+    assert!(
+        mensagem.contains("E0840") && mensagem.contains("descrição da Sefin"),
+        "{mensagem}"
+    );
+    assert_eq!(situacao(&c, &notas[0]).await, SituacaoDps::Cancelada);
+    assert_eq!(situacao(&c, &notas[1]).await, SituacaoDps::Autorizada);
+    assert_eq!(situacao(&c, &notas[2]).await, SituacaoDps::Cancelada);
+    assert!(c.sefin.roteiro_vazio());
+}
+
+/// CA3: sem resposta e sem evento na consulta → "sem confirmação" (continua autorizada); com o
+/// evento achado na consulta → cancelada.
+#[tokio::test]
+async fn lote_sem_resposta_fica_sem_confirmacao() {
+    let (c, notas) = cenario_com_notas(
+        2,
+        vec![
+            Resposta::Evento(Err(ErroSefin::Incerto("timeout".into()))),
+            Resposta::ConsultarEvento(Err(ErroSefin::Incerto("timeout".into()))),
+            Resposta::Evento(Err(ErroSefin::Incerto("timeout".into()))),
+            Resposta::ConsultarEvento(Ok(Some(evento_da(&chave_n(2), "1", JUSTIFICATIVA)))),
+        ],
+    )
+    .await;
+    let carteiro = CarteiroTeste::default();
+    let primeira = c
+        .emissor
+        .cancelar_e_avisar(
+            notas[0].id,
+            MotivoCancelamento::ErroNaEmissao,
+            JUSTIFICATIVA,
+            false,
+            &carteiro,
+        )
+        .await;
+    let Err(ErroEmissao::CancelamentoIncerto(mensagem)) = primeira else {
+        panic!("esperava sem confirmação: {primeira:?}")
+    };
+    assert!(mensagem.contains("Tente cancelar de novo"), "{mensagem}");
+    assert_eq!(situacao(&c, &notas[0]).await, SituacaoDps::Autorizada);
+
+    c.emissor
+        .cancelar_e_avisar(
+            notas[1].id,
+            MotivoCancelamento::ErroNaEmissao,
+            JUSTIFICATIVA,
+            false,
+            &carteiro,
+        )
+        .await
+        .unwrap();
+    assert_eq!(situacao(&c, &notas[1]).await, SituacaoDps::Cancelada);
+}
+
+/// CA6: com "Avisar o tomador", o e-mail de cancelamento vai aos destinatários do tomador com o
+/// motivo e a justificativa.
+#[tokio::test]
+async fn cancelar_e_avisar_envia_o_email_de_cancelamento() {
+    let (c, notas) = cenario_com_notas(
+        1,
+        vec![Resposta::Evento(Ok(evento_da(&chave_n(1), "2", JUSTIFICATIVA)))],
+    )
+    .await;
+    preparar_email(&c).await;
+    let carteiro = CarteiroTeste::default();
+    let aviso = c
+        .emissor
+        .cancelar_e_avisar(
+            notas[0].id,
+            MotivoCancelamento::ServicoNaoPrestado,
+            JUSTIFICATIVA,
+            true,
+            &carteiro,
+        )
+        .await
+        .unwrap();
+    assert_eq!(aviso, Some(Ok(vec!["financeiro@cliente.com".to_owned()])));
+    let enviada = carteiro.enviadas.lock().unwrap()[0].clone();
+    assert!(enviada.contains("To: financeiro@cliente.com"), "{enviada}");
+    let corpo = email::testes::corpo(&enviada);
+    assert!(corpo.contains("foi CANCELADA"), "{corpo}");
+    assert!(corpo.contains("Motivo: Serviço não prestado"), "{corpo}");
+    assert!(corpo.contains(&format!("Justificativa: {JUSTIFICATIVA}")), "{corpo}");
+    let notas_da_lista = c.emissor.banco().listar_notas(c.pedido.empresa_id, None).await.unwrap();
+    assert!(notas_da_lista[0].email_enviado_em.is_some(), "envio registrado (R10)");
+}
+
+/// CA9: o SMTP falha na primeira: as duas ficam canceladas, a segunda recebe o e-mail e a
+/// primeira diz por que não recebeu.
+#[tokio::test]
+async fn falha_no_email_nao_desfaz_nem_interrompe_o_lote() {
+    let (c, notas) = cenario_com_notas(
+        2,
+        vec![
+            Resposta::Evento(Ok(evento_da(&chave_n(1), "1", JUSTIFICATIVA))),
+            Resposta::Evento(Ok(evento_da(&chave_n(2), "1", JUSTIFICATIVA))),
+        ],
+    )
+    .await;
+    preparar_email(&c).await;
+    let quebrado = CarteiroTeste {
+        falhar: true,
+        ..Default::default()
+    };
+    let carteiro = CarteiroTeste::default();
+    let primeira = c
+        .emissor
+        .cancelar_e_avisar(
+            notas[0].id,
+            MotivoCancelamento::ErroNaEmissao,
+            JUSTIFICATIVA,
+            true,
+            &quebrado,
+        )
+        .await
+        .unwrap();
+    let Some(Err(erro)) = primeira else {
+        panic!("esperava e-mail não enviado: {primeira:?}")
+    };
+    assert!(erro.contains("conexão recusada"), "{erro}");
+    let segunda = c
+        .emissor
+        .cancelar_e_avisar(
+            notas[1].id,
+            MotivoCancelamento::ErroNaEmissao,
+            JUSTIFICATIVA,
+            true,
+            &carteiro,
+        )
+        .await
+        .unwrap();
+    assert!(matches!(segunda, Some(Ok(_))), "{segunda:?}");
+    assert_eq!(situacao(&c, &notas[0]).await, SituacaoDps::Cancelada);
+    assert_eq!(situacao(&c, &notas[1]).await, SituacaoDps::Cancelada);
+    assert_eq!(carteiro.enviadas.lock().unwrap().len(), 1);
+    // A lista só mostra "E-mail enviado em" para o envio que deu certo.
+    let lista = c.emissor.banco().listar_notas(c.pedido.empresa_id, None).await.unwrap();
+    let enviado = |nfse_id| {
+        lista
+            .iter()
+            .find(|l| l.nfse_id == Some(nfse_id))
+            .unwrap()
+            .email_enviado_em
+            .is_some()
+    };
+    assert!(!enviado(notas[0].id));
+    assert!(enviado(notas[1].id));
+}
+
+/// CA10: tomador sem e-mail: a nota fica cancelada e o resultado diz que faltou destinatário.
+#[tokio::test]
+async fn tomador_sem_email_cancela_e_avisa_que_nao_enviou() {
+    let (c, notas) = cenario_com_notas(
+        1,
+        vec![Resposta::Evento(Ok(evento_da(&chave_n(1), "1", JUSTIFICATIVA)))],
+    )
+    .await;
+    configurar_email(&c, false).await;
+    let carteiro = CarteiroTeste::default();
+    let aviso = c
+        .emissor
+        .cancelar_e_avisar(
+            notas[0].id,
+            MotivoCancelamento::ErroNaEmissao,
+            JUSTIFICATIVA,
+            true,
+            &carteiro,
+        )
+        .await
+        .unwrap();
+    let Some(Err(erro)) = aviso else {
+        panic!("esperava e-mail não enviado: {aviso:?}")
+    };
+    assert!(erro.contains("sem destinatário"), "{erro}");
+    assert_eq!(situacao(&c, &notas[0]).await, SituacaoDps::Cancelada);
+    assert!(carteiro.enviadas.lock().unwrap().is_empty());
+}
+
+/// CA11: sem "Avisar o tomador", nada é enviado.
+#[tokio::test]
+async fn sem_avisar_nao_envia_email() {
+    let (c, notas) = cenario_com_notas(
+        2,
+        vec![
+            Resposta::Evento(Ok(evento_da(&chave_n(1), "1", JUSTIFICATIVA))),
+            Resposta::Evento(Ok(evento_da(&chave_n(2), "1", JUSTIFICATIVA))),
+        ],
+    )
+    .await;
+    preparar_email(&c).await;
+    let carteiro = CarteiroTeste::default();
+    for n in &notas {
+        let aviso = c
+            .emissor
+            .cancelar_e_avisar(n.id, MotivoCancelamento::ErroNaEmissao, JUSTIFICATIVA, false, &carteiro)
+            .await
+            .unwrap();
+        assert_eq!(aviso, None);
+    }
+    assert!(carteiro.enviadas.lock().unwrap().is_empty());
+    let lista = c.emissor.banco().listar_notas(c.pedido.empresa_id, None).await.unwrap();
+    assert!(lista.iter().all(|n| n.email_enviado_em.is_none()));
 }
 
 #[tokio::test]

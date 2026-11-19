@@ -6,7 +6,7 @@ use nfse_db::empresas::Empresa;
 use nfse_nacional::{ErroSefin, Sefin};
 use nfse_xml::{MotivoCancelamento, PedidoCancelamento};
 
-use crate::{Conector, Emissor, ErroEmissao, agora_brasilia, arquivo, assinar_em_thread, mensagem_rejeicao};
+use crate::{Conector, Emissor, ErroEmissao, agora_brasilia, arquivo, assinar_em_thread, email, mensagem_rejeicao};
 
 /// Tipo do evento de cancelamento da NFS-e (e101101).
 const EVENTO_CANCELAMENTO: &str = "101101";
@@ -52,7 +52,7 @@ impl<C: Conector> Emissor<C> {
                             mensagem: mensagem_rejeicao(&erros),
                         },
                         e @ (ErroSefin::Incerto(_) | ErroSefin::Http { .. } | ErroSefin::Formato(_)) => {
-                            ErroEmissao::Regra(format!(
+                            ErroEmissao::CancelamentoIncerto(format!(
                                 "a Sefin não confirmou o cancelamento ({e}); ele pode ter sido registrado. \
                                  Tente cancelar de novo: o pedido repetido não duplica o evento"
                             ))
@@ -63,6 +63,28 @@ impl<C: Conector> Emissor<C> {
             },
         };
         self.registrar_cancelamento(&empresa, &nfse, &evento).await
+    }
+
+    /// Cancela pela mesma rota de `cancelar` e, com `avisar`, manda o e-mail de cancelamento ao
+    /// tomador. Devolve o resultado do e-mail (`None` = não pedido): a falha no envio fica
+    /// registrada e nunca desfaz o cancelamento.
+    pub async fn cancelar_e_avisar(
+        &self,
+        nfse_id: i64,
+        motivo: MotivoCancelamento,
+        justificativa: &str,
+        avisar: bool,
+        carteiro: &impl email::Carteiro,
+    ) -> Result<Option<Result<Vec<String>, String>>, ErroEmissao> {
+        self.cancelar(nfse_id, motivo, justificativa).await?;
+        if !avisar {
+            return Ok(None);
+        }
+        Ok(Some(
+            self.enviar_email(nfse_id, &[], carteiro)
+                .await
+                .map_err(|e| e.to_string()),
+        ))
     }
 
     /// Confere na Sefin se a nota autorizada foi cancelada fora do sistema (ex.: no portal
