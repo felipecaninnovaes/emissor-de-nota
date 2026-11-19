@@ -86,3 +86,4 @@ Cada critério vira pelo menos um teste.
 | 2026-11-19 | Rascunho | Pedido de cancelamento em lote com aviso por e-mail |
 | 2026-11-19 | Aprovada | Revisão do usuário |
 | 2026-11-19 | Implementada | Questão do limite fechada (sem limite extra, aviso acima de 20 notas); tarefas T1 a T6 concluídas |
+| 2026-11-19 | R1 e CA5 alterados pela [0004](../0004-email-das-notas-selecionadas/spec.md) | A caixa de marcação passa a valer também para notas canceladas (envio de e-mail em lote); o cancelamento em lote age só nas autorizadas marcadas |

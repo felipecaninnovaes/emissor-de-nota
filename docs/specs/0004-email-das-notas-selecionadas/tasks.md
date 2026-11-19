@@ -20,7 +20,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
   - Teste: manual — roteiro do cancelamento em lote da 0003 continua igual (andamento, resumo nos grupos, fechar recarrega); os outros usos de `selecaoEmTabela` (lote, planilha, importações) continuam contando no botão
   - Verificar: `just check`
 
-- [ ] **T4** — Interface: caixa para canceladas, botão "Enviar e-mail (N)", diálogo e resumo; CHANGELOG e docs
+- [x] **T4** — Interface: caixa para canceladas, botão "Enviar e-mail (N)", diálogo e resumo; CHANGELOG e docs
   - Requisitos: R1, R2, R3, R4, R5, R6, R7
   - Arquivos: `crates/app/ui/index.html`, `crates/app/ui/js/notas.js`, `crates/app/ui/estilo.css` (se preciso), `CHANGELOG.md`, `docs/usuario.md`, `docs/specs/0003-cancelamento-em-lote/spec.md` (histórico)
   - Teste: manual no app (`just run`; envio real só pelo usuário):
@@ -40,3 +40,4 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
 <!-- T#: o que mudou em relação ao plano e por quê -->
 - T2: os testes passaram de primeira, como esperado: fixam o comportamento de `enviar_email` que o lote usa, sem mudar o código de produção. O CA1 usa dois tomadores (dois e-mails de envio) para provar que cada nota vai só ao seu.
 - T3: conferida numa cópia da interface com o backend do Tauri simulado (seleção, andamento e resumo do cancelamento em lote iguais aos de antes). "Fechar recarrega a lista" não pôde ser conferido ali (o painel não dispara o evento `close` de `<dialog>`); fica para o teste no app.
+- T4: conferida na interface simulada (CA4 a CA8, andamento, resumo com o motivo de cada nota não enviada, aviso acima de 20 notas, marcações limpas ao recarregar); o teste no app real fica com o usuário. O resumo mostra, para cada nota enviada, a mensagem do comando `enviar_email` ("E-mail enviado para …"), que traz os destinatários usados de fato. A spec 0003 ganhou uma linha no histórico (R1 e CA5 alterados).

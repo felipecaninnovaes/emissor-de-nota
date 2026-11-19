@@ -241,6 +241,7 @@ legend {
 }
 .barra-filtros { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--espaco-3); flex: 1 1 auto; min-width: 0; }
 .barra-acoes { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--espaco-2); margin-left: auto; }
+.barra-acoes .ajuda { align-self: center; margin: 0; }
 .barra .botao { white-space: nowrap; }
 .campo-barra { width: 12.5rem; }
 .barra-busca { flex: 1 1 16rem; }

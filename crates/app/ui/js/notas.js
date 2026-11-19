@@ -10,20 +10,28 @@ import { atualizando } from "./atualizacao.js";
 
 let notasCarregadas = [];
 
-// Só a nota autorizada (com NFS-e) entra no cancelamento em lote.
+// A caixa vale para toda nota com NFS-e autorizada ou cancelada; cada botão age só nas que servem
+// para ele: o e-mail, em todas as marcadas; o cancelamento em lote, só nas autorizadas.
+const podeMarcar = (n) => !!n.nfse_id && (n.situacao === "autorizada" || n.situacao === "cancelada");
 const podeCancelar = (n) => n.situacao === "autorizada" && !!n.nfse_id;
-const selecaoNotas = selecaoEmTabela({
-  lista: "#lista-notas",
-  itens: () => notasCarregadas,
-  botao: "#notas-cancelar-lote",
-  rotulo: "Cancelar selecionadas",
-  todos: "#notas-todas",
-  emAndamento: () => cancelamentoEmCurso,
-});
-/** O botão do lote só aparece com alguma nota marcada. */
+const selecaoNotas = selecaoEmTabela({ lista: "#lista-notas", itens: () => notasCarregadas, todos: "#notas-todas" });
+/** E-mail configurado em Configurações (lido ao carregar a lista). */
+let emailConfigurado = false;
+
+/** Cada botão mostra quantas das marcadas servem para ele e some quando não há nenhuma. */
 function atualizarSelecao() {
-  selecaoNotas.atualizar();
-  $("#notas-cancelar-lote").hidden = !selecaoNotas.marcados().length;
+  const marcadas = selecaoNotas.marcados();
+  const botaoLote = (sel, rotulo, n) => {
+    const b = $(sel);
+    b.hidden = !n;
+    b.textContent = `${rotulo} (${n})`;
+    b.disabled = cancelamentoEmCurso;
+    return b;
+  };
+  botaoLote("#notas-cancelar-lote", "Cancelar selecionadas", marcadas.filter(podeCancelar).length);
+  const email = botaoLote("#notas-email-lote", "Enviar e-mail", marcadas.length);
+  email.disabled ||= !emailConfigurado;
+  $("#notas-email-sem-config").hidden = email.hidden || emailConfigurado;
 }
 $("#lista-notas").addEventListener("change", atualizarSelecao);
 $("#notas-todas").addEventListener("change", atualizarSelecao);
@@ -33,6 +41,12 @@ export async function carregarNotas() {
   $("#rodape-notas").innerHTML = "";
   // recarregar (troca de mês ou de empresa) limpa as marcações
   $("#notas-todas").checked = false;
+  try {
+    emailConfigurado = (await invoke("obter_email")).configurado;
+  } catch {
+    // sem a configuração legível, trata como não configurado: o botão fica desabilitado com a dica
+    emailConfigurado = false;
+  }
   try {
     await desenharNotas(corpo);
   } finally {
@@ -88,7 +102,7 @@ async function desenharNotas(corpo) {
       });
       const email = n.email_enviado_em ? `E-mail enviado em ${dataHora(n.email_enviado_em)}` : "";
       return `<tr>
-        <td><input type="checkbox" data-i="${i}" ${podeCancelar(n) ? "" : "disabled"} aria-label="${esc(`Marcar a ${alvo} para cancelar`)}"></td>
+        <td><input type="checkbox" data-i="${i}" ${podeMarcar(n) ? "" : "disabled"} aria-label="${esc(`Marcar a ${alvo}`)}"></td>
         <td>${det.botao}</td>
         <td class="dado">${esc(n.numero_nfse ?? "—")}</td>
         <td class="dado sec-2">${esc(n.serie)}/${n.numero_dps}</td>
@@ -362,7 +376,7 @@ async function cancelarNota(n) {
 }
 
 $("#notas-cancelar-lote").addEventListener("click", () =>
-  cancelarSelecionadas(selecaoNotas.marcados()).catch((e) => toast(String(e), true)),
+  cancelarSelecionadas(selecaoNotas.marcados().filter(podeCancelar)).catch((e) => toast(String(e), true)),
 );
 
 /** Diálogo do lote: lista, total, um motivo e uma justificativa para todas. */
@@ -490,6 +504,83 @@ function mostrarResumo(notas, resultados) {
         `${grupos.sem_confirmacao.length} sem confirmação da Sefin`,
         grupos.sem_confirmacao.map(([n, r]) => `<li>${rotuloNota(n)}: ${esc(r.mensagem ?? "")}</li>`),
         "<p>Repetir o cancelamento dessas notas é seguro: o pedido repetido não duplica o evento.</p>",
+      ),
+  );
+}
+
+$("#notas-email-lote").addEventListener("click", () =>
+  enviarSelecionadas(selecaoNotas.marcados()).catch((e) => toast(String(e), true)),
+);
+
+/**
+ * Diálogo do e-mail em lote: para quem vai cada nota (os e-mails do cadastro do tomador) e quando
+ * foi o último envio. Nota sem destinatário não é enviada e vai direto para o resumo.
+ */
+async function enviarSelecionadas(notas) {
+  if (!notas.length) return;
+  const destinos = await chamar("destinatarios_notas", { nfseIds: notas.map((n) => n.nfse_id) });
+  const para = new Map(destinos.map((d) => [d.nfse_id, d.para]));
+  const comDestino = notas.filter((n) => para.get(n.nfse_id)?.length);
+  const semDestino = notas.filter((n) => !para.get(n.nfse_id)?.length);
+  const dlg = $("#dlg-email-lote");
+  const form = $("form", dlg);
+  form.reset();
+  $("#lista-email-lote").innerHTML = notas
+    .map((n) => {
+      const p = esc((para.get(n.nfse_id) ?? []).join(", "));
+      const quando = n.email_enviado_em ? esc(`enviado em ${dataHora(n.email_enviado_em)}`) : "";
+      return `<tr><td class="dado">${esc(n.numero_nfse ?? "—")}</td><td title="${esc(n.tomador)}">${esc(n.tomador ?? "—")}</td>
+        <td><span class="selo ${esc(n.situacao)}">${esc(NOME_SITUACAO[n.situacao] ?? n.situacao)}</span></td>
+        <td title="${p}">${p || "<b>sem e-mail cadastrado</b>"}</td>
+        <td title="${quando}">${quando}</td></tr>`;
+    })
+    .join("");
+  $("#rodape-email-lote").innerHTML = `<tr><td colspan="5">${comDestino.length} e-mail(s) a enviar${
+    semDestino.length ? ` · ${semDestino.length} nota(s) sem e-mail cadastrado, que não vão` : ""
+  }</td></tr>`;
+  const jaEnviadas = comDestino.filter((n) => n.email_enviado_em).length;
+  const avisos = [];
+  if (jaEnviadas) {
+    avisos.push(`${jaEnviadas} já tinha(m) sido enviada(s) e vai(ão) de novo. Para não reenviar, volte e desmarque essas notas.`);
+  }
+  if (comDestino.length > 20) avisos.push(`São ${comDestino.length} e-mails. Confira a lista antes de enviar.`);
+  const aviso = $("#aviso-email-lote");
+  aviso.hidden = !avisos.length;
+  aviso.innerHTML = avisos.map((a) => `<p>${esc(a)}</p>`).join("");
+  const ok = $("#email-lote-ok");
+  ok.textContent = comDestino.length === 1 ? "Enviar 1 e-mail" : `Enviar ${comDestino.length} e-mails`;
+  ok.disabled = !comDestino.length;
+  $("#email-lote-andamento").hidden = true;
+  abrirDialogo(dlg, $("#erro-email-lote"), async () => {
+    if (atualizando) throw "A atualização do sistema está em andamento; envie depois que ele abrir de novo.";
+    const elementos = { form, andamento: $("#email-lote-andamento"), botao: ok, verbo: "Enviando" };
+    // `para` vazio: o backend relê os destinatários do cadastro na hora de cada envio
+    const resultados = await emSequencia(comDestino, elementos, (n) =>
+      chamar("enviar_email", { nfseId: n.nfse_id, para: "" }).then(
+        (mensagem) => ({ enviado: true, mensagem }),
+        (e) => ({ enviado: false, mensagem: String(e) }),
+      ),
+    );
+    return () => mostrarResumoEmail(comDestino, resultados, semDestino);
+  });
+}
+
+/** Resumo do e-mail em lote: enviadas (com os destinatários) e não enviadas (com o motivo). */
+function mostrarResumoEmail(notas, resultados, semDestino) {
+  const enviadas = notas.flatMap((n, i) => (resultados[i].enviado ? [[n, resultados[i].mensagem]] : []));
+  const falhas = [
+    ...notas.flatMap((n, i) => (resultados[i].enviado ? [] : [[n, resultados[i].mensagem]])),
+    ...semDestino.map((n) => [n, "o tomador não tem e-mail cadastrado"]),
+  ];
+  const itens = (lista) => lista.map(([n, texto]) => `<li>${rotuloNota(n)}: ${esc(texto)}</li>`);
+  abrirResumo(
+    "Resultado do envio de e-mails",
+    blocoResumo("ok", `${enviadas.length} enviada(s)`, itens(enviadas)) +
+      blocoResumo(
+        "erro",
+        `${falhas.length} não enviada(s)`,
+        itens(falhas),
+        `<p>Corrija o motivo e reenvie pela ação "E-mail" da nota ou marcando-a de novo.</p>`,
       ),
   );
 }
