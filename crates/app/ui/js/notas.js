@@ -282,11 +282,13 @@ function cancelarNota(n) {
     if (justificativa.length < 15) throw new ErroCampo("justificativa", "Escreva pelo menos 15 caracteres.");
     if (atualizando) throw "A atualização do sistema está em andamento; cancele depois que ele abrir de novo.";
     cancelamentoEmCurso = true;
+    let r;
     try {
-      await chamar("cancelar", { nfseId: n.nfse_id, motivo: d.motivo, justificativa });
+      r = await chamar("cancelar", { nfseId: n.nfse_id, motivo: d.motivo, justificativa, avisar: false });
     } finally {
       cancelamentoEmCurso = false;
     }
+    if (r.situacao !== "cancelada") throw r.mensagem;
     toast(`NFS-e ${n.numero_nfse ?? ""} cancelada.`);
     return carregarNotas;
   });

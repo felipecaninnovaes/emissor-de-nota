@@ -6,6 +6,7 @@ use serde::Serialize;
 use tauri::State;
 
 use nfse_db::dps::SituacaoDps;
+use nfse_emissor::ErroEmissao;
 use nfse_xml::MotivoCancelamento;
 
 use super::comum::{R, abrir_no_sistema, emissor, exigir_cofre, pasta_configurada, texto, vazio_para_none};
@@ -59,20 +60,85 @@ pub async fn listar_notas(estado: State<'_, Estado>, empresa_id: i64, mes: Optio
         .collect())
 }
 
+#[derive(Debug, PartialEq, Serialize)]
+pub struct EmailCancelamentoDto {
+    enviado: bool,
+    para: Vec<String>,
+    erro: Option<String>,
+}
+
+/// Resultado do cancelamento de uma nota, para o resumo do lote e o diálogo individual.
+#[derive(Debug, PartialEq, Serialize)]
+pub struct ResultadoCancelamentoDto {
+    /// `cancelada`, `recusada` (não cancelada, com o motivo) ou `sem_confirmacao` (repetir é seguro).
+    situacao: &'static str,
+    mensagem: Option<String>,
+    /// `None` quando o aviso por e-mail não foi pedido ou a nota não foi cancelada.
+    email: Option<EmailCancelamentoDto>,
+}
+
+fn classificar_cancelamento(
+    resultado: Result<Option<Result<Vec<String>, String>>, ErroEmissao>,
+) -> ResultadoCancelamentoDto {
+    match resultado {
+        Ok(email) => ResultadoCancelamentoDto {
+            situacao: "cancelada",
+            mensagem: None,
+            email: email.map(|r| match r {
+                Ok(para) => EmailCancelamentoDto {
+                    enviado: true,
+                    para,
+                    erro: None,
+                },
+                Err(erro) => EmailCancelamentoDto {
+                    enviado: false,
+                    para: vec![],
+                    erro: Some(erro),
+                },
+            }),
+        },
+        Err(ErroEmissao::CancelamentoIncerto(m)) => ResultadoCancelamentoDto {
+            situacao: "sem_confirmacao",
+            mensagem: Some(m),
+            email: None,
+        },
+        Err(e) => ResultadoCancelamentoDto {
+            situacao: "recusada",
+            mensagem: Some(e.to_string()),
+            email: None,
+        },
+    }
+}
+
+/// Cancela uma nota (no lote, a tela chama uma vez por nota) e, com `avisar`, envia o e-mail de
+/// cancelamento ao tomador. A recusa da Sefin e a falta de confirmação voltam no resultado.
 #[tauri::command]
 pub async fn cancelar(
     estado: State<'_, Estado>,
     nfse_id: i64,
     motivo: MotivoCancelamento,
     justificativa: String,
-) -> R<()> {
+    avisar: bool,
+) -> R<ResultadoCancelamentoDto> {
     let guarda = emissor!(estado);
-    guarda
+    let resultado = guarda
         .as_ref()
         .expect("verificado")
-        .cancelar(nfse_id, motivo, &justificativa)
-        .await
-        .map_err(texto)
+        .cancelar_e_avisar(
+            nfse_id,
+            motivo,
+            &justificativa,
+            avisar,
+            &nfse_emissor::email::CarteiroSmtp,
+        )
+        .await;
+    Ok(classificar_cancelamento(resultado))
+}
+
+/// Confere a justificativa antes do primeiro envio do lote (mesmas regras do pedido à Sefin).
+#[tauri::command]
+pub fn conferir_justificativa_cancelamento(justificativa: String) -> R<()> {
+    nfse_xml::conferir_justificativa(&justificativa).map_err(texto)
 }
 
 /// Confere na Sefin se a nota foi cancelada fora do sistema (portal nacional). `true` se cancelou.
@@ -243,4 +309,73 @@ pub async fn abrir_nota(estado: State<'_, Estado>, nfse_id: i64, pasta: bool) ->
         return Err(format!("arquivo não encontrado: {}", alvo.display()));
     }
     abrir_no_sistema(&alvo)
+}
+
+#[cfg(test)]
+mod testes {
+    use super::*;
+
+    #[test]
+    fn classifica_resultado_do_cancelamento() {
+        assert_eq!(
+            classificar_cancelamento(Ok(None)),
+            ResultadoCancelamentoDto {
+                situacao: "cancelada",
+                mensagem: None,
+                email: None
+            }
+        );
+        assert_eq!(
+            classificar_cancelamento(Ok(Some(Ok(vec!["a@x.com".into()])))).email,
+            Some(EmailCancelamentoDto {
+                enviado: true,
+                para: vec!["a@x.com".into()],
+                erro: None
+            })
+        );
+        let sem_email = classificar_cancelamento(Ok(Some(Err("sem destinatário".into()))));
+        assert_eq!(sem_email.situacao, "cancelada");
+        assert_eq!(
+            sem_email.email,
+            Some(EmailCancelamentoDto {
+                enviado: false,
+                para: vec![],
+                erro: Some("sem destinatário".into())
+            })
+        );
+
+        let recusada = classificar_cancelamento(Err(ErroEmissao::Rejeitada {
+            dps_id: None,
+            mensagem: "E0840 prazo vencido".into(),
+        }));
+        assert_eq!(recusada.situacao, "recusada");
+        assert!(recusada.mensagem.unwrap().contains("E0840 prazo vencido"));
+        assert_eq!(recusada.email, None);
+
+        let incerta = classificar_cancelamento(Err(ErroEmissao::CancelamentoIncerto("sem resposta".into())));
+        assert_eq!(incerta.situacao, "sem_confirmacao");
+        assert_eq!(incerta.mensagem.as_deref(), Some("sem resposta"));
+
+        // Nota fora de "autorizada", certificado, conexão: não cancelada, com o motivo.
+        let outra = classificar_cancelamento(Err(ErroEmissao::Regra("a nota está \"cancelada\"".into())));
+        assert_eq!(outra.situacao, "recusada");
+    }
+
+    #[test]
+    fn confere_justificativa() {
+        assert_eq!(
+            conferir_justificativa_cancelamento("Notas emitidas em duplicidade".into()),
+            Ok(())
+        );
+        for invalida in [
+            "Catorze caract",
+            "Valor errado\nna emissão",
+            "Valor errado — na emissão",
+        ] {
+            assert!(
+                conferir_justificativa_cancelamento(invalida.into()).is_err(),
+                "{invalida}"
+            );
+        }
+    }
 }

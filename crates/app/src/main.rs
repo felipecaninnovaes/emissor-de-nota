@@ -200,6 +200,7 @@ fn main() {
             comandos::emissao::definir_mes_padrao,
             comandos::notas::listar_notas,
             comandos::notas::cancelar,
+            comandos::notas::conferir_justificativa_cancelamento,
             comandos::notas::reconciliar,
             comandos::notas::sincronizar_cancelamento,
             comandos::notas::dados_para_refazer,
