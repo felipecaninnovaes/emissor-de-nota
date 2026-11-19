@@ -8,7 +8,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
   - Teste: `emails::testes::destinatarios_nfse_*` (CA9: com e-mails de envio do vínculo, só com o e-mail do cadastro, sem e-mail → vazio; sempre igual a `dados_email_nfse().destinatarios`)
   - Verificar: `just test -p nfse-db emails`
 
-- [ ] **T2** — Testes do envio em sequência no `nfse-emissor`
+- [x] **T2** — Testes do envio em sequência no `nfse-emissor`
   - Requisitos: R5, R6, R8
   - Arquivos: `crates/nfse-emissor/src/testes.rs`
   - Teste: `testes::email_em_sequencia_*` (CA1: três notas, cada uma para o seu tomador, as três com "enviado em"; CA2: carteiro que falha na segunda; CA4: tomador sem e-mail, nada entregue). CA3 já coberto por `reenvio_de_nota_cancelada_usa_modelo_de_cancelamento`
@@ -38,3 +38,4 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
 
 ## Notas de desvio
 <!-- T#: o que mudou em relação ao plano e por quê -->
+- T2: os testes passaram de primeira, como esperado: fixam o comportamento de `enviar_email` que o lote usa, sem mudar o código de produção. O CA1 usa dois tomadores (dois e-mails de envio) para provar que cada nota vai só ao seu.
