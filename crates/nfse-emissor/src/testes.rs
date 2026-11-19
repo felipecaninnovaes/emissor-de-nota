@@ -1957,6 +1957,127 @@ async fn tomador_sem_email_cancela_e_avisa_que_nao_enviou() {
     assert!(carteiro.enviadas.lock().unwrap().is_empty());
 }
 
+// --- Envio do e-mail das notas selecionadas (spec 0004): a tela chama `enviar_email` nota a nota.
+
+/// Emite a primeira e a segunda nota para o tomador do cenário e a terceira para outro tomador;
+/// cada tomador tem o seu e-mail de envio.
+async fn tres_notas_de_dois_tomadores() -> (Cenario, Vec<nfse_db::dps::NfseGravada>) {
+    let roteiro = (1..=3)
+        .map(|i| Resposta::Emitir(Ok(nfse_com_chave(&chave_n(i), i as u32))))
+        .collect();
+    let c = cenario(roteiro).await;
+    configurar_email(&c, false).await;
+    let banco = c.emissor.banco();
+    let empresa = c.pedido.empresa_id;
+    let outro = banco
+        .salvar_tomador(
+            empresa,
+            &Tomador {
+                documento: Documento::Cpf(nfse_core::Cpf::parse("11144477735").unwrap()),
+                inscricao_municipal: None,
+                nome: "OUTRO CLIENTE".into(),
+                endereco: None,
+                telefone: None,
+                email: None,
+            },
+            "manual",
+        )
+        .await
+        .unwrap();
+    let primeiro = c.pedido.tomador.unwrap();
+    banco
+        .definir_emails_tomador(empresa, primeiro, Some("a@cliente.com"), None)
+        .await
+        .unwrap();
+    banco
+        .definir_emails_tomador(empresa, outro, Some("b@outro.com"), None)
+        .await
+        .unwrap();
+    let mut notas = Vec::new();
+    for tomador in [primeiro, primeiro, outro] {
+        let pedido = PedidoEmissao {
+            tomador: Some(tomador),
+            ..c.pedido.clone()
+        };
+        let ResultadoEmissao::Autorizada { nfse, .. } = c.emissor.emitir(&pedido).await.unwrap() else {
+            panic!("esperava autorizada")
+        };
+        notas.push(nfse);
+    }
+    (c, notas)
+}
+
+async fn email_enviado(c: &Cenario, nfse_id: i64) -> bool {
+    let lista = c.emissor.banco().listar_notas(c.pedido.empresa_id, None).await.unwrap();
+    lista
+        .iter()
+        .find(|l| l.nfse_id == Some(nfse_id))
+        .unwrap()
+        .email_enviado_em
+        .is_some()
+}
+
+/// Spec 0004, CA1: em sequência, cada nota vai só para os e-mails do seu tomador.
+#[tokio::test]
+async fn email_em_sequencia_vai_ao_tomador_de_cada_nota() {
+    let (c, notas) = tres_notas_de_dois_tomadores().await;
+    let carteiro = CarteiroTeste::default();
+    let mut para = Vec::new();
+    for n in &notas {
+        para.push(c.emissor.enviar_email(n.id, &[], &carteiro).await.unwrap());
+    }
+    assert_eq!(
+        para,
+        [vec!["a@cliente.com"], vec!["a@cliente.com"], vec!["b@outro.com"]]
+    );
+    let enviadas = carteiro.enviadas.lock().unwrap().clone();
+    assert_eq!(enviadas.len(), 3);
+    assert!(enviadas[0].contains("To: a@cliente.com") && !enviadas[0].contains("b@outro.com"));
+    assert!(enviadas[2].contains("To: b@outro.com") && !enviadas[2].contains("a@cliente.com"));
+    for n in &notas {
+        assert!(email_enviado(&c, n.id).await);
+    }
+}
+
+/// Spec 0004, CA2: a falha do SMTP na segunda nota não impede a terceira.
+#[tokio::test]
+async fn email_em_sequencia_continua_depois_de_uma_falha() {
+    let (c, notas) = tres_notas_de_dois_tomadores().await;
+    let carteiro = CarteiroTeste::default();
+    let quebrado = CarteiroTeste {
+        falhar: true,
+        ..Default::default()
+    };
+    assert!(c.emissor.enviar_email(notas[0].id, &[], &carteiro).await.is_ok());
+    let erro = c.emissor.enviar_email(notas[1].id, &[], &quebrado).await.unwrap_err();
+    assert!(erro.to_string().contains("conexão recusada"), "{erro}");
+    assert!(c.emissor.enviar_email(notas[2].id, &[], &carteiro).await.is_ok());
+    assert_eq!(carteiro.enviadas.lock().unwrap().len(), 2);
+    assert!(email_enviado(&c, notas[0].id).await);
+    assert!(!email_enviado(&c, notas[1].id).await);
+    assert!(email_enviado(&c, notas[2].id).await);
+}
+
+/// Spec 0004, CA4: tomador sem e-mail: o diálogo vê a lista vazia e nada é entregue.
+#[tokio::test]
+async fn email_em_sequencia_sem_destinatario_nao_entrega() {
+    let (c, notas) = cenario_com_notas(1, vec![]).await;
+    configurar_email(&c, false).await;
+    let carteiro = CarteiroTeste::default();
+    assert!(
+        c.emissor
+            .banco()
+            .destinatarios_nfse(notas[0].id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let erro = c.emissor.enviar_email(notas[0].id, &[], &carteiro).await.unwrap_err();
+    assert!(erro.to_string().contains("sem destinatário"), "{erro}");
+    assert!(carteiro.enviadas.lock().unwrap().is_empty());
+    assert!(!email_enviado(&c, notas[0].id).await);
+}
+
 /// CA11: sem "Avisar o tomador", nada é enviado.
 #[tokio::test]
 async fn sem_avisar_nao_envia_email() {
