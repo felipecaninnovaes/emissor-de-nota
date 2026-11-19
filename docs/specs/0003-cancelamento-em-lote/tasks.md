@@ -14,7 +14,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
   - Teste: `emails::testes::config_antiga_le_modelo_de_cancelamento_padrao` (CA12), `emails::testes::dados_email_traz_evento_de_cancelamento`
   - Verificar: `just test -p nfse-db emails`
 
-- [ ] **T3** — E-mail de nota cancelada usa o modelo próprio
+- [x] **T3** — E-mail de nota cancelada usa o modelo próprio
   - Requisitos: R6, R7, R8
   - Arquivos: `crates/nfse-emissor/src/email.rs`, `crates/nfse-emissor/src/envio_email.rs`, `crates/nfse-emissor/src/testes.rs`
   - Teste: `email::testes::cancelada_usa_modelo_de_cancelamento` (CA7), `testes::reenvio_de_nota_cancelada_usa_modelo_de_cancelamento` (CA7), `testes::email_de_nota_cancelada_no_portal_traz_motivo` (CA8)
@@ -52,3 +52,4 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
 
 ## Notas de desvio
 <!-- T#: o que mudou em relação ao plano e por quê -->
+- T3: `envio_email.rs` não precisou mudar (a troca do modelo é toda em `email::montar`). A linha do CHANGELOG sobre o e-mail de nota cancelada entrou aqui, no commit que muda o comportamento, e não na T6.

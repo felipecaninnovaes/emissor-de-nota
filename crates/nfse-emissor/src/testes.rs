@@ -1611,6 +1611,77 @@ async fn sincroniza_cancelamento_feito_no_portal() {
     assert!(c.sefin.roteiro_vazio());
 }
 
+/// Configura o e-mail e os destinatários do tomador do cenário.
+async fn preparar_email(c: &Cenario) {
+    configurar_email(c, false).await;
+    c.emissor
+        .banco()
+        .definir_emails_tomador(
+            c.pedido.empresa_id,
+            c.pedido.tomador.unwrap(),
+            Some("financeiro@cliente.com"),
+            None,
+        )
+        .await
+        .unwrap();
+}
+
+/// CA7: o reenvio de nota cancelada usa o modelo de cancelamento, com os mesmos anexos.
+#[tokio::test]
+async fn reenvio_de_nota_cancelada_usa_modelo_de_cancelamento() {
+    let c = cenario(vec![
+        Resposta::Emitir(Ok(nfse_autorizada())),
+        Resposta::Evento(Ok(evento_cancelamento())),
+    ])
+    .await;
+    let ResultadoEmissao::Autorizada { nfse, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+        panic!()
+    };
+    c.emissor
+        .cancelar(
+            nfse.id,
+            MotivoCancelamento::ErroNaEmissao,
+            "Valor informado errado na emissão",
+        )
+        .await
+        .unwrap();
+    preparar_email(&c).await;
+    let carteiro = CarteiroTeste::default();
+    c.emissor.enviar_email(nfse.id, &[], &carteiro).await.unwrap();
+
+    let enviada = carteiro.enviadas.lock().unwrap()[0].clone();
+    let corpo = email::testes::corpo(&enviada);
+    assert!(corpo.contains("foi CANCELADA"), "{corpo}");
+    assert!(
+        !corpo.contains("Segue em anexo a NFS-e"),
+        "sem o texto da emissão: {corpo}"
+    );
+    assert!(enviada.contains("Content-Type: application/xml"), "{enviada}");
+    assert!(enviada.contains("NFSe-1-"), "anexos com o nome do arquivo da nota");
+}
+
+/// CA8: nota cancelada no portal e registrada por `sincronizar_cancelamento`: motivo e
+/// justificativa vêm do evento consultado.
+#[tokio::test]
+async fn email_de_nota_cancelada_no_portal_traz_motivo() {
+    let c = cenario(vec![
+        Resposta::Emitir(Ok(nfse_autorizada())),
+        Resposta::ConsultarEvento(Ok(Some(evento_cancelamento()))),
+    ])
+    .await;
+    let ResultadoEmissao::Autorizada { nfse, .. } = c.emissor.emitir(&c.pedido).await.unwrap() else {
+        panic!()
+    };
+    assert!(c.emissor.sincronizar_cancelamento(nfse.id).await.unwrap());
+    preparar_email(&c).await;
+    let carteiro = CarteiroTeste::default();
+    c.emissor.enviar_email(nfse.id, &[], &carteiro).await.unwrap();
+
+    let corpo = email::testes::corpo(&carteiro.enviadas.lock().unwrap()[0]);
+    assert!(corpo.contains("Motivo: Erro na emissão"), "{corpo}");
+    assert!(corpo.contains("Justificativa: Cancelada no portal nacional"), "{corpo}");
+}
+
 #[tokio::test]
 async fn evento_de_outra_nota_nao_cancela() {
     let c = cenario(vec![

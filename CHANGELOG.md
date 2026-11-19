@@ -4,6 +4,8 @@ Histórico das versões do aplicativo (`emissor-nfse`), reconstruído a partir d
 
 ## Não publicado
 
+- E-mail de nota cancelada: passa a ter texto próprio, com o motivo e a justificativa do cancelamento (variáveis `{motivo}` e `{justificativa}`, lidas do evento gravado, inclusive na nota cancelada no portal nacional), no lugar do texto da emissão com "CANCELADA -" no assunto. Os anexos continuam o PDF com a marca d'água de cancelada e o XML.
+
 ## 1.20.0
 
 Busca do município pelo nome em Emitir, Tomadores e Empresas, com a tabela de municípios do IBGE embutida. Sem nova migração nem mudança no esquema do banco.
