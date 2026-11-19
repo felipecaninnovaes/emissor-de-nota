@@ -6,3 +6,4 @@ Uma pasta por mudança: `NNNN-slug/` com `spec.md` (o quê/por quê), `plan.md` 
 |---|---|---|
 | [0001](0001-importacao-de-pedidos-por-email/spec.md) | Importação de pedidos de nota por e-mail | aprovada |
 | [0002](0002-busca-de-municipio-por-nome/spec.md) | Busca de município por nome | aprovada |
+| [0003](0003-cancelamento-em-lote/spec.md) | Cancelamento em lote com aviso por e-mail | aprovada |
