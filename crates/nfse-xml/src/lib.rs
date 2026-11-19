@@ -11,6 +11,7 @@ pub mod nfse;
 pub use assinatura::{Assinante, ErroAssinatura, assinar, verificar};
 pub use dps::{DpsInvalida, gerar_dps};
 pub use evento::{
-    MotivoCancelamento, PedidoCancelamento, PedidoInvalido, e_cancelamento_da_nfse, gerar_pedido_cancelamento,
+    MotivoCancelamento, PedidoCancelamento, PedidoInvalido, conferir_justificativa, e_cancelamento_da_nfse,
+    gerar_pedido_cancelamento, motivo_do_cancelamento,
 };
 pub use nfse::{DadosNfse, ErroLeituraNfse, ler_nfse};
