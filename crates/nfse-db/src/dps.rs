@@ -689,18 +689,18 @@ impl Banco {
 }
 
 #[cfg(test)]
-mod testes {
+pub(crate) mod testes {
     use super::*;
     use crate::empresas::testes::banco_com_empresa;
 
-    fn modelo_para(registro: &RegistroDps) -> Dps {
+    pub(crate) fn modelo_para(registro: &RegistroDps) -> Dps {
         let mut dps: Dps = serde_json::from_str(include_str!("../../../exemplos/dps-exemplo.json")).unwrap();
         dps.serie = registro.serie.clone();
         dps.numero = registro.numero;
         dps
     }
 
-    fn nfse_recebida() -> NfseRecebida {
+    pub(crate) fn nfse_recebida() -> NfseRecebida {
         NfseRecebida {
             chave: "35111022211222333000181000000000000126101234567890".into(),
             numero: Some("1".into()),

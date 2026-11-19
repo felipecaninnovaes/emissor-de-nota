@@ -207,20 +207,17 @@ mod testes {
             destinatarios: vec!["financeiro@cliente.com".into()],
             valor: Some(Valor::parse("1250").unwrap()),
             competencia: Some("2026-10-16".into()),
+            xml_cancelamento: None,
         }
     }
 
     pub fn cfg() -> ConfigSmtp {
         ConfigSmtp {
             servidor: "smtp.exemplo.com".into(),
-            porta: 587,
-            seguranca: Seguranca::StartTls,
             usuario: Some("notas@escritorio.com".into()),
             remetente: "notas@escritorio.com".into(),
-            nome_remetente: None,
-            assunto: ConfigSmtp::ASSUNTO_PADRAO.into(),
-            corpo: ConfigSmtp::CORPO_PADRAO.into(),
             enviar_ao_emitir: true,
+            ..ConfigSmtp::padrao()
         }
     }
 
