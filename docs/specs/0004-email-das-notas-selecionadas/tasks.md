@@ -31,7 +31,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
     - R5, R7: andamento "Enviando i de N…"; resumo enviadas / não enviadas com o motivo; fechar recarrega e mostra "E-mail enviado em"
   - Verificar: `just check`
 
-- [ ] **T5** — Fechamento da spec
+- [x] **T5** — Fechamento da spec
   - Requisitos: —
   - Arquivos: `docs/specs/0004-email-das-notas-selecionadas/spec.md` (status `implementada`, histórico), `tasks.md` (notas de desvio)
   - Verificar: `just check`
@@ -41,3 +41,4 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
 - T2: os testes passaram de primeira, como esperado: fixam o comportamento de `enviar_email` que o lote usa, sem mudar o código de produção. O CA1 usa dois tomadores (dois e-mails de envio) para provar que cada nota vai só ao seu.
 - T3: conferida numa cópia da interface com o backend do Tauri simulado (seleção, andamento e resumo do cancelamento em lote iguais aos de antes). "Fechar recarrega a lista" não pôde ser conferido ali (o painel não dispara o evento `close` de `<dialog>`); fica para o teste no app.
 - T4: conferida na interface simulada (CA4 a CA8, andamento, resumo com o motivo de cada nota não enviada, aviso acima de 20 notas, marcações limpas ao recarregar); o teste no app real fica com o usuário. O resumo mostra, para cada nota enviada, a mensagem do comando `enviar_email` ("E-mail enviado para …"), que traz os destinatários usados de fato. A spec 0003 ganhou uma linha no histórico (R1 e CA5 alterados).
+- T5 (revisão): três pontos registrados, sem mudança de código. (1) CA4: se nenhuma nota marcada tem destinatário, o botão fica "Enviar 0 e-mails" desabilitado e não há resumo; o diálogo já mostra "sem e-mail cadastrado" em cada linha. (2) O aviso "N já tinham sido enviadas" conta só as notas que vão sair; a já enviada sem destinatário hoje mostra a data na linha, mas não vai de novo. (3) CA3: o teste citado confere o texto de cancelamento e o XML, não a marca de cancelada no PDF anexado (envio igual ao individual, que a branch não mudou). Critérios de interface (CA5 a CA8, R7) vistos na interface simulada; o teste no app real fica com o usuário.

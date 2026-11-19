@@ -1,6 +1,6 @@
 # 0004 — Enviar o e-mail das notas selecionadas
 
-- **Status:** aprovada <!-- rascunho | aprovada | implementada | abandonada -->
+- **Status:** implementada <!-- rascunho | aprovada | implementada | abandonada -->
 - **Autor:** Felipe CN
 - **Data:** 2026-11-19
 - **ADRs relacionados:** —
@@ -75,3 +75,4 @@ Cada critério vira pelo menos um teste.
 |---|---|---|
 | 2026-11-19 | Rascunho | Pedido de envio do e-mail de várias notas de uma vez |
 | 2026-11-19 | Aprovada | Revisão do usuário; limite: teto de 500 da lista, aviso acima de 20 notas |
+| 2026-11-19 | Implementada | Tarefas T1 a T4 concluídas; teste no app real com o usuário |
