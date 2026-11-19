@@ -26,7 +26,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
   - Teste: CA1 (três notas, mesmo `cMotivo`/`xMotivo`), CA2 (recusa da segunda), CA3 (sem resposta → `CancelamentoIncerto`; consulta acha o evento → cancelada), CA6 (e-mail com motivo e justificativa), CA9 (SMTP falha na primeira, segunda recebe), CA10 (tomador sem e-mail), CA11 (`avisar = false`)
   - Verificar: `just test -p nfse-emissor cancel`
 
-- [ ] **T5** — Comandos `cancelar` (com aviso e resultado classificado) e `conferir_justificativa_cancelamento`
+- [x] **T5** — Comandos `cancelar` (com aviso e resultado classificado) e `conferir_justificativa_cancelamento`
   - Requisitos: R2, R4, R5
   - Arquivos: `crates/app/src/comandos/notas.rs`, `crates/app/src/main.rs`
   - Teste: `comandos::notas::testes::classifica_resultado_do_cancelamento` (cancelada, recusada com a mensagem da Sefin, sem confirmação, e-mail não enviado), `comandos::notas::testes::confere_justificativa` (CA4)
@@ -54,3 +54,4 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
 <!-- T#: o que mudou em relação ao plano e por quê -->
 - T3: `envio_email.rs` não precisou mudar (a troca do modelo é toda em `email::montar`). A linha do CHANGELOG sobre o e-mail de nota cancelada entrou aqui, no commit que muda o comportamento, e não na T6.
 - T4: no CA9, o registro da falha em `envio_email` é conferido pelo efeito visível (a lista não mostra "E-mail enviado em" para a nota cuja entrega falhou), já que o `nfse-db` não tem leitura dos envios com erro; a gravação é a mesma de `enviar_email`. O SMTP que falha só na primeira nota é simulado com dois carteiros, um por chamada.
+- T5: `notas.js` (diálogo individual) mudou já aqui, com `avisar: false` e a recusa vinda no resultado, porque o comando passou a devolver `Ok` também para a nota recusada; sem isso o diálogo diria "cancelada" para uma recusa até a T6.
