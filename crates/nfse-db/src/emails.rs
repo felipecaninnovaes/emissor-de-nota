@@ -186,6 +186,57 @@ impl Banco {
         Ok(Some(Zeroizing::new(senha)))
     }
 
+    /// Para quem vai o e-mail da nota: os e-mails de envio do vínculo do tomador com a empresa;
+    /// sem eles, o e-mail do cadastro do tomador (ou o da DPS, se ele não estiver cadastrado).
+    /// Não lê o XML da nota (o diálogo do envio em lote pede os de várias notas de uma vez).
+    pub async fn destinatarios_nfse(&self, nfse_id: i64) -> Resultado<Vec<String>> {
+        let r =
+            sqlx::query("SELECT d.empresa_id, d.modelo_json FROM nfse n JOIN dps d ON d.id = n.dps_id WHERE n.id = ?")
+                .bind(nfse_id)
+                .fetch_optional(self.pool())
+                .await?
+                .ok_or(ErroBanco::NaoEncontrado("NFS-e"))?;
+        let modelo: Option<Dps> = r
+            .get::<Option<String>, _>(1)
+            .map(|j| de_json(&j, "modelo da DPS"))
+            .transpose()?;
+        self.destinatarios_do_tomador(r.get(0), modelo.as_ref().and_then(|m| m.tomador.as_ref()))
+            .await
+    }
+
+    async fn destinatarios_do_tomador(
+        &self,
+        empresa_id: i64,
+        tomador: Option<&nfse_core::modelo::Tomador>,
+    ) -> Resultado<Vec<String>> {
+        let Some(t) = tomador else {
+            return Ok(Vec::new());
+        };
+        let documento = match &t.documento {
+            nfse_core::modelo::Documento::Cnpj(c) => c.as_str().to_owned(),
+            nfse_core::modelo::Documento::Cpf(c) => c.as_str().to_owned(),
+        };
+        let linha = sqlx::query(
+            "SELECT v.emails, p.email FROM pessoa p
+             LEFT JOIN empresa_tomador v ON v.pessoa_id = p.id AND v.empresa_id = ?
+             WHERE p.documento = ?",
+        )
+        .bind(empresa_id)
+        .bind(&documento)
+        .fetch_optional(self.pool())
+        .await?;
+        let (de_envio, do_cadastro): (Option<String>, Option<String>) = match linha {
+            Some(l) => (l.get(0), l.get(1)),
+            None => (None, t.email.clone()),
+        };
+        Ok(de_envio
+            .as_deref()
+            .map(separar_emails)
+            .filter(|v| !v.is_empty())
+            .or_else(|| do_cadastro.as_deref().map(separar_emails))
+            .unwrap_or_default())
+    }
+
     pub async fn dados_email_nfse(&self, nfse_id: i64) -> Resultado<DadosEmailNfse> {
         let nfse = self.nfse(nfse_id).await?;
         let r = sqlx::query(
@@ -202,33 +253,7 @@ impl Banco {
             .map(|j| de_json(&j, "modelo da DPS"))
             .transpose()?;
         let tomador = modelo.as_ref().and_then(|m| m.tomador.as_ref());
-
-        let mut destinatarios = Vec::new();
-        if let Some(t) = tomador {
-            let documento = match &t.documento {
-                nfse_core::modelo::Documento::Cnpj(c) => c.as_str().to_owned(),
-                nfse_core::modelo::Documento::Cpf(c) => c.as_str().to_owned(),
-            };
-            let linha = sqlx::query(
-                "SELECT v.emails, p.email FROM pessoa p
-                 LEFT JOIN empresa_tomador v ON v.pessoa_id = p.id AND v.empresa_id = ?
-                 WHERE p.documento = ?",
-            )
-            .bind(empresa_id)
-            .bind(&documento)
-            .fetch_optional(self.pool())
-            .await?;
-            let (de_envio, do_cadastro): (Option<String>, Option<String>) = match linha {
-                Some(l) => (l.get(0), l.get(1)),
-                None => (None, t.email.clone()),
-            };
-            destinatarios = de_envio
-                .as_deref()
-                .map(separar_emails)
-                .filter(|v| !v.is_empty())
-                .or_else(|| do_cadastro.as_deref().map(separar_emails))
-                .unwrap_or_default();
-        }
+        let destinatarios = self.destinatarios_do_tomador(empresa_id, tomador).await?;
 
         let xml_cancelamento: Option<String> = sqlx::query_scalar(
             "SELECT xml FROM evento WHERE nfse_id = ? AND tipo = 'cancelamento' ORDER BY id DESC LIMIT 1",
@@ -363,5 +388,58 @@ mod testes {
         let dados = banco.dados_email_nfse(nfse.id).await.unwrap();
         assert!(dados.cancelada);
         assert_eq!(dados.xml_cancelamento.as_deref(), Some("<evento>1</evento>"));
+    }
+
+    /// Nota autorizada com o tomador da DPS de exemplo, com o e-mail dado (ou sem e-mail).
+    async fn nota_com_tomador(
+        banco: &Banco,
+        empresa_id: i64,
+        email: Option<&str>,
+    ) -> (i64, nfse_core::modelo::Tomador) {
+        use crate::dps::testes::{modelo_para, nfse_recebida};
+
+        let r = banco.reservar_dps(empresa_id).await.unwrap();
+        let mut modelo = modelo_para(&r);
+        let tomador = modelo.tomador.as_mut().expect("o exemplo tem tomador");
+        tomador.email = email.map(Into::into);
+        let tomador = tomador.clone();
+        banco.registrar_envio(r.id, &modelo, "<DPS/>").await.unwrap();
+        let nfse = banco.registrar_autorizacao(r.id, &nfse_recebida()).await.unwrap();
+        (nfse.id, tomador)
+    }
+
+    /// Os destinatários mostrados antes do envio em lote são os mesmos para os quais o envio vai.
+    async fn conferir_destinatarios(banco: &Banco, nfse_id: i64, esperado: &[&str]) {
+        let para = banco.destinatarios_nfse(nfse_id).await.unwrap();
+        assert_eq!(para, esperado);
+        assert_eq!(banco.dados_email_nfse(nfse_id).await.unwrap().destinatarios, para);
+    }
+
+    #[tokio::test]
+    async fn destinatarios_nfse_sem_cadastro_usa_o_email_da_dps() {
+        let (banco, _, empresa) = banco_com_empresa().await;
+        let (id, _) = nota_com_tomador(&banco, empresa.id, Some("dps@cliente.com")).await;
+        conferir_destinatarios(&banco, id, &["dps@cliente.com"]).await;
+    }
+
+    #[tokio::test]
+    async fn destinatarios_nfse_sem_email_fica_vazio() {
+        let (banco, _, empresa) = banco_com_empresa().await;
+        let (id, _) = nota_com_tomador(&banco, empresa.id, None).await;
+        conferir_destinatarios(&banco, id, &[]).await;
+    }
+
+    #[tokio::test]
+    async fn destinatarios_nfse_prefere_os_emails_de_envio_ao_do_cadastro() {
+        let (banco, _, empresa) = banco_com_empresa().await;
+        let (id, tomador) = nota_com_tomador(&banco, empresa.id, Some("cadastro@cliente.com")).await;
+        let pessoa = banco.salvar_tomador(empresa.id, &tomador, "teste").await.unwrap();
+        conferir_destinatarios(&banco, id, &["cadastro@cliente.com"]).await;
+
+        banco
+            .definir_emails_tomador(empresa.id, pessoa, Some("a@cliente.com; b@cliente.com"), None)
+            .await
+            .unwrap();
+        conferir_destinatarios(&banco, id, &["a@cliente.com", "b@cliente.com"]).await;
     }
 }
