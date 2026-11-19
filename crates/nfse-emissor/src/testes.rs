@@ -1318,14 +1318,10 @@ async fn configurar_email(c: &Cenario, enviar_ao_emitir: bool) {
     banco
         .definir_smtp(&nfse_db::emails::ConfigSmtp {
             servidor: "smtp.exemplo.com".into(),
-            porta: 587,
-            seguranca: nfse_db::emails::Seguranca::StartTls,
             usuario: Some("notas@escritorio.com".into()),
             remetente: "notas@escritorio.com".into(),
-            nome_remetente: None,
-            assunto: nfse_db::emails::ConfigSmtp::ASSUNTO_PADRAO.into(),
-            corpo: nfse_db::emails::ConfigSmtp::CORPO_PADRAO.into(),
             enviar_ao_emitir,
+            ..nfse_db::emails::ConfigSmtp::padrao()
         })
         .await
         .unwrap();

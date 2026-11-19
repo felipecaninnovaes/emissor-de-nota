@@ -21,17 +21,7 @@ pub async fn obter_email(estado: State<'_, Estado>) -> R<ConfigEmailDto> {
     let gravada = b.smtp().await.map_err(texto)?;
     Ok(ConfigEmailDto {
         configurado: gravada.is_some(),
-        config: gravada.unwrap_or_else(|| nfse_db::emails::ConfigSmtp {
-            servidor: String::new(),
-            porta: 587,
-            seguranca: nfse_db::emails::Seguranca::StartTls,
-            usuario: None,
-            remetente: String::new(),
-            nome_remetente: None,
-            assunto: nfse_db::emails::ConfigSmtp::ASSUNTO_PADRAO.into(),
-            corpo: nfse_db::emails::ConfigSmtp::CORPO_PADRAO.into(),
-            enviar_ao_emitir: false,
-        }),
+        config: gravada.unwrap_or_else(nfse_db::emails::ConfigSmtp::padrao),
         tem_senha: b.tem_senha_smtp().await.map_err(texto)?,
     })
 }

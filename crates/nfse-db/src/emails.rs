@@ -44,9 +44,47 @@ pub struct ConfigSmtp {
     /// Envia sozinho depois de cada emissão autorizada (manual, lote e planilha).
     #[serde(default)]
     pub enviar_ao_emitir: bool,
+    /// Assunto e corpo do e-mail de nota cancelada (configuração anterior: o texto padrão).
+    #[serde(default = "assunto_cancelamento_padrao")]
+    pub assunto_cancelamento: String,
+    #[serde(default = "corpo_cancelamento_padrao")]
+    pub corpo_cancelamento: String,
+}
+
+fn assunto_cancelamento_padrao() -> String {
+    ConfigSmtp::ASSUNTO_CANCELAMENTO_PADRAO.into()
+}
+
+fn corpo_cancelamento_padrao() -> String {
+    ConfigSmtp::CORPO_CANCELAMENTO_PADRAO.into()
 }
 
 impl ConfigSmtp {
+    pub const ASSUNTO_CANCELAMENTO_PADRAO: &str = "CANCELAMENTO da NFS-e nº {numero} - {empresa}";
+    pub const CORPO_CANCELAMENTO_PADRAO: &str = "Prezado(a) {tomador},\n\n\
+        Informamos que a NFS-e nº {numero} emitida por {empresa}, no valor de R$ {valor} \
+        (competência {competencia}), foi CANCELADA.\n\n\
+        Motivo: {motivo}\nJustificativa: {justificativa}\n\n\
+        Seguem em anexo o PDF e o XML da nota cancelada. A situação pode ser consultada em: {link}\n\n\
+        Atenciosamente,\n{empresa}";
+
+    /// Configuração em branco, com os textos padrão (o que a tela mostra antes de salvar).
+    pub fn padrao() -> Self {
+        ConfigSmtp {
+            servidor: String::new(),
+            porta: 587,
+            seguranca: Seguranca::StartTls,
+            usuario: None,
+            remetente: String::new(),
+            nome_remetente: None,
+            assunto: Self::ASSUNTO_PADRAO.into(),
+            corpo: Self::CORPO_PADRAO.into(),
+            enviar_ao_emitir: false,
+            assunto_cancelamento: Self::ASSUNTO_CANCELAMENTO_PADRAO.into(),
+            corpo_cancelamento: Self::CORPO_CANCELAMENTO_PADRAO.into(),
+        }
+    }
+
     pub const ASSUNTO_PADRAO: &str = "NFS-e nº {numero} - {empresa}";
     pub const CORPO_PADRAO: &str = "Prezado(a) {tomador},\n\n\
         Segue em anexo a NFS-e nº {numero} emitida por {empresa}, no valor de R$ {valor} \
@@ -72,6 +110,8 @@ pub struct DadosEmailNfse {
     pub valor: Option<Valor>,
     /// `AAAA-MM-DD`
     pub competencia: Option<String>,
+    /// XML do evento de cancelamento gravado (de onde saem o motivo e a justificativa).
+    pub xml_cancelamento: Option<String>,
 }
 
 /// Separa "a@x.com; b@y.com, c@z.com" em endereços.
@@ -190,6 +230,13 @@ impl Banco {
                 .unwrap_or_default();
         }
 
+        let xml_cancelamento: Option<String> = sqlx::query_scalar(
+            "SELECT xml FROM evento WHERE nfse_id = ? AND tipo = 'cancelamento' ORDER BY id DESC LIMIT 1",
+        )
+        .bind(nfse_id)
+        .fetch_optional(self.pool())
+        .await?;
+
         Ok(DadosEmailNfse {
             nfse_id,
             numero: nfse.numero,
@@ -203,6 +250,7 @@ impl Banco {
             destinatarios,
             valor: r.get::<Option<i64>, _>(5).map(Valor::de_centesimos),
             competencia: r.get(6),
+            xml_cancelamento,
         })
     }
 
@@ -244,14 +292,10 @@ mod testes {
         assert_eq!(banco.smtp().await.unwrap(), None);
         let cfg = ConfigSmtp {
             servidor: "smtp.exemplo.com".into(),
-            porta: 587,
-            seguranca: Seguranca::StartTls,
             usuario: Some("notas@exemplo.com".into()),
             remetente: "notas@exemplo.com".into(),
-            nome_remetente: None,
-            assunto: ConfigSmtp::ASSUNTO_PADRAO.into(),
-            corpo: ConfigSmtp::CORPO_PADRAO.into(),
             enviar_ao_emitir: true,
+            ..ConfigSmtp::padrao()
         };
         banco.definir_smtp(&cfg).await.unwrap();
         assert_eq!(banco.smtp().await.unwrap(), Some(cfg.clone()));
@@ -278,5 +322,46 @@ mod testes {
             banco.senha_smtp(&cofre).await.unwrap().unwrap().as_str(),
             "segredo-teste"
         );
+    }
+
+    /// Configuração gravada antes do modelo de cancelamento: lê com o texto padrão.
+    #[tokio::test]
+    async fn config_antiga_le_modelo_de_cancelamento_padrao() {
+        let (banco, _, _) = banco_com_empresa().await;
+        banco
+            .definir_configuracao(
+                CHAVE_SMTP,
+                r#"{"servidor":"smtp.exemplo.com","porta":587,"remetente":"notas@exemplo.com",
+                    "assunto":"Nota {numero}","corpo":"Segue a nota."}"#,
+            )
+            .await
+            .unwrap();
+        let cfg = banco.smtp().await.unwrap().unwrap();
+        assert_eq!(cfg.assunto, "Nota {numero}");
+        assert_eq!(cfg.assunto_cancelamento, ConfigSmtp::ASSUNTO_CANCELAMENTO_PADRAO);
+        assert_eq!(cfg.corpo_cancelamento, ConfigSmtp::CORPO_CANCELAMENTO_PADRAO);
+        assert!(ConfigSmtp::CORPO_CANCELAMENTO_PADRAO.contains("{motivo}"));
+        assert!(ConfigSmtp::CORPO_CANCELAMENTO_PADRAO.contains("{justificativa}"));
+    }
+
+    #[tokio::test]
+    async fn dados_email_traz_evento_de_cancelamento() {
+        use crate::dps::testes::{modelo_para, nfse_recebida};
+
+        let (banco, _, empresa) = banco_com_empresa().await;
+        let r = banco.reservar_dps(empresa.id).await.unwrap();
+        banco.registrar_envio(r.id, &modelo_para(&r), "<DPS/>").await.unwrap();
+        let nfse = banco.registrar_autorizacao(r.id, &nfse_recebida()).await.unwrap();
+        let dados = banco.dados_email_nfse(nfse.id).await.unwrap();
+        assert!(!dados.cancelada);
+        assert_eq!(dados.xml_cancelamento, None);
+
+        banco
+            .registrar_cancelamento(nfse.id, "<evento>1</evento>")
+            .await
+            .unwrap();
+        let dados = banco.dados_email_nfse(nfse.id).await.unwrap();
+        assert!(dados.cancelada);
+        assert_eq!(dados.xml_cancelamento.as_deref(), Some("<evento>1</evento>"));
     }
 }

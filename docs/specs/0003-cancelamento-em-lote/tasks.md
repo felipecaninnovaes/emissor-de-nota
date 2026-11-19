@@ -8,7 +8,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
   - Teste: `evento::testes::justificativa_*` (CA4: 14 caracteres, quebra de linha, caractere fora do `TSString`), `evento::testes::motivo_do_cancelamento_*` (evento correto, sem `xMotivo`, ilegível); testes XSD do pedido continuam verdes
   - Verificar: `just test -p nfse-xml`
 
-- [ ] **T2** — Modelo de cancelamento no `ConfigSmtp` e evento nos dados do e-mail
+- [x] **T2** — Modelo de cancelamento no `ConfigSmtp` e evento nos dados do e-mail
   - Requisitos: R6, R8
   - Arquivos: `crates/nfse-db/src/emails.rs`, `crates/app/src/comandos/email.rs` (`ConfigSmtp::padrao()`)
   - Teste: `emails::testes::config_antiga_le_modelo_de_cancelamento_padrao` (CA12), `emails::testes::dados_email_traz_evento_de_cancelamento`
