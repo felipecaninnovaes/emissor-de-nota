@@ -221,6 +221,7 @@ fn main() {
             comandos::email::salvar_email,
             comandos::email::testar_email,
             comandos::email::destinatarios_email,
+            comandos::email::destinatarios_notas,
             comandos::email::enviar_email,
             comandos::consultas::consultar_cnpj,
             comandos::consultas::consultar_cep,

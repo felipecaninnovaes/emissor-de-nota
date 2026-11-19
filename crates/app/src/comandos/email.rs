@@ -58,12 +58,26 @@ pub async fn testar_email(estado: State<'_, Estado>, para: String) -> R<()> {
 #[tauri::command]
 pub async fn destinatarios_email(estado: State<'_, Estado>, nfse_id: i64) -> R<Vec<String>> {
     exigir_cofre(&estado).await?;
-    Ok(estado
-        .banco()?
-        .dados_email_nfse(nfse_id)
-        .await
-        .map_err(texto)?
-        .destinatarios)
+    estado.banco()?.destinatarios_nfse(nfse_id).await.map_err(texto)
+}
+
+#[derive(Serialize)]
+pub struct DestinatariosDto {
+    nfse_id: i64,
+    para: Vec<String>,
+}
+
+/// Destinatários de várias notas de uma vez, para o diálogo do envio em lote.
+#[tauri::command]
+pub async fn destinatarios_notas(estado: State<'_, Estado>, nfse_ids: Vec<i64>) -> R<Vec<DestinatariosDto>> {
+    exigir_cofre(&estado).await?;
+    let banco = estado.banco()?;
+    let mut lista = Vec::with_capacity(nfse_ids.len());
+    for nfse_id in nfse_ids {
+        let para = banco.destinatarios_nfse(nfse_id).await.map_err(texto)?;
+        lista.push(DestinatariosDto { nfse_id, para });
+    }
+    Ok(lista)
 }
 
 #[tauri::command]

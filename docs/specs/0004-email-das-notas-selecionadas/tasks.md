@@ -2,7 +2,7 @@
 
 Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
 
-- [ ] **T1** — Destinatários de várias notas (`destinatarios_nfse` e comando `destinatarios_notas`)
+- [x] **T1** — Destinatários de várias notas (`destinatarios_nfse` e comando `destinatarios_notas`)
   - Requisitos: R4, R5
   - Arquivos: `crates/nfse-db/src/emails.rs`, `crates/app/src/comandos/email.rs`, `crates/app/src/main.rs`
   - Teste: `emails::testes::destinatarios_nfse_*` (CA9: com e-mails de envio do vínculo, só com o e-mail do cadastro, sem e-mail → vazio; sempre igual a `dados_email_nfse().destinatarios`)
