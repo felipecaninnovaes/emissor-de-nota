@@ -45,7 +45,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
     - Troca de mês ou de empresa limpa as marcações
   - Verificar: `just check`
 
-- [ ] **T7** — Fechamento da spec
+- [x] **T7** — Fechamento da spec
   - Requisitos: —
   - Arquivos: `docs/specs/0003-cancelamento-em-lote/spec.md` (status `implementada`, questão em aberto fechada: sem limite extra, com aviso acima de 20 notas; histórico); `docs/arquitetura.md` só se couber
   - Verificar: `just check`
