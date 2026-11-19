@@ -14,7 +14,7 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
   - Teste: `testes::email_em_sequencia_*` (CA1: três notas, cada uma para o seu tomador, as três com "enviado em"; CA2: carteiro que falha na segunda; CA4: tomador sem e-mail, nada entregue). CA3 já coberto por `reenvio_de_nota_cancelada_usa_modelo_de_cancelamento`
   - Verificar: `just test -p nfse-emissor email`
 
-- [ ] **T3** — Refatoração: laço em sequência e resumo genéricos (sem comportamento novo)
+- [x] **T3** — Refatoração: laço em sequência e resumo genéricos (sem comportamento novo)
   - Requisitos: — (prepara R5, R7)
   - Arquivos: `crates/app/ui/js/notas.js`, `crates/app/ui/js/tabela.js`, `crates/app/ui/index.html`
   - Teste: manual — roteiro do cancelamento em lote da 0003 continua igual (andamento, resumo nos grupos, fechar recarrega); os outros usos de `selecaoEmTabela` (lote, planilha, importações) continuam contando no botão
@@ -39,3 +39,4 @@ Cada tarefa: um commit, `just check` verde ao terminar, um teste que a prova.
 ## Notas de desvio
 <!-- T#: o que mudou em relação ao plano e por quê -->
 - T2: os testes passaram de primeira, como esperado: fixam o comportamento de `enviar_email` que o lote usa, sem mudar o código de produção. O CA1 usa dois tomadores (dois e-mails de envio) para provar que cada nota vai só ao seu.
+- T3: conferida numa cópia da interface com o backend do Tauri simulado (seleção, andamento e resumo do cancelamento em lote iguais aos de antes). "Fechar recarrega a lista" não pôde ser conferido ali (o painel não dispara o evento `close` de `<dialog>`); fica para o teste no app.
