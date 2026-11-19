@@ -88,7 +88,8 @@ export function detalheLinha({ id, colunas, alvo, itens, motivo = "", erro = fal
 /**
  * Tabela com caixas de marcar (lote, planilha, importar serviços). `itens()` é a lista desenhada (a
  * caixa diz o índice em `data-i`); o botão de ação mostra quantos estão marcados. Com `emAndamento`,
- * o botão fica desligado sem marcados ou durante o envio, assim como o "Marcar" (`marcar`).
+ * o botão fica desligado sem marcados ou durante o envio, assim como o "Marcar" (`marcar`). `botao` e
+ * `rotulo` são opcionais.
  */
 export function selecaoEmTabela({ lista, itens, botao, rotulo, todos, marcar, emAndamento }) {
   const caixas = () => $$(`${lista} input[type=checkbox]`);
@@ -97,6 +98,8 @@ export function selecaoEmTabela({ lista, itens, botao, rotulo, todos, marcar, em
       .filter((c) => c.checked)
       .map((c) => itens()[Number(c.dataset.i)]);
   const atualizar = () => {
+    // sem `botao`, quem chama cuida dos botões (Notas emitidas tem dois, cada um com a sua contagem)
+    if (!botao) return;
     const n = marcados().length;
     const b = $(botao);
     b.textContent = n ? `${rotulo} (${n})` : rotulo;

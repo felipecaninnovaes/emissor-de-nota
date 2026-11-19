@@ -301,6 +301,7 @@ export async function enviarEmailNota(n) {
   });
 }
 
+// Um lote (cancelamento ou e-mail) ou um cancelamento em curso: a atualização do sistema espera.
 export let cancelamentoEmCurso = false;
 
 const ATUALIZANDO = "A atualização do sistema está em andamento; cancele depois que ele abrir de novo.";
@@ -396,14 +397,13 @@ async function cancelarSelecionadas(notas) {
 }
 
 /**
- * Cancela as notas uma de cada vez (sem paralelismo), com o andamento no diálogo. A falha de uma
- * nota vira o resultado dela e não interrompe as outras. O diálogo não fecha no meio do lote.
+ * Roda `uma(item)` para cada item, um de cada vez (sem paralelismo), com o andamento no diálogo
+ * ("Cancelando 2 de 5…"). `uma` devolve o resultado do item, inclusive o de falha, e a falha de um
+ * não interrompe os outros. O diálogo não fecha no meio do lote.
  */
-async function cancelarEmSequencia(notas, pedido, form) {
+async function emSequencia(itens, { form, andamento, botao, verbo }, uma) {
   const dlg = form.closest("dialog");
-  const andamento = $("#cancelar-lote-andamento");
   // o botão sempre visível também mostra o andamento (o parágrafo pode estar fora da rolagem)
-  const botao = $("#cancelar-lote-ok");
   const textoBotao = botao.textContent;
   const oncancel = dlg.oncancel;
   dlg.oncancel = (ev) => ev.preventDefault();
@@ -414,14 +414,10 @@ async function cancelarEmSequencia(notas, pedido, form) {
   atualizarSelecao();
   const resultados = [];
   try {
-    for (const [i, n] of notas.entries()) {
-      andamento.textContent = `Cancelando ${i + 1} de ${notas.length}… Não feche o programa.`;
-      botao.textContent = `Cancelando ${i + 1} de ${notas.length}…`;
-      try {
-        resultados.push(await chamar("cancelar", { nfseId: n.nfse_id, ...pedido }));
-      } catch (e) {
-        resultados.push({ situacao: "recusada", mensagem: String(e), email: null });
-      }
+    for (const [i, item] of itens.entries()) {
+      andamento.textContent = `${verbo} ${i + 1} de ${itens.length}… Não feche o programa.`;
+      botao.textContent = `${verbo} ${i + 1} de ${itens.length}…`;
+      resultados.push(await uma(item));
     }
   } finally {
     cancelamentoEmCurso = false;
@@ -434,38 +430,66 @@ async function cancelarEmSequencia(notas, pedido, form) {
   return resultados;
 }
 
-/** Resumo do lote em grupos; fechar recarrega a lista. */
+/** Cancela as notas em sequência; a falha de uma vira o resultado dela. */
+function cancelarEmSequencia(notas, pedido, form) {
+  const elementos = {
+    form,
+    andamento: $("#cancelar-lote-andamento"),
+    botao: $("#cancelar-lote-ok"),
+    verbo: "Cancelando",
+  };
+  return emSequencia(notas, elementos, (n) =>
+    chamar("cancelar", { nfseId: n.nfse_id, ...pedido }).catch((e) => ({
+      situacao: "recusada",
+      mensagem: String(e),
+      email: null,
+    })),
+  );
+}
+
+const rotuloNota = (n) => esc(`NFS-e ${n.numero_nfse ?? "—"} — ${n.tomador ?? "sem tomador"}`);
+
+/** Um grupo do resumo de um lote (nada, se não tiver itens). */
+const blocoResumo = (classe, titulo, itens, nota = "") =>
+  itens.length ? `<div class="aviso ${classe}"><div><b>${titulo}</b>${nota}<ul>${itens.join("")}</ul></div></div>` : "";
+
+/** Resumo de um lote (cancelamento ou e-mail); fechar recarrega a lista. */
+function abrirResumo(titulo, html) {
+  $("#titulo-dlg-resumo-lote").textContent = titulo;
+  $("#resumo-lote").innerHTML = html;
+  const dlg = $("#dlg-resumo-lote");
+  dlg.addEventListener("close", () => carregarNotas().catch((e) => toast(String(e), true)), { once: true });
+  dlg.showModal();
+}
+
+/** Resumo do cancelamento em lote, em grupos. */
 function mostrarResumo(notas, resultados) {
-  const rotulo = (n) => esc(`NFS-e ${n.numero_nfse ?? "—"} — ${n.tomador ?? "sem tomador"}`);
   const grupos = { cancelada: [], recusada: [], sem_confirmacao: [] };
   resultados.forEach((r, i) => (grupos[r.situacao] ?? grupos.recusada).push([notas[i], r]));
   const semEmail = grupos.cancelada.filter(([, r]) => r.email && !r.email.enviado);
-  const bloco = (classe, titulo, itens, nota = "") =>
-    itens.length ? `<div class="aviso ${classe}"><div><b>${titulo}</b>${nota}<ul>${itens.join("")}</ul></div></div>` : "";
-  $("#resumo-cancelamento").innerHTML =
-    bloco(
+  abrirResumo(
+    "Resultado do cancelamento",
+    blocoResumo(
       "ok",
       `${grupos.cancelada.length} cancelada(s)`,
-      grupos.cancelada.map(([n, r]) => `<li>${rotulo(n)}${r.email?.enviado ? " · e-mail enviado" : ""}</li>`),
+      grupos.cancelada.map(([n, r]) => `<li>${rotuloNota(n)}${r.email?.enviado ? " · e-mail enviado" : ""}</li>`),
     ) +
-    bloco(
-      "atencao",
-      `${semEmail.length} cancelada(s), e-mail não enviado`,
-      semEmail.map(([n, r]) => `<li>${rotulo(n)}: ${esc(r.email.erro)}</li>`),
-      `<p>Reenvie pela ação "E-mail" da nota.</p>`,
-    ) +
-    bloco(
-      "erro",
-      `${grupos.recusada.length} não cancelada(s)`,
-      grupos.recusada.map(([n, r]) => `<li>${rotulo(n)}: ${esc(r.mensagem ?? "")}</li>`),
-    ) +
-    bloco(
-      "atencao",
-      `${grupos.sem_confirmacao.length} sem confirmação da Sefin`,
-      grupos.sem_confirmacao.map(([n, r]) => `<li>${rotulo(n)}: ${esc(r.mensagem ?? "")}</li>`),
-      "<p>Repetir o cancelamento dessas notas é seguro: o pedido repetido não duplica o evento.</p>",
-    );
-  const dlg = $("#dlg-resumo-cancelamento");
-  dlg.addEventListener("close", () => carregarNotas().catch((e) => toast(String(e), true)), { once: true });
-  dlg.showModal();
+      blocoResumo(
+        "atencao",
+        `${semEmail.length} cancelada(s), e-mail não enviado`,
+        semEmail.map(([n, r]) => `<li>${rotuloNota(n)}: ${esc(r.email.erro)}</li>`),
+        `<p>Reenvie pela ação "E-mail" da nota.</p>`,
+      ) +
+      blocoResumo(
+        "erro",
+        `${grupos.recusada.length} não cancelada(s)`,
+        grupos.recusada.map(([n, r]) => `<li>${rotuloNota(n)}: ${esc(r.mensagem ?? "")}</li>`),
+      ) +
+      blocoResumo(
+        "atencao",
+        `${grupos.sem_confirmacao.length} sem confirmação da Sefin`,
+        grupos.sem_confirmacao.map(([n, r]) => `<li>${rotuloNota(n)}: ${esc(r.mensagem ?? "")}</li>`),
+        "<p>Repetir o cancelamento dessas notas é seguro: o pedido repetido não duplica o evento.</p>",
+      ),
+  );
 }
