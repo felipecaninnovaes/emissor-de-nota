@@ -99,6 +99,13 @@ pub fn preencher(modelo: &str, dados: &DadosEmailNfse) -> String {
         .as_deref()
         .and_then(|c| Some(format!("{}/{}", c.get(5..7)?, c.get(0..4)?)))
         .unwrap_or_default();
+    // Sem evento, ou com evento ilegível, as duas ficam vazias e o e-mail sai assim mesmo.
+    let (motivo, justificativa) = dados
+        .xml_cancelamento
+        .as_deref()
+        .and_then(nfse_xml::motivo_do_cancelamento)
+        .map(|(motivo, justificativa)| (motivo.map(|m| m.nome()).unwrap_or_default(), justificativa))
+        .unwrap_or_default();
     modelo
         .replace("{numero}", dados.numero.as_deref().unwrap_or(""))
         .replace("{empresa}", &dados.empresa)
@@ -110,6 +117,9 @@ pub fn preencher(modelo: &str, dados: &DadosEmailNfse) -> String {
         .replace("{competencia}", &competencia)
         .replace("{chave}", &dados.chave)
         .replace("{link}", &link_consulta(&dados.chave))
+        // Por último: o texto livre da justificativa não passa pelas trocas acima.
+        .replace("{motivo}", motivo)
+        .replace("{justificativa}", &justificativa)
 }
 
 fn caixa(endereco: &str, nome: Option<&str>) -> Result<Mailbox, String> {
@@ -130,12 +140,13 @@ pub fn montar(
     if para.is_empty() {
         return Err("sem destinatário: cadastre os e-mails de envio do tomador".into());
     }
-    let mut assunto = preencher(&cfg.assunto, dados);
-    let mut corpo = preencher(&cfg.corpo, dados);
-    if dados.cancelada {
-        assunto = format!("CANCELADA - {assunto}");
-        corpo = format!("ATENÇÃO: esta NFS-e foi CANCELADA.\n\n{corpo}");
-    }
+    let (assunto, corpo) = if dados.cancelada {
+        (&cfg.assunto_cancelamento, &cfg.corpo_cancelamento)
+    } else {
+        (&cfg.assunto, &cfg.corpo)
+    };
+    let assunto = preencher(assunto, dados);
+    let corpo = preencher(corpo, dados);
     let nome = cfg
         .nome_remetente
         .as_deref()
@@ -188,7 +199,7 @@ pub fn mensagem_teste(cfg: &ConfigSmtp, para: &str) -> Result<Message, String> {
 }
 
 #[cfg(test)]
-mod testes {
+pub(crate) mod testes {
     use nfse_core::Valor;
 
     use super::*;
@@ -283,12 +294,61 @@ mod testes {
         assert_ne!(novo_message_id("a@b.com"), novo_message_id("a@b.com"));
     }
 
+    /// Corpo da mensagem montada, decodificado (o texto com acento vai em quoted-printable).
+    pub(crate) fn corpo(bruto: &str) -> String {
+        crate::leitura_email::texto_do_email("nota.eml", bruto.as_bytes()).unwrap()
+    }
+
+    pub(crate) fn evento(c_motivo: &str, x_motivo: &str) -> String {
+        format!(
+            r#"<evento xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.01"><infEvento Id="EVT1"><pedRegEvento versao="1.01"><infPedReg Id="PRE1"><e101101><xDesc>Cancelamento de NFS-e</xDesc><cMotivo>{c_motivo}</cMotivo><xMotivo>{x_motivo}</xMotivo></e101101></infPedReg></pedRegEvento></infEvento></evento>"#
+        )
+    }
+
+    #[test]
+    fn preenche_motivo_e_justificativa() {
+        let mut d = dados();
+        assert_eq!(preencher("[{motivo}|{justificativa}]", &d), "[|]", "sem evento: vazias");
+        d.xml_cancelamento = Some(evento("2", "Tomador desistiu do serviço"));
+        assert_eq!(
+            preencher("{motivo}|{justificativa}|{numero}", &d),
+            "Serviço não prestado|Tomador desistiu do serviço|77"
+        );
+        d.xml_cancelamento = Some("<evento".into());
+        assert_eq!(preencher("[{motivo}|{justificativa}]", &d), "[|]", "evento ilegível");
+    }
+
+    #[test]
+    fn cancelada_usa_modelo_de_cancelamento() {
+        let mut d = dados();
+        d.cancelada = true;
+        d.xml_cancelamento = Some(evento("2", "Tomador desistiu do serviço"));
+        let (msg, assunto) = montar(&cfg(), &d, &d.destinatarios, Some(b"%PDF-1.7".to_vec())).unwrap();
+        assert_eq!(assunto, "CANCELAMENTO da NFS-e nº 77 - EMPRESA EXEMPLO LTDA");
+        let bruto = String::from_utf8_lossy(&msg.formatted()).into_owned();
+        let texto = corpo(&bruto);
+        assert!(texto.contains("foi CANCELADA"), "{texto}");
+        assert!(texto.contains("Motivo: Serviço não prestado"), "{texto}");
+        assert!(texto.contains("Justificativa: Tomador desistiu do serviço"), "{texto}");
+        assert!(
+            !texto.contains("Segue em anexo a NFS-e"),
+            "sem o texto da emissão: {texto}"
+        );
+        assert!(bruto.contains("Content-Type: application/pdf") && bruto.contains("Content-Type: application/xml"));
+
+        // O modelo editado pelo escritório vale; o da emissão continua para a nota autorizada.
+        let mut c = cfg();
+        c.assunto_cancelamento = "Nota {numero} cancelada: {motivo}".into();
+        let (_, assunto) = montar(&c, &d, &d.destinatarios, None).unwrap();
+        assert_eq!(assunto, "Nota 77 cancelada: Serviço não prestado");
+        let (_, assunto) = montar(&c, &dados(), &d.destinatarios, None).unwrap();
+        assert_eq!(assunto, "NFS-e nº 77 - EMPRESA EXEMPLO LTDA");
+    }
+
     #[test]
     fn cancelada_e_sem_destinatario() {
         let mut d = dados();
         d.cancelada = true;
-        let (_, assunto) = montar(&cfg(), &d, &d.destinatarios, None).unwrap();
-        assert!(assunto.starts_with("CANCELADA - "));
         assert!(montar(&cfg(), &d, &[], None).unwrap_err().contains("sem destinatário"));
         assert!(
             montar(&cfg(), &d, &["nao-e-email".into()], None)
